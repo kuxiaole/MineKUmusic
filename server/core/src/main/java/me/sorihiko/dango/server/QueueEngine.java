@@ -46,7 +46,13 @@ public final class QueueEngine {
     }
     public Entry add(String id, String name, Track track) {
         validateRequest(id, track.id);
-        Entry entry = new Entry(track, id, name); queue.add(entry);
+        return addAccepted(UUID.randomUUID().toString(), id, name, track);
+    }
+    /** A paid request was validated and reserved before withdrawal, so disconnecting cannot discard it. */
+    Entry addAccepted(String entryId, String id, String name, Track track) {
+        if (current != null && current.entryId.equals(entryId)) return current;
+        for (Entry existing : queue) if (existing.entryId.equals(entryId)) return existing;
+        Entry entry = new Entry(track, id, name); entry.entryId = entryId; queue.add(entry);
         lastRequest.put(id, clock.getAsLong()); revision++; return entry;
     }
     public void remove(String id, String entryId, boolean admin) {

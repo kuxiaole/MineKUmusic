@@ -121,6 +121,34 @@ Your playlists	你的歌单
 Recommended playlists	推荐歌单
 Welcome to %s!	欢迎使用 %s！
 About	关于
+Confirm song request	确认全服点歌
+Confirm request	确认点歌
+Song ID: %s	歌曲 ID：%s
+This request costs %s %s.	本次点歌将扣除 %s %s
+This song request is free.	本次点歌免费。
+Paid requests are not refunded when withdrawn or skipped.	点歌成功后，撤回或切歌不退费。
+Getting the song request price...	正在获取点歌费用…
+Confirm the song request in the music player	请在播放器弹窗中确认点歌费用
+Song request cancelled	已取消点歌
+The song request confirmation expired; please select the song again	点歌确认已过期，请重新选择歌曲
+Update MineKU Music and confirm the request price before requesting songs	请更新 MineKU Music 客户端，并在确认费用后点歌
+Join the channel using MineKU Music before requesting songs	请使用 MineKU Music 客户端加入频道后再点歌
+A payment is still being checked; please wait	有一笔点歌扣款正在核对，请稍候
+The server economy is unavailable	服务端经济系统暂不可用
+Wait until you have connected to a backend server before requesting a song	请等待服务器连接完成后再点歌
+The player is not connected to this economy server	玩家尚未连接到经济系统所在服务器
+The player left before payment; no payment was made	玩家在扣款前离开，未扣除费用
+You do not have enough currency to request this song	余额不足，无法支付本次点歌费用
+The economy rejected the payment; the song was not requested	经济系统拒绝扣款，歌曲未加入队列
+The configured price has more decimal places than the economy supports	点歌费用的小数位数超过经济插件支持范围
+Could not save the song request; payment processing is paused. Retrying.	点歌记录保存失败，扣款处理已暂停，正在重试。
+Could not save the payment record; no payment was made	扣款记录保存失败，未扣除费用
+The payment expired before it could be processed	扣款请求已过期，未扣除费用
+The payment journal needs administrator maintenance	交易记录需要管理员维护
+Payment cancelled after administrator review	管理员核对后已取消这笔扣款请求
+Song added to the queue; paid 	歌曲已加入队列，已扣除
+Payment is being checked; do not request this song again	正在核对扣款结果，请勿重复点歌
+Payment requires an administrator to check the transaction record	扣款结果需要管理员核对交易记录
 Project origins and credits	项目来源与署名
 This version is developed by %s.	本版本由%s开发
 Upstream design credit	上游设计参考

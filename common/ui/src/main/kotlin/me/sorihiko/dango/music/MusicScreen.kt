@@ -11,6 +11,7 @@ import me.sorihiko.dango.musicui.LoginDialog
 import me.sorihiko.dango.musicui.Page
 import me.sorihiko.dango.musicui.PartyPage
 import me.sorihiko.dango.musicui.PlayerBar
+import me.sorihiko.dango.musicui.RequestDialog
 import me.sorihiko.dango.musicui.RED
 import me.sorihiko.dango.musicui.ScreenState
 import me.sorihiko.dango.musicui.SettingsPage
@@ -53,6 +54,8 @@ class MusicScreen(
     private val party = PartyPage(this)
     private val settings = SettingsPage(this, module)
     private val bar = PlayerBar(this, module)
+    private val requestDialog = RequestDialog(this)
+    private val confirmationVisible get() = ServerMusic.pendingPersonal != null || ServerMusic.pendingRequest != null
 
     private var openedAt = 0L
     private var closingAt = 0L
@@ -83,6 +86,7 @@ class MusicScreen(
         settings.commitEdit()
         settings.stopDrag()
         tracks.scrollbarUp()
+        ServerMusic.cancelSongRequest()
     }
 
     private fun opacity(now: Long): Float = if (closingAt == 0L) {
@@ -209,22 +213,22 @@ class MusicScreen(
             ctx.pushOpacity(alpha)
             ctx.drawShape(LayoutBounds(0f, 0f, ui.lw, ui.lh), ShapeStyle(Color(0f, 0f, 0f, 0.22f)))
             drawWindow(alpha)
-            if (ServerMusic.pendingPersonal == null) ui.drawTooltip()
+            if (!confirmationVisible) ui.drawTooltip()
             ctx.popOpacity()
             ctx.popTransform()
             ctx.noScissor()
             ui.mt.flush(scale)
-            if (ServerMusic.pendingPersonal != null) {
+            if (confirmationVisible) {
                 ui.mt.clear()
                 ctx.pushScale(scale, scale, 1f)
                 ctx.pushOpacity(alpha)
-                drawPersonalConfirmation()
+                if (ServerMusic.pendingRequest != null) requestDialog.draw() else drawPersonalConfirmation()
                 ctx.popOpacity()
                 ctx.popTransform()
                 ui.mt.flush(scale)
             }
 
-            if (login.visible) {
+            if (login.visible && !confirmationVisible) {
                 ctx.pushScale(scale, scale, 1f)
                 ctx.pushOpacity(alpha)
                 login.draw()
@@ -271,8 +275,8 @@ class MusicScreen(
 
     private fun drawContent(area: LayoutBounds) {
         // 底部小字只在有提示（读取失败等）时显示
-        val foot = I18n.message(Library.status)
-        if (foot.isNotEmpty()) ui.text(foot, area.x, area.bottom - 11f, 10f, RED, Theme.FONT_SEMIBOLD)
+        val foot = I18n.message(ServerMusic.requestFeedback.ifEmpty { Library.status })
+        if (foot.isNotEmpty()) ui.text(ui.trim(foot, area.width, 10f, Theme.FONT_SEMIBOLD), area.x, area.bottom - 11f, 10f, RED, Theme.FONT_SEMIBOLD)
         val body = LayoutBounds(area.x, area.y, area.width, area.height - (if (foot.isNotEmpty()) 18f else 4f))
         // 滚轮区域：哪一页画了，哪一页才有
         grid.area = LayoutBounds()
@@ -310,7 +314,8 @@ class MusicScreen(
         if (closingAt != 0L || closed) return
         val mx = ui.mx
         val my = ui.my
-        if (ServerMusic.pendingPersonal != null) {
+        if (confirmationVisible) {
+            if (ServerMusic.pendingRequest != null && !requestDialog.canConfirm()) return
             if (mouseButton == 0) ui.hits.firstOrNull { it.first.contains(mx, my) }?.second?.invoke()
             return
         }
@@ -348,7 +353,7 @@ class MusicScreen(
 
     /** 按住鼠标拖动时调用 */
     fun mouseDragged() {
-        if (ServerMusic.pendingPersonal != null) return
+        if (confirmationVisible) return
         if (closingAt != 0L || closed) return
         if (tracks.sbDragging) {
             tracks.scrollbarDrag((platform.mouseY / ui.scale).toInt())
@@ -366,7 +371,7 @@ class MusicScreen(
     /** 滚轮：[wheel] 正数向上；(x, y) 是滚动时鼠标的窗口像素位置 */
     fun scroll(wheel: Int, x: Int, y: Int) {
         if (closingAt != 0L || closed) return
-        if (wheel == 0 || login.visible || ServerMusic.pendingPersonal != null) return
+        if (wheel == 0 || login.visible || confirmationVisible) return
         val lx = (x / ui.scale).toInt()
         val ly = (y / ui.scale).toInt()
         // 按住 Ctrl 滚得快十倍
@@ -384,6 +389,11 @@ class MusicScreen(
 
     /** 按键：[keyCode] 是 [Keys] 键码 */
     fun keyTyped(typedChar: Char, keyCode: Int) {
+        if (ServerMusic.pendingRequest != null) {
+            if (keyCode == Keys.ESCAPE) ServerMusic.cancelSongRequest()
+            if (keyCode == Keys.RETURN && requestDialog.canConfirm()) ServerMusic.confirmSongRequest()
+            return
+        }
         if (ServerMusic.pendingPersonal != null) {
             if (keyCode == Keys.ESCAPE) ServerMusic.cancelPersonal()
             if (keyCode == Keys.RETURN) ServerMusic.confirmPersonal()

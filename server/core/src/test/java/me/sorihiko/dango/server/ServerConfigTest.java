@@ -4,10 +4,29 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ServerConfigTest {
     @TempDir Path plugins;
+
+    @Test void chargingDefaultsToDisabledWithKuCurrency() throws Exception {
+        ServerConfig config = ServerConfig.load(plugins);
+        assertFalse(config.requestFeeEnabled()); assertEquals(BigDecimal.ZERO, config.requestPrice());
+        assertEquals("KU\u5e01", config.currencyName()); assertFalse(config.economyBridgeOnly());
+    }
+    @Test void priceCurrencyAndBackendModeCanBeConfigured() throws Exception {
+        Files.writeString(plugins.resolve("config.properties"), "request-fee-enabled=true\nrequest-fee-amount=2.50\ncurrency-name=Fixture credits\neconomy-bridge-only=true\neconomy-bridge-secret=synthetic-configuration-secret-for-tests\n");
+        ServerConfig config = ServerConfig.load(plugins);
+        assertEquals(new BigDecimal("2.5"), config.requestPrice()); assertEquals("Fixture credits", config.currencyName());
+        assertTrue(config.economyBridgeOnly());
+    }
+    @Test void priceRequiresNonNegativeAmountsWithAtMostTwoDecimalPlaces() throws Exception {
+        for (String amount : new String[]{"-1", "0.001", "1000001"}) {
+            Files.writeString(plugins.resolve("config.properties"), "request-fee-amount=" + amount + "\n");
+            assertThrows(IllegalArgumentException.class, () -> ServerConfig.load(plugins));
+        }
+    }
 
     @Test void freshInstallationUsesTheNewDirectoryAndBrand() throws Exception {
         Path preferred = plugins.resolve("MineKUmusic");

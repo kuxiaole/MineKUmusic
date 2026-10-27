@@ -19,10 +19,10 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.5.0+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.5.0+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 | `MineKUmusic-server-1.5.0-folia.jar` | Folia `plugins` |
-| Velocity 群组服插件 | `MineKUmusic-server-1.5.0-velocity.jar` | Velocity `plugins`，后端不安装音乐插件 |
+| Fabric 客户端 | `MineKUmusic-1.6.0+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.0+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.0-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.0-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -30,11 +30,24 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
 - 在“全服音乐”中自行加入频道，搜索点歌、查看队列、撤回自己的待播歌曲和投票切歌。
+- 全服点歌先弹窗确认费用；可通过 Vault 对接经济插件，仅点歌收费，搜索、收听、投票均免费。收费默认关闭，启用后默认每首 10 KU币，金额和币名可以修改。
 - 切歌需要当前频道成员人数的 15%，向上取整且至少 1 票；聊天支持点击投票，旧投票消息绑定原歌曲。
 - 暂停只暂停本人收听；退出频道恢复个人播放。群组切服由 Velocity 维持同一频道。
 - “设置 → 关于”注明“本版本由小乐开发”，并列出基础项目、参考项目、原作者、许可证与可复制的项目地址。
 
 26.2 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。
+
+## 点歌收费
+
+在独立 Folia 或 Velocity 的 `config.properties` 中配置：
+
+```properties
+request-fee-enabled=true
+request-fee-amount=10
+currency-name=KU币
+```
+
+独立服需要可用于 Folia 的 Vault 接口插件及经济插件。群组服还需要在各 Folia 后端安装本项目的 Folia 插件，设置 `economy-bridge-only=true`，并在代理和后端填写相同的 `economy-bridge-secret`；后端经济插件需共用余额数据。币名是显示文字，不会创建新的货币账户。详见 [收费部署与交易恢复](SERVER-MUSIC.md#点歌收费)。
 
 ## 构建
 

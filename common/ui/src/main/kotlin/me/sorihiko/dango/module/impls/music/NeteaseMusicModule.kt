@@ -170,7 +170,7 @@ class NeteaseMusicModule : Module() {
         val down = try { platform.isKeyDown(openKey.value) } catch (_: Exception) { false }
         val open = down && !wasDown && inGame
         wasDown = down
-        if (open) platform.openMusicScreen()
+        if (open || inGame && ServerMusic.pendingRequest != null) platform.openMusicScreen()
 
         for ((key, action) in hotkeys) {
             val code = key.value

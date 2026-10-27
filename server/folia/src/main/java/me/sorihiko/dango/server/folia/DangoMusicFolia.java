@@ -18,12 +18,38 @@ import java.util.logging.Level;
 public final class DangoMusicFolia extends JavaPlugin implements Listener, MusicServer.Endpoint {
     private final Map<UUID, Player> players = new ConcurrentHashMap<>();
     private volatile MusicServer music;
+    private EconomyService economy = EconomyService.UNAVAILABLE;
     @Override public void onEnable() {
         try {
             var directory = ServerConfig.dataDirectory(getDataFolder().toPath(), "minekumusic", "DangoMusic");
             getLogger().info("Music data directory: " + directory);
-            music = new MusicServer(directory, ServerConfig.load(directory), new NeteaseProvider(directory), this);
+            ServerConfig config = ServerConfig.load(directory);
+            if (getServer().getPluginManager().isPluginEnabled("Vault") || getServer().getPluginManager().isPluginEnabled("VaultUnlocked"))
+                economy = new VaultPayments(this, players, directory);
+            else if (config.requestPrice().signum() > 0 || config.economyBridgeOnly())
+                getLogger().warning("Vault is unavailable; paid song requests cannot be processed.");
             getServer().getPluginManager().registerEvents(this, this);
+            Objects.requireNonNull(getCommand("dgm")).setExecutor(this);
+            if (config.economyBridgeOnly()) {
+                EconomyWire wire = new EconomyWire(config.economyBridgeSecret());
+                getServer().getMessenger().registerOutgoingPluginChannel(this, EconomyWire.CHANNEL);
+                getServer().getMessenger().registerIncomingPluginChannel(this, EconomyWire.CHANNEL, (channel, carrier, bytes) -> {
+                    try {
+                        EconomyWire.Message message = wire.decode(bytes);
+                        if (!message.type().equals("charge")) return;
+                        atPlayer(carrier, () -> {
+                            players.put(carrier.getUniqueId(), carrier);
+                            economy.charge(message.payment()).thenAccept(result -> {
+                                byte[] response = wire.encode(new EconomyWire.Message("receipt", message.payment(), result));
+                                atPlayer(carrier, () -> { if (carrier.isOnline()) carrier.sendPluginMessage(this, EconomyWire.CHANNEL, response); });
+                            });
+                        });
+                    } catch (IllegalArgumentException ignored) {}
+                });
+                getLogger().info("Economy bridge enabled; the music queue is managed by Velocity.");
+                return;
+            }
+            music = new MusicServer(directory, config, new NeteaseProvider(directory), this, economy);
             getServer().getMessenger().registerOutgoingPluginChannel(this, MusicProtocol.CHANNEL);
             getServer().getMessenger().registerIncomingPluginChannel(this, MusicProtocol.CHANNEL, (channel, player, bytes) -> {
                 byte[] copy = bytes.clone();
@@ -32,7 +58,6 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
                     if (current != null) { players.put(player.getUniqueId(), player); current.receive(peer(player), copy); }
                 });
             });
-            Objects.requireNonNull(getCommand("dgm")).setExecutor(this);
         } catch (Exception e) {
             getLogger().log(Level.SEVERE, "Could not start MineKUmusic", e);
             getServer().getPluginManager().disablePlugin(this);
@@ -52,10 +77,21 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         MusicServer current = music; if (current != null) current.disconnect(id);
     }
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("payment")) {
+            if (sender instanceof Player player) atPlayer(player, () -> reconcilePayment(peer(player), args));
+            else if (sender instanceof ConsoleCommandSender) reconcilePayment(MusicServer.console(), args);
+            return true;
+        }
         MusicServer current = music; if (current == null) return true;
         if (sender instanceof Player player) atPlayer(player, () -> current.command(peer(player), args));
         else if (sender instanceof ConsoleCommandSender) current.command(MusicServer.console(), args);
         return true;
+    }
+    private void reconcilePayment(MusicServer.Peer peer, String[] args) {
+        if (!peer.admin()) { tell(peer.id(), "Administrator permission required"); return; }
+        if (args.length != 3 || !Set.of("paid", "cancel").contains(args[2])) { tell(peer.id(), "/dgm payment <transactionId> paid|cancel (verify the economy record first)"); return; }
+        if (!(economy instanceof VaultPayments vault)) { tell(peer.id(), "The server economy is unavailable"); return; }
+        vault.reconcile(args[1], args[2].equals("paid")).thenAccept(result -> tell(peer.id(), result.message()));
     }
     @Override public void send(UUID id, List<byte[]> frames) {
         Player player = players.get(id);
@@ -81,6 +117,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
     @Override public void onDisable() {
         MusicServer current = music; music = null;
         if (current != null) current.close();
+        economy.close();
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
         HandlerList.unregisterAll((Listener) this); players.clear();

@@ -3,6 +3,7 @@ package me.sorihiko.dango.server;
 import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.protocol.MusicProtocol.Entry;
+import java.math.BigDecimal;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -22,6 +23,7 @@ public final class MusicServer implements AutoCloseable {
     private final Endpoint endpoint;
     private final ServerConfig config;
     private final MusicProvider provider;
+    private final EconomyService economy;
     private final Path stateFile;
     private final QueueEngine engine;
     private final String epoch = UUID.randomUUID().toString();
@@ -36,24 +38,40 @@ public final class MusicServer implements AutoCloseable {
     private MusicProvider.Audio audio;
     private String resolvingInstance = "";
     private boolean requesting;
+    private boolean paying;
+    private Purchase purchase;
+    private long paymentRetryAt;
+    private String paymentNotice = "";
     private long ticks, lastBroadcastRevision = -1;
     private static final class Session {
         final LinkedHashMap<String, JsonObject> results = new LinkedHashMap<>();
         final Set<String> pending = new HashSet<>();
         long window; int messages;
+        Quote quote;
     }
-    private record Request(Peer peer, String requestId, long songId, Session session) {}
+    private record Quote(String id, long songId, BigDecimal amount, String currency, long expires) {}
+    private record Request(Peer peer, String requestId, long songId, Session session, Quote quote) {}
+    private record Purchase(EconomyService.Payment payment, MusicProtocol.Track track, String requestId, String currency) {}
 
     public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint) throws Exception {
-        this.endpoint = endpoint; this.config = config; this.provider = provider; stateFile = directory.resolve("queue.json");
+        this(directory, config, provider, endpoint, EconomyService.UNAVAILABLE);
+    }
+    public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint, EconomyService economy) throws Exception {
+        this.endpoint = endpoint; this.config = config; this.provider = provider; this.economy = economy; stateFile = directory.resolve("queue.json");
         engine = new QueueEngine(System::nanoTime, config.playerLimit(), config.queueLimit(), config.cooldownSeconds());
         if (Files.exists(stateFile)) {
-            try { engine.restore(JsonParser.parseString(Files.readString(stateFile)).getAsJsonObject()); }
+            try {
+                JsonObject saved = JsonParser.parseString(Files.readString(stateFile)).getAsJsonObject();
+                engine.restore(saved);
+                if (saved.has("pendingPurchase") && !saved.get("pendingPurchase").isJsonNull())
+                    purchase = GSON.fromJson(saved.get("pendingPurchase"), Purchase.class);
+            }
             catch (Exception e) { endpoint.log("Could not restore queue.json; starting an empty queue", e); }
         }
         owner.scheduleAtFixedRate(() -> guarded(() -> {
             if (engine.ended()) { engine.skip(); audio = null; }
             pump(); engine.pruneCooldowns();
+            if (purchase != null && !paying && System.nanoTime() >= paymentRetryAt) pay();
             if (++ticks % config.syncSeconds() == 0 || lastBroadcastRevision != engine.revision()) broadcast();
             if (ticks % 5 == 0) persist();
         }), 0, 1, TimeUnit.SECONDS);
@@ -85,6 +103,8 @@ public final class MusicServer implements AutoCloseable {
             welcome.addProperty("channelName", config.channelName()); welcome.addProperty("playerId", peer.id().toString());
             welcome.addProperty("canRequest", peer.request()); welcome.addProperty("canVote", peer.vote());
             welcome.addProperty("admin", peer.admin());
+            welcome.addProperty("requestConfirmation", true);
+            welcome.addProperty("requestPrice", config.requestPrice().toPlainString()); welcome.addProperty("currencyName", config.currencyName());
             send(peer.id(), "welcome", rid, welcome); snapshot(peer.id(), rid, 0); return;
         }
         Session session = sessions.get(peer.id());
@@ -102,6 +122,7 @@ public final class MusicServer implements AutoCloseable {
                     if (!wasJoined && engine.votes() > 0) votePrompt(peer.id());
                 }
                 case "unsubscribe" -> {
+                    session.quote = null;
                     if (engine.unsubscribe(peer.id().toString())) skipByVote();
                     result(peer, rid, true, "Left server music"); changed();
                 }
@@ -109,6 +130,12 @@ public final class MusicServer implements AutoCloseable {
                 case "queue" -> queuePage(peer.id(), rid, (int) number(body, "page", 0));
                 case "search" -> search(peer, rid, string(body, "query", ""), (int) number(body, "page", 0));
                 case "request" -> request(peer, rid, number(body, "songId", 0));
+                case "quoteRequest" -> quote(peer, rid, number(body, "songId", 0));
+                case "confirmRequest" -> confirmRequest(peer, rid, string(body, "quoteId", ""));
+                case "cancelRequest" -> {
+                    if (session.quote != null && session.quote.id.equals(string(body, "quoteId", ""))) session.quote = null;
+                    result(peer, rid, true, "Song request cancelled");
+                }
                 case "withdraw" -> { engine.remove(peer.id().toString(), string(body, "entryId", ""), false); result(peer, rid, true, "Song withdrawn"); changed(); }
                 case "vote" -> vote(peer, rid, string(body, "instance", ""));
                 case "refreshAudio" -> refreshAudio(peer, rid, string(body, "instance", ""));
@@ -148,26 +175,103 @@ public final class MusicServer implements AutoCloseable {
         engine.skip(); audio = null;
     }
     private void request(Peer peer, String rid, long id) {
+        if (config.requestPrice().signum() > 0) throw new QueueEngine.RuleException("Update MineKU Music and confirm the request price before requesting songs");
+        enqueue(peer, rid, id, new Quote("", id, BigDecimal.ZERO, config.currencyName(), 0));
+    }
+    private void validateRequest(Peer peer, long id) {
         if (!peer.request()) throw new QueueEngine.RuleException("You do not have permission to request songs");
         if (id <= 0) throw new QueueEngine.RuleException("Invalid song ID");
         engine.validateRequest(peer.id().toString(), id);
+        if (purchase != null) throw new QueueEngine.RuleException("A payment is still being checked; please wait");
         if (requests.size() >= 100 || requests.stream().anyMatch(r -> r.peer.id().equals(peer.id())))
             throw new QueueEngine.RuleException("A song request is already being processed");
+        if (!sessions.containsKey(peer.id())) throw new QueueEngine.RuleException("Join the channel using MineKU Music before requesting songs");
+    }
+    private void quote(Peer peer, String rid, long id) {
+        validateRequest(peer, id);
+        Quote quote = new Quote(UUID.randomUUID().toString(), id, config.requestPrice(), config.currencyName(), System.nanoTime() + TimeUnit.SECONDS.toNanos(60));
+        sessions.get(peer.id()).quote = quote;
+        JsonObject body = new JsonObject(); body.addProperty("quoteId", quote.id); body.addProperty("songId", id);
+        body.addProperty("amount", quote.amount.toPlainString()); body.addProperty("currencyName", quote.currency); body.addProperty("expiresInMs", 60000);
+        send(peer.id(), "requestQuote", rid, body);
+        result(peer, rid, true, "Confirm the song request in the music player");
+    }
+    private void confirmRequest(Peer peer, String rid, String quoteId) {
         Session session = sessions.get(peer.id());
-        session.pending.add(rid); requests.add(new Request(peer, rid, id, session)); nextRequest();
+        Quote quote = session == null ? null : session.quote;
+        if (quote == null || !quote.id.equals(quoteId) || System.nanoTime() >= quote.expires)
+            throw new QueueEngine.RuleException("The song request confirmation expired; please select the song again");
+        session.quote = null;
+        enqueue(peer, rid, quote.songId, quote);
+    }
+    private void enqueue(Peer peer, String rid, long id, Quote quote) {
+        validateRequest(peer, id);
+        if (quote.songId != id || quote.amount.compareTo(config.requestPrice()) != 0)
+            throw new QueueEngine.RuleException("The song request confirmation expired; please select the song again");
+        Session session = sessions.get(peer.id());
+        session.pending.add(rid); requests.add(new Request(peer, rid, id, session, quote)); nextRequest();
     }
     private void nextRequest() {
-        if (requesting || requests.isEmpty() || closed.get()) return;
+        if (requesting || purchase != null || requests.isEmpty() || closed.get()) return;
         Request request = requests.remove(); requesting = true;
         CompletableFuture.supplyAsync(() -> resolve(request.songId), io).whenComplete((resolved, failure) -> submit(() -> {
             requesting = false;
             try {
                 if (sessions.get(request.peer.id()) != request.session) return;
                 if (failure != null) throw new IllegalStateException(reason(failure));
-                engine.add(request.peer.id().toString(), request.peer.name(), resolved.track());
-                result(request.peer, request.requestId, true, "Song added to the queue"); changed();
+                engine.validateRequest(request.peer.id().toString(), request.songId);
+                if (request.quote.amount.signum() == 0) {
+                    engine.add(request.peer.id().toString(), request.peer.name(), resolved.track());
+                    result(request.peer, request.requestId, true, "Song added to the queue"); changed();
+                } else {
+                    String backend = economy.route(request.peer.id());
+                    EconomyService.Payment payment = new EconomyService.Payment(request.quote.id, request.peer.id(), request.peer.name(), request.quote.amount, backend, System.currentTimeMillis());
+                    purchase = new Purchase(payment, resolved.track(), request.requestId, request.quote.currency);
+                    pay();
+                }
             } catch (Exception e) { result(request.peer, request.requestId, false, reason(e)); }
             finally { nextRequest(); }
+        }));
+    }
+    private void pay() {
+        if (purchase == null || paying) return;
+        paying = true;
+        Purchase accepted = purchase;
+        persist().whenComplete((ignored, error) -> submit(() -> {
+            if (error != null) {
+                paying = false; paymentRetryAt = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                endpoint.tell(accepted.payment.playerId(), "Could not save the song request; payment processing is paused. Retrying.");
+            } else withdraw(accepted);
+        }));
+    }
+    private void withdraw(Purchase accepted) {
+        CompletionStage<EconomyService.Result> payment;
+        try { payment = economy.charge(accepted.payment); }
+        catch (Exception e) { payment = CompletableFuture.completedFuture(EconomyService.Result.pending()); }
+        payment.whenComplete((receipt, failure) -> submit(() -> {
+            paying = false;
+            if (purchase != accepted) return;
+            EconomyService.Result outcome = failure == null && receipt != null ? receipt : EconomyService.Result.pending();
+            Peer player = new Peer(accepted.payment.playerId(), accepted.payment.playerName(), true, true, true, false);
+            if (outcome.status() == EconomyService.Status.PENDING || outcome.status() == EconomyService.Status.UNKNOWN) {
+                paymentRetryAt = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                String text = outcome.message() + " [" + accepted.payment.id() + "]";
+                if (!text.equals(paymentNotice)) {
+                    paymentNotice = text;
+                    JsonObject body = new JsonObject(); body.addProperty("ok", false); body.addProperty("message", text); body.addProperty("pending", true);
+                    send(player.id(), "result", accepted.requestId, body); endpoint.tell(player.id(), text);
+                    endpoint.tell(CONSOLE, text + " player=" + player.id() + " backend=" + accepted.payment.backend());
+                }
+                return;
+            }
+            purchase = null; paymentNotice = "";
+            if (outcome.status() == EconomyService.Status.PAID) {
+                engine.addAccepted(accepted.payment.id(), player.id().toString(), player.name(), accepted.track);
+                String text = "Song added to the queue; paid " + accepted.payment.amount().toPlainString() + " " + accepted.currency;
+                result(player, accepted.requestId, true, text);
+                if (sessions.containsKey(player.id())) endpoint.tell(player.id(), text);
+            } else result(player, accepted.requestId, false, outcome.message());
+            changed(); nextRequest();
         }));
     }
     private MusicProvider.Audio resolve(long id) {
@@ -265,7 +369,7 @@ public final class MusicServer implements AutoCloseable {
                         int page = args.length > 1 ? Math.max(0, Integer.parseInt(args[1]) - 1) : 0;
                         engine.queue().stream().skip((long) page * PAGE_SIZE).limit(PAGE_SIZE).forEach(e -> endpoint.tell(peer.id(), e.entryId + " | " + e.track.name + " | " + e.requesterName));
                     }
-                    case "request" -> { if (args.length < 2) throw new IllegalArgumentException("/dgm request <songId>"); request(peer, rid, Long.parseLong(args[1])); }
+                    case "request" -> { if (args.length < 2) throw new IllegalArgumentException("/dgm request <songId>"); quote(peer, rid, Long.parseLong(args[1])); }
                     case "withdraw" -> { if (args.length < 2) throw new IllegalArgumentException("/dgm withdraw <entryId>"); engine.remove(peer.id().toString(), args[1], false); changed(); result(peer, rid, true, "Song withdrawn"); }
                     case "vote" -> vote(peer, rid, args.length > 1 ? args[1] : "");
                     case "search" -> {
@@ -297,15 +401,17 @@ public final class MusicServer implements AutoCloseable {
             } catch (Exception e) { result(peer, rid, false, reason(e)); }
         });
     }
-    private void persist() {
-        String data = GSON.toJson(engine.save());
+    private CompletionStage<Void> persist() {
+        JsonObject state = engine.save(); state.add("pendingPurchase", GSON.toJsonTree(purchase));
+        String data = GSON.toJson(state);
+        CompletableFuture<Void> saved = new CompletableFuture<>();
         if (!disk.isShutdown()) disk.execute(() -> {
             try {
-                Path temp = stateFile.resolveSibling("queue.json.tmp"); Files.writeString(temp, data);
-                try { Files.move(temp, stateFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
-                catch (AtomicMoveNotSupportedException e) { Files.move(temp, stateFile, StandardCopyOption.REPLACE_EXISTING); }
-            } catch (Exception e) { endpoint.log("Could not save the music queue", e); }
+                StateFiles.write(stateFile, data); saved.complete(null);
+            } catch (Exception e) { saved.completeExceptionally(e); endpoint.log("Could not save the music queue", e); }
         });
+        else saved.completeExceptionally(new IllegalStateException("The music server is stopping"));
+        return saved;
     }
     private void submit(Runnable task) { if (!closed.get()) try { owner.execute(() -> guarded(task)); } catch (RejectedExecutionException ignored) {} }
     private void guarded(Runnable task) { if (!closed.get()) try { task.run(); } catch (Exception e) { endpoint.log("Music operation failed", e); } }

@@ -413,7 +413,7 @@ internal class TracksPage(private val screen: MusicScreen) {
                     val add = LayoutBounds(row.right - 36f, row.y + 6f, 28f, 28f)
                     ui.icon("+", add.x + 14f, add.y + 14f, 18f, RED)
                     ui.tooltip(add, I18n.text("Add to server queue"))
-                    ui.hits += add.intersect(clipArea) to { ServerMusic.requestSong(t.id); if (!ServerMusic.joined) screen.go(Page.PARTY) }
+                    ui.hits += add.intersect(clipArea) to { ServerMusic.requestSong(t.id, t.name); if (!ServerMusic.joined) screen.go(Page.PARTY) }
                 }
                 ui.hits += row.intersect(clipArea) to { playFrom(all, i) }
             }
@@ -491,7 +491,7 @@ internal class TracksPage(private val screen: MusicScreen) {
             val add = LayoutBounds(cx + size / 2f + 12f, cy - 15f, 30f, 30f)
             ui.icon("+", add.x + 15f, add.y + 15f, 20f, RED)
             ui.tooltip(add, I18n.text("Add to server queue"))
-            ui.hits.add(0, add to { ServerMusic.requestSong(t.id); if (!ServerMusic.joined) screen.go(Page.PARTY) })
+            ui.hits.add(0, add to { ServerMusic.requestSong(t.id, t.name); if (!ServerMusic.joined) screen.go(Page.PARTY) })
         }
     }
 

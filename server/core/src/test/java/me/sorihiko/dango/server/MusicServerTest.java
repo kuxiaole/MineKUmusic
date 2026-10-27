@@ -4,6 +4,7 @@ import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.protocol.MusicProtocol.Track;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
 import java.util.*;
@@ -13,6 +14,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MusicServerTest {
     @TempDir Path directory;
+    private final List<MusicServer> instances = new ArrayList<>();
+    private MusicServer track(MusicServer server) { instances.add(server); return server; }
+    @AfterEach void awaitShutdown() throws Exception {
+        for (MusicServer server : instances) { server.close(); server.termination().toCompletableFuture().get(5, TimeUnit.SECONDS); }
+    }
     private static final class Wire implements MusicServer.Endpoint {
         record Chat(UUID player, String text) {}
         record Prompt(UUID player, String text, String command) {}
@@ -43,7 +49,7 @@ class MusicServerTest {
             private Track track(long id) { return new Track(id, "Synthetic test song", List.of("Fixture artist"), 180000, ""); }
         };
     }
-    private MusicServer server(Wire wire) throws Exception { return new MusicServer(directory, new ServerConfig("test-network", "Fixture channel", 3, 100, 0, 1), provider(), wire); }
+    private MusicServer server(Wire wire) throws Exception { return track(new MusicServer(directory, new ServerConfig("test-network", "Fixture channel", 3, 100, 0, 1), provider(), wire)); }
     private void send(MusicServer server, MusicServer.Peer peer, String type, String rid, JsonObject body) {
         for (byte[] bytes : MusicProtocol.frames(MusicProtocol.message(type, rid, body))) server.receive(peer, bytes);
     }
@@ -177,7 +183,7 @@ class MusicServerTest {
                         "https://example.invalid/synthetic-test.mp3", "", "");
             }
         };
-        try (MusicServer server = new MusicServer(directory, new ServerConfig("test", "Test", 3, 100, 0, 1), delayed, wire)) {
+        try (MusicServer server = track(new MusicServer(directory, new ServerConfig("test", "Test", 3, 100, 0, 1), delayed, wire))) {
             send(server, a, "hello"); send(server, a, "subscribe");
             JsonObject old = new JsonObject(); old.addProperty("songId", 101);
             send(server, a, "request", "old-session-request", old);

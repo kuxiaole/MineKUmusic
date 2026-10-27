@@ -131,7 +131,7 @@ internal class PartyPage(private val screen: MusicScreen) {
                 val selectedEntry = if (search) null else channel.queue[index].entryId
                 ui.icon(if (search) "+" else "×", action.x + 15f, action.y + 15f, 18f, RED)
                 if (active) ui.tooltip(action, I18n.text(if (search) "Add to server queue" else "Withdraw song"))
-                ui.hits += action to { if (selectedEntry == null) channel.requestSong(track.id) else channel.withdraw(selectedEntry) }
+                ui.hits += action to { if (selectedEntry == null) channel.requestSong(track.id, track.name) else channel.withdraw(selectedEntry) }
             }
         }
         ui.endClip()

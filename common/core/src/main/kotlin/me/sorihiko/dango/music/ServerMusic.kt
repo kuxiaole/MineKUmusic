@@ -45,6 +45,16 @@ object ServerMusic {
     var searching = false; private set
     var lyrics: Lyrics? = null; private set
     var pendingPersonal: (() -> Unit)? = null; private set
+    data class RequestConfirmation(val quoteId: String, val songId: Long, val songName: String, val amount: String,
+                                   val currency: String, val expiresAt: Long, val remote: Boolean)
+    var pendingRequest: RequestConfirmation? = null; private set
+    var requestingSong = false; private set
+    var requestFeedback = ""; private set
+    private var requestFeedbackUntil = 0L
+    private var remoteConfirmation = false
+    private var quoteRequest = ""
+    private var quotedSongId = 0L
+    private var quotedSongName = ""
     private var desired = false
     private var epoch = ""
     private var revision = -1L
@@ -83,6 +93,8 @@ object ServerMusic {
         connected = false; available = false; desired = false; transport = null
         assembler.clear(); pending.clear(); current = null; queue = emptyList(); searchResults = emptyList()
         searching = false; serverId = ""; revision = -1; queueRevision = -1; instance = ""
+        pendingRequest = null; requestingSong = false; quoteRequest = ""; remoteConfirmation = false
+        requestFeedback = ""
         playbackClock = PlaybackClock(); listeners = 0; votes = 0; queueTotal = 0
         status = "Not connected to a server"
     }
@@ -93,12 +105,14 @@ object ServerMusic {
             val body = message.getAsJsonObject("body") ?: return
             val type = MusicProtocol.string(message, "type", "")
             val rid = MusicProtocol.string(message, "requestId", "")
+            var keepPending = false
             if (type != "welcome" && MusicProtocol.string(body, "serverId", "") != serverId) return
             when (type) {
                 "welcome" -> {
                     val nextServer = MusicProtocol.string(body, "serverId", "")
                     val nextEpoch = MusicProtocol.string(body, "epoch", "")
                     if (serverId != nextServer || epoch != nextEpoch) {
+                        pendingRequest = null; requestingSong = false; quoteRequest = ""
                         restorePersonal(); revision = -1; queueRevision = -1; instance = ""; queue = emptyList()
                         serverId = nextServer
                         epoch = nextEpoch
@@ -109,6 +123,7 @@ object ServerMusic {
                     playerId = MusicProtocol.string(body, "playerId", "")
                     canRequest = MusicProtocol.bool(body, "canRequest", false)
                     canVote = MusicProtocol.bool(body, "canVote", false)
+                    remoteConfirmation = MusicProtocol.bool(body, "requestConfirmation", false)
                     status = if (joined) "Listening to server music" else "Not joined"
                     if (desired) send("subscribe")
                     requestQueue(queuePage)
@@ -148,18 +163,33 @@ object ServerMusic {
                     searchPage = MusicProtocol.number(body, "page", 0).toInt()
                     searchHasNext = MusicProtocol.bool(body, "hasNext", false); searching = false
                 }
+                "requestQuote" -> if (joined && (rid == quoteRequest || rid.startsWith("cmd:"))) {
+                    val songId = MusicProtocol.number(body, "songId", 0)
+                    pendingRequest = RequestConfirmation(
+                        MusicProtocol.string(body, "quoteId", ""), songId,
+                        if (songId == quotedSongId && rid == quoteRequest) quotedSongName else "",
+                        MusicProtocol.string(body, "amount", "0"), MusicProtocol.string(body, "currencyName", "KU\u5e01"),
+                        System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 60000).coerceIn(0, 60000) * 1_000_000L, true)
+                    quoteRequest = ""; requestingSong = false
+                    requestFeedback = ""
+                    pendingPersonal = null
+                }
                 "result" -> {
                     val action = pending[rid]?.first
                     val ok = MusicProtocol.bool(body, "ok", false)
                     val text = MusicProtocol.string(body, "message", "")
+                    keepPending = MusicProtocol.bool(body, "pending", false)
                     if (text.isNotEmpty()) status = text
                     if (action == "subscribe") {
                         if (ok && desired) { enter(); remember(true) } else if (!ok) desired = false
                     }
                     if (action == "search" && rid == searchRequest) searching = false
+                    if (action == "quoteRequest" || action == "confirmRequest" || action == "request") {
+                        requestingSong = keepPending; requestFeedback = text; requestFeedbackUntil = System.nanoTime() + 15_000_000_000L
+                    }
                 }
             }
-            if (rid.isNotEmpty()) pending.remove(rid)
+            if (rid.isNotEmpty() && !keepPending) pending.remove(rid)
         } catch (e: Exception) { status = "Incompatible server music response"; DangoLogger.warn("Music channel response: {}", e.toString()) }
     }
     private fun applyState(body: JsonObject): Boolean {
@@ -189,8 +219,15 @@ object ServerMusic {
     }
     fun tick() {
         val now = System.nanoTime()
+        if (!requestingSong && now >= requestFeedbackUntil) requestFeedback = ""
         val expired = pending.filterValues { now - it.second > 60_000_000_000L }.keys
-        if (expired.isNotEmpty()) { expired.forEach { pending.remove(it) }; searching = false; status = "Server music request timed out" }
+        if (expired.isNotEmpty()) {
+            if (expired.any { pending[it]?.first in listOf("quoteRequest", "confirmRequest", "request") }) requestingSong = false
+            expired.forEach { pending.remove(it) }; searching = false; status = "Server music request timed out"
+        }
+        if (pendingRequest?.let { now >= it.expiresAt } == true) {
+            pendingRequest = null; status = "The song request confirmation expired; please select the song again"
+        }
         if (available && transport != null && now - lastPing > 2_000_000_000L) {
             lastPing = now
             send("ping", JsonObject().apply { addProperty("sentNanos", now) })
@@ -217,6 +254,7 @@ object ServerMusic {
         desired = true; status = "Joining server music..."; send("subscribe")
     }
     fun leave() {
+        cancelSongRequest()
         desired = false; remember(false); send("unsubscribe"); restorePersonal(); status = "Not joined"
     }
     private fun enter() {
@@ -231,6 +269,7 @@ object ServerMusic {
             if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, saved.paused, saved.active)
         }
         joined = false; locallyPaused = false; lyrics = null; playingInstance = ""; pendingPersonal = null
+        pendingRequest = null; quoteRequest = ""; requestingSong = false
     }
     private fun remember(value: Boolean) {
         if (serverId.isEmpty()) return
@@ -256,10 +295,35 @@ object ServerMusic {
         searchRequest = send("search", JsonObject().apply { addProperty("query", lastQuery); addProperty("page", page.coerceAtLeast(0)) })
     }
     fun searchPage(page: Int) = search(lastQuery, page)
-    fun requestSong(id: Long) {
+    fun requestSong(id: Long, name: String = "") {
         if (!joined) { status = "Join the channel before requesting a song"; return }
         if (!canRequest) { status = "You do not have permission to request songs"; return }
-        status = "Adding song..."; send("request", JsonObject().apply { addProperty("songId", id) })
+        if (requestingSong || pendingRequest != null) { status = "A song request is already being processed"; return }
+        if (transport == null) { status = "Wait until you have connected to a backend server before requesting a song"; return }
+        pendingPersonal = null; quotedSongId = id; quotedSongName = name
+        if (remoteConfirmation) {
+            status = "Getting the song request price..."; requestingSong = true
+            quoteRequest = send("quoteRequest", JsonObject().apply { addProperty("songId", id) })
+            if (quoteRequest.isEmpty()) { requestingSong = false; status = "Server music is not available" }
+        } else pendingRequest = RequestConfirmation("", id, name, "0", "KU\u5e01", System.nanoTime() + 60_000_000_000L, false)
+    }
+    fun confirmSongRequest() {
+        val quote = pendingRequest ?: return
+        if (!joined || !available || transport == null || System.nanoTime() >= quote.expiresAt) {
+            pendingRequest = null; status = "The song request confirmation expired; please select the song again"; return
+        }
+        pendingRequest = null; requestingSong = true; status = "Adding song..."
+        requestFeedback = status
+        val rid = if (quote.remote) send("confirmRequest", JsonObject().apply { addProperty("quoteId", quote.quoteId) })
+            else send("request", JsonObject().apply { addProperty("songId", quote.songId) })
+        if (rid.isEmpty()) { requestingSong = false; status = "Server music is not available" }
+    }
+    fun cancelSongRequest() {
+        val quote = pendingRequest
+        pendingRequest = null
+        if (quote != null || quoteRequest.isNotEmpty()) requestFeedback = ""
+        if (quoteRequest.isNotEmpty()) { quoteRequest = ""; requestingSong = false }
+        if (quote?.remote == true) send("cancelRequest", JsonObject().apply { addProperty("quoteId", quote.quoteId) })
     }
     fun withdraw(entryId: String) { send("withdraw", JsonObject().apply { addProperty("entryId", entryId) }) }
     fun vote() { if (joined && canVote) send("vote", JsonObject().apply { addProperty("instance", instance) }) }

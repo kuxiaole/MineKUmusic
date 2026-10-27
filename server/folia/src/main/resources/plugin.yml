@@ -3,6 +3,7 @@ version: '${version}'
 main: me.sorihiko.dango.server.folia.DangoMusicFolia
 api-version: '26.2'
 folia-supported: true
+softdepend: [Vault, VaultUnlocked]
 description: Server music for MineKU Music, based on DangoMusic with AllMusic as a server design reference
 authors: ["\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"]
 commands:

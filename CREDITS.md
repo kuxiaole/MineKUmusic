@@ -15,6 +15,7 @@
 - 许可证：GPL-3.0，完整文本保留在本项目的 `LICENSE`。
 - 本项目以用户提供的 DangoMusic 源码为基础，继承客户端播放器、网易云个人音乐、音频解码与播放、歌词、HUD、字体、界面及加载器适配。
 - 本分支在其基础上加入全服音乐频道、独立 Folia / Velocity 服务端、订阅与个人播放恢复、点歌队列、投票和同步，并修改了品牌名称及设置中的关于页。
+- 1.6.0 加入 Vault 点歌收费、客户端费用确认、Velocity 后端经济桥接与交易恢复。
 
 ## AllMusic：服务端实现参考
 
@@ -39,6 +40,8 @@ DangoMusic 原有 `MusicScreen.kt` 注释注明播放器排版参考 MuoniumPlay
 | Gson | JSON 数据处理 | Apache-2.0 |
 
 保留已有第三方声明。客户端 JAR 中的 `META-INF/licenses/` 保存上游已附带的许可证文本；四种 JAR 均包含本文件及项目 `LICENSE`。Fabric、NeoForge、Folia 和 Velocity 是运行平台，各自项目与许可证归其维护者。
+
+收费功能通过 [MilkBowl / VaultAPI](https://github.com/MilkBowl/VaultAPI) 的经济接口与服务器经济插件交互。VaultAPI 使用 LGPL-3.0-or-later，仅作为编译期依赖，接口和经济实现由服务器提供，不打包进本项目 JAR。
 
 ## 品牌与兼容标识
 

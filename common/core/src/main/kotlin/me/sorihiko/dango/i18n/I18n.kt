@@ -45,7 +45,9 @@ object I18n {
         return source
     }
 
-    private val messagePrefixes = listOf("加载失败：", "播放失败：", "Load failed: ", "Playback failed: ")
+    private val messagePrefixes = listOf("加载失败：", "播放失败：", "Load failed: ", "Playback failed: ",
+        "Song added to the queue; paid ", "Payment is being checked; do not request this song again",
+        "Payment requires an administrator to check the transaction record")
     private val messagePatterns = listOf(
         Regex("正在加入 (.+) …") to "Joining %s…",
         Regex("房间 (.+) 不存在") to "Room %s does not exist",

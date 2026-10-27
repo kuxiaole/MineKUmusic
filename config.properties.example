@@ -1,0 +1,17 @@
+# MineKUmusic: copy selected settings into the generated config.properties.
+# Keep the generated server-id unchanged. Restart after editing.
+channel-name=MineKU Music
+player-queue-limit=3
+queue-limit=100
+request-cooldown-seconds=30
+sync-seconds=2
+
+# Only successful song requests are charged. Search and listening stay free.
+request-fee-enabled=false
+request-fee-amount=10
+currency-name=KU币
+
+# Folia backends behind Velocity: true. Standalone Folia: false.
+economy-bridge-only=false
+# Set the same random secret (at least 32 characters) on proxy and backends.
+economy-bridge-secret=

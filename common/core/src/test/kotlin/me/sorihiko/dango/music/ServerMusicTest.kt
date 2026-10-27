@@ -45,11 +45,12 @@ class ServerMusicTest {
         body.addProperty("serverId", network)
         MusicProtocol.frames(MusicProtocol.message(type, rid, body)).forEach { ServerMusic.receive(it) }
     }
-    private fun welcome(epoch: String = "first") {
+    private fun welcome(epoch: String = "first", confirmation: Boolean = false) {
         ServerMusic.connectionOpened(); ServerMusic.playReady(transport)
         deliver("welcome", JsonObject().apply {
             addProperty("epoch", epoch); addProperty("channelName", "Test channel"); addProperty("playerId", "player")
             addProperty("canRequest", true); addProperty("canVote", true)
+            addProperty("requestConfirmation", confirmation)
         })
     }
     private fun join() {
@@ -112,5 +113,55 @@ class ServerMusicTest {
         assertEquals(5000L, ServerMusic.expectedPosition())
         assertEquals(5000L, CompletableFuture.supplyAsync { ServerMusic.expectedPosition() }.get())
         ServerMusic.disconnected(); assertEquals(0L, ServerMusic.expectedPosition())
+    }
+    private fun quote(expires: Long = 60000) {
+        val rid = sent.last { it.get("type").asString == "quoteRequest" }.get("requestId").asString
+        deliver("requestQuote", JsonObject().apply {
+            addProperty("quoteId", "synthetic-quote"); addProperty("songId", 101)
+            addProperty("amount", "12.5"); addProperty("currencyName", "KU\u5e01"); addProperty("expiresInMs", expires)
+        }, rid)
+    }
+    @Test fun paidRequestShowsServerPriceAndWaitsForConfirmation() {
+        welcome(confirmation = true); join(); sent.clear()
+        ServerMusic.requestSong(101, "Synthetic selection")
+        assertEquals("quoteRequest", sent.single().get("type").asString)
+        quote()
+        assertEquals("12.5", ServerMusic.pendingRequest?.amount)
+        assertEquals("KU\u5e01", ServerMusic.pendingRequest?.currency)
+        assertEquals("Synthetic selection", ServerMusic.pendingRequest?.songName)
+        sent.clear(); ServerMusic.confirmSongRequest(); ServerMusic.confirmSongRequest()
+        assertEquals("confirmRequest", sent.single().get("type").asString)
+        assertEquals("synthetic-quote", sent.single().getAsJsonObject("body").get("quoteId").asString)
+        assertFalse(sent.single().getAsJsonObject("body").has("amount")); assertNull(ServerMusic.pendingRequest)
+    }
+    @Test fun cancellingTheDialogSendsNoConfirmedRequest() {
+        welcome(confirmation = true); join(); ServerMusic.requestSong(101); quote(); sent.clear()
+        ServerMusic.cancelSongRequest()
+        assertEquals("cancelRequest", sent.single().get("type").asString); assertNull(ServerMusic.pendingRequest)
+    }
+    @Test fun freeLegacyServerAlsoGetsALocalConfirmation() {
+        welcome(); join(); sent.clear(); ServerMusic.requestSong(101)
+        assertTrue(sent.isEmpty()); assertEquals("0", ServerMusic.pendingRequest?.amount)
+        ServerMusic.confirmSongRequest(); assertEquals("request", sent.single().get("type").asString)
+    }
+    @Test fun backendTransferKeepsTheQuoteButDisconnectDropsIt() {
+        welcome(confirmation = true); join(); ServerMusic.requestSong(101); quote()
+        val original = ServerMusic.pendingRequest
+        ServerMusic.configurationPhase(); welcome(confirmation = true)
+        assertSame(original, ServerMusic.pendingRequest)
+        ServerMusic.disconnected(); assertNull(ServerMusic.pendingRequest)
+    }
+    @Test fun expiredQuoteClosesWithoutSendingConfirmation() {
+        welcome(confirmation = true); join(); ServerMusic.requestSong(101); quote(0); sent.clear()
+        ServerMusic.confirmSongRequest()
+        assertTrue(sent.isEmpty()); assertNull(ServerMusic.pendingRequest)
+    }
+    @Test fun pendingPaymentStaysActiveUntilTheFinalReceipt() {
+        welcome(confirmation = true); join(); ServerMusic.requestSong(101); quote(); ServerMusic.confirmSongRequest()
+        val rid = sent.last { it.get("type").asString == "confirmRequest" }.get("requestId").asString
+        deliver("result", JsonObject().apply { addProperty("ok", false); addProperty("pending", true); addProperty("message", "Synthetic pending receipt") }, rid)
+        assertTrue(ServerMusic.requestingSong); assertEquals("Synthetic pending receipt", ServerMusic.requestFeedback)
+        deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Synthetic completed receipt") }, rid)
+        assertFalse(ServerMusic.requestingSong); assertEquals("Synthetic completed receipt", ServerMusic.requestFeedback)
     }
 }
