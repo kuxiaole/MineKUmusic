@@ -46,13 +46,13 @@ public final class MusicCommands {
     }
     public static String usage(String name) {
         return COMMANDS.stream().filter(c -> c.name.equals(name)).findFirst()
-                .map(c -> "/dgm " + c.name + (c.arguments.isEmpty() ? "" : " " + c.arguments)).orElse("/dgm help");
+                .map(c -> "/minekumusic " + c.name + (c.arguments.isEmpty() ? "" : " " + c.arguments)).orElse("/minekumusic help");
     }
     public static List<String> help(MusicServer.Peer peer, Mode mode, String topic) {
         String selected = topic.toLowerCase(Locale.ROOT);
-        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of("没有可用的对应指令，请使用 /dgm help 查看你能使用的指令。");
+        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of("没有可用的对应指令，请使用 /minekumusic help 查看你能使用的指令。");
         List<String> lines = new ArrayList<>();
-        lines.add("MineKU Music 指令帮助（别名：/minekumusic）");
+        lines.add("MineKU Music 指令帮助（主指令：/minekumusic；别名：/music、/kum）");
         for (Definition command : COMMANDS) if (allowed(peer, command.name, mode) && (selected.isEmpty() || selected.equals(command.name)))
             lines.add(usage(command.name) + " — " + command.description);
         if (selected.equals("reload")) {

@@ -7,10 +7,10 @@ softdepend: [Vault, VaultUnlocked]
 description: Server music for MineKU Music, based on DangoMusic with AllMusic as a server design reference
 authors: ["\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"]
 commands:
-  dgm:
-    aliases: [minekumusic]
+  minekumusic:
+    aliases: [music, kum]
     description: 全服音乐帮助、点歌、队列管理与配置重载
-    usage: /dgm help
+    usage: /minekumusic help
 permissions:
   dangomusic.use:
     default: true

@@ -35,8 +35,8 @@ class MusicCommandsTest {
     }
     @Test void helpExplainsReloadAndFiltersCommandsForTheCaller() {
         List<String> help = help(listener, Mode.FOLIA, "");
-        assertTrue(help.stream().anyMatch(line -> line.startsWith("/dgm request") && line.contains("确认")));
-        assertFalse(help.stream().anyMatch(line -> line.startsWith("/dgm reload")));
+        assertTrue(help.stream().anyMatch(line -> line.startsWith("/minekumusic request") && line.contains("确认")));
+        assertFalse(help.stream().anyMatch(line -> line.startsWith("/minekumusic reload")));
         assertTrue(help(admin, Mode.FOLIA, "RELOAD").stream().anyMatch(line -> line.contains("变更需重启")));
         assertEquals("help", name(new String[0]));
     }

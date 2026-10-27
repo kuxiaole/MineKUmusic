@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.*;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.1", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.2", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -41,7 +41,7 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
             music = new MusicServer(data, config, new NeteaseProvider(data), this, economy);
             proxy.getChannelRegistrar().register(channel);
             proxy.getChannelRegistrar().register(VelocityEconomy.CHANNEL);
-            proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("dgm").aliases("minekumusic").plugin(this).build(), new SimpleCommand() {
+            proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("minekumusic").aliases("music", "kum").plugin(this).build(), new SimpleCommand() {
                 @Override public void execute(Invocation invocation) {
                     MusicServer current = music; if (current == null) return;
                     if (invocation.source() instanceof Player player) current.command(peer(player), invocation.arguments(), MusicCommands.Mode.VELOCITY);
@@ -94,7 +94,9 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
         MusicServer current = music; music = null; if (current != null) current.close();
         economy.close();
         proxy.getChannelRegistrar().unregister(VelocityEconomy.CHANNEL);
-        proxy.getChannelRegistrar().unregister(channel); proxy.getCommandManager().unregister("dgm");
+        proxy.getChannelRegistrar().unregister(channel);
         proxy.getCommandManager().unregister("minekumusic");
+        proxy.getCommandManager().unregister("music");
+        proxy.getCommandManager().unregister("kum");
     }
 }

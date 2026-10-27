@@ -1,14 +1,15 @@
 # MineKUmusic 全服音乐配置（UTF-8 编码）
 # 修改等号右边的值即可；true 表示开启，false 表示关闭。
-# 修改常用设置后，管理员执行 /dgm reload 即可生效，也可完整重启服务器。
-# server-id、economy-bridge-only、economy-bridge-secret 变更必须完整重启；/dgm help reload 可查看说明。
+# 主指令为 /minekumusic，也可使用 /music 或 /kum，两者支持相同的子命令。
+# 修改常用设置后，管理员执行 /minekumusic reload 即可生效，也可完整重启服务器。
+# server-id、economy-bridge-only、economy-bridge-secret 变更必须完整重启；/minekumusic help reload 可查看说明。
 # 插件启动时会补齐缺少的选项和中文说明，保留已有配置值。
 
 # 【频道与点歌规则】
 # 服务器或群组频道的固定标识。首次留空会自动生成，请保留生成后的值。
 # 客户端根据它记住是否加入频道；更换它会让玩家的加入偏好重新开始。
 # 群组服以 Velocity 的标识为准，经济桥接后端的此项不参与频道管理。
-# 此项变更必须完整重启，不支持 /dgm reload。
+# 此项变更必须完整重启，不支持 /minekumusic reload。
 server-id=
 
 # 客户端显示的全服音乐频道名称，可以改成自己的服务器名称。
@@ -52,12 +53,12 @@ currency-name=KU币
 # 独立 Folia：false。群组服收费的 Folia 后端：true。Velocity 配置中保持 false。
 # 群组服队列由 Velocity 统一管理，各后端的 Vault 经济插件还需共用或同步余额。
 # 设为 true 时，上方频道、队列和收费规则由 Velocity 配置决定。
-# 此项变更必须完整重启，不支持 /dgm reload。
+# 此项变更必须完整重启，不支持 /minekumusic reload。
 economy-bridge-only=false
 
 # 代理与后端之间校验扣款消息的共享密钥，默认留空。
 # 独立 Folia 不需要填写；群组服收费时，在 Velocity 和所有经济桥接后端填写同一个随机值。
 # 密钥至少 32 个字符，建议使用随机字母和数字；启用经济桥接模式后不能留空。
 # 密钥仅供服务器之间使用，不要发给玩家，也不要上传到公开仓库。
-# 此项变更必须完整重启，不支持 /dgm reload；请先完成未决交易，再协调修改代理和后端。
+# 此项变更必须完整重启，不支持 /minekumusic reload；请先完成未决交易，再协调修改代理和后端。
 economy-bridge-secret=

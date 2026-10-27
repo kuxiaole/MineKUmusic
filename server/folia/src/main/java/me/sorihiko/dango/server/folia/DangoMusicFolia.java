@@ -34,8 +34,8 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
             else if (config.requestPrice().signum() > 0 || config.economyBridgeOnly())
                 getLogger().warning("Vault is unavailable; paid song requests cannot be processed.");
             getServer().getPluginManager().registerEvents(this, this);
-            Objects.requireNonNull(getCommand("dgm")).setExecutor(this);
-            Objects.requireNonNull(getCommand("dgm")).setTabCompleter(this);
+            Objects.requireNonNull(getCommand("minekumusic")).setExecutor(this);
+            Objects.requireNonNull(getCommand("minekumusic")).setTabCompleter(this);
             if (config.economyBridgeOnly()) {
                 EconomyWire wire = new EconomyWire(config.economyBridgeSecret());
                 getServer().getMessenger().registerOutgoingPluginChannel(this, EconomyWire.CHANNEL);
@@ -91,7 +91,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
     private MusicCommands.Mode mode() { return config != null && config.economyBridgeOnly() ? MusicCommands.Mode.BRIDGE : MusicCommands.Mode.FOLIA; }
     private void dispatch(MusicServer.Peer peer, String[] args) {
         String name = MusicCommands.name(args);
-        if (!MusicCommands.known(name, mode())) { tell(peer.id(), "未知或不适用于当前模式的指令，请使用 /dgm help。"); return; }
+        if (!MusicCommands.known(name, mode())) { tell(peer.id(), "未知或不适用于当前模式的指令，请使用 /minekumusic help。"); return; }
         if (!MusicCommands.allowed(peer, name, mode())) { tell(peer.id(), "你没有权限使用该指令，或该指令仅限游戏内玩家使用。"); return; }
         if (name.equals("payment")) { reconcilePayment(peer, args); return; }
         if (mode() == MusicCommands.Mode.BRIDGE) {
@@ -124,7 +124,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
                 ServerConfig next = ServerConfig.load(directory, config);
                 if (isEnabled()) {
                     config = next;
-                    tell(peer.id(), "经济桥接配置重载成功，交易记录已保留。频道及收费规则请在 Velocity 执行 /dgm reload。");
+                    tell(peer.id(), "经济桥接配置重载成功，交易记录已保留。频道及收费规则请在 Velocity 执行 /minekumusic reload。");
                 }
             } catch (Exception e) { tell(peer.id(), "配置重载失败，当前配置继续生效：" + e.getMessage()); }
             finally { reloading.set(false); }

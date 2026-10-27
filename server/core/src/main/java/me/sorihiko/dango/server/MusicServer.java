@@ -169,7 +169,7 @@ public final class MusicServer implements AutoCloseable {
         String text = "\u300a" + engine.current().track.name + "\u300b\u5207\u6b4c\u6295\u7968 "
                 + engine.votes() + "/" + engine.votesRequired() + "\uff08" + engine.listeners()
                 + " \u4eba\u6536\u542c\uff0c\u8fbe\u5230 15% \u5373\u5207\u6b4c\uff09";
-        endpoint.votePrompt(id, text, "/dgm vote " + engine.instance());
+        endpoint.votePrompt(id, text, "/minekumusic vote " + engine.instance());
     }
     private void tellListeners(String text) {
         sessions.keySet().stream().filter(id -> engine.subscribed(id.toString())).forEach(id -> endpoint.tell(id, text));
@@ -378,8 +378,8 @@ public final class MusicServer implements AutoCloseable {
             String rid = "cmd:" + UUID.randomUUID();
             try {
                 if (cmd.equals("payment") && mode == MusicCommands.Mode.VELOCITY)
-                    throw new IllegalArgumentException("交易核对请在原扣款 Folia 后端控制台执行 dgm payment <交易ID> <paid|cancel>。");
-                if (!MusicCommands.known(cmd, mode)) throw new IllegalArgumentException("未知或不适用于当前服务器的指令，请使用 /dgm help 查看帮助。");
+                    throw new IllegalArgumentException("交易核对请在原扣款 Folia 后端控制台执行 minekumusic payment <交易ID> <paid|cancel>。");
+                if (!MusicCommands.known(cmd, mode)) throw new IllegalArgumentException("未知或不适用于当前服务器的指令，请使用 /minekumusic help 查看帮助。");
                 if (!MusicCommands.allowed(peer, cmd, mode)) throw new IllegalArgumentException("你没有权限使用该指令，或该指令仅限游戏内玩家使用。");
                 switch (cmd) {
                     case "help" -> {
@@ -414,7 +414,7 @@ public final class MusicServer implements AutoCloseable {
                                     if (error != null) endpoint.tell(peer.id(), "搜索失败：" + reason(error));
                                     else if (found.tracks().isEmpty()) endpoint.tell(peer.id(), "没有找到匹配的歌曲。");
                                     else {
-                                        endpoint.tell(peer.id(), "搜索结果（免费）：歌曲ID | 歌曲 | 歌手；使用 /dgm request <歌曲ID> 点歌。");
+                                        endpoint.tell(peer.id(), "搜索结果（免费）：歌曲ID | 歌曲 | 歌手；使用 /minekumusic request <歌曲ID> 点歌。");
                                         found.tracks().forEach(t -> endpoint.tell(peer.id(), t.id + " | " + t.name + " | " + String.join(" / ", t.artists)));
                                     }
                                 }));
@@ -433,7 +433,7 @@ public final class MusicServer implements AutoCloseable {
                         }
                         changed(); endpoint.tell(peer.id(), "音乐频道已更新。");
                     }
-                    default -> endpoint.tell(peer.id(), "此指令应在原扣款 Folia 后端执行，请使用 /dgm help 查看说明。");
+                    default -> endpoint.tell(peer.id(), "此指令应在原扣款 Folia 后端执行，请使用 /minekumusic help 查看说明。");
                 }
             } catch (NumberFormatException e) { result(peer, rid, false, "参数必须是有效的数字。用法：" + MusicCommands.usage(cmd)); }
             catch (Exception e) { result(peer, rid, false, reason(e)); }

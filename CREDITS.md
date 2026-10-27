@@ -17,6 +17,7 @@
 - 本分支在其基础上加入全服音乐频道、独立 Folia / Velocity 服务端、订阅与个人播放恢复、点歌队列、投票和同步，并修改了品牌名称及设置中的关于页。
 - 1.6.0 加入 Vault 点歌收费、客户端费用确认、Velocity 后端经济桥接与交易恢复。
 - 1.6.1 统一插件指令帮助和 Tab 补全，支持保留频道及交易状态的配置热重载，并补齐逐项中文配置说明。
+- 1.6.2 将主指令统一为 `/minekumusic`，提供 `/music` 和 `/kum` 两个别名，移除 `/dgm`，同步帮助、聊天点击指令和配置文档。
 
 ## AllMusic：服务端实现参考
 
@@ -46,4 +47,4 @@ DangoMusic 原有 `MusicScreen.kt` 注释注明播放器排版参考 MuoniumPlay
 
 ## 品牌与兼容标识
 
-项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。`me.sorihiko.dango` 代码包、内部 mod ID、资源路径、协议及权限节点继续保留原名称，用于来源追溯和已有安装的兼容，并不改变上述署名归属。Velocity 内部插件 ID 和命令别名仍使用小写 `minekumusic`。
+项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。`me.sorihiko.dango` 代码包、内部 mod ID、资源路径、协议及权限节点继续保留原名称，用于来源追溯和已有安装的兼容，并不改变上述署名归属。Velocity 内部插件 ID 和主指令使用小写 `minekumusic`，命令别名为 `/music` 和 `/kum`。

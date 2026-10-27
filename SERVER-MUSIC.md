@@ -10,13 +10,13 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.1-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
-2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/dgm reload` 生效。升级安装按下文说明读取旧目录。
+1. 将 `MineKUmusic-server-1.6.2-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.1-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.2-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -25,11 +25,11 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 从旧版升级
 
-- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.1+26.2-fabric.jar` 或 `MineKUmusic-1.6.1+26.2-neoforge.jar`。1.6.0 客户端可继续配合 1.6.1 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.2+26.2-fabric.jar` 或 `MineKUmusic-1.6.2+26.2-neoforge.jar`。1.6.0 / 1.6.1 客户端可继续配合 1.6.2 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
-- 客户端 mod ID、`config/dangomusic`、`dangomusic:channel` 和 `dangomusic.*` 权限节点继续沿用。新命令别名 `/minekumusic` 与原 `/dgm` 均可使用。
+- 客户端 mod ID、`config/dangomusic`、`dangomusic:channel` 和 `dangomusic.*` 权限节点继续沿用。主指令统一为 `/minekumusic`，只提供 `/music` 和 `/kum` 两个别名，不再注册 `/dgm`；旧的聊天投票消息需等待新版插件重新发送。
 
 ## 音源
 
@@ -67,7 +67,7 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 - 初次默认不加入，加入选择按 `server-id` 保存在客户端 `config/dangomusic/server-music.properties`。
 - 加入时保存个人播放队列和状态，退出或真正断线时恢复。点个人歌曲会先弹出切换确认。
 - 全服页支持搜索点歌、队列分页和撤回自己的待播歌曲；原有搜索和歌单旁的 `+` 也可点到全服。
-- 全服页、歌单中的全服点歌按钮及 `/dgm request` 都先显示确认弹窗，列出本次费用和币名。确认有效期 60 秒；取消或过期不扣款。命令点歌会在离开聊天界面后打开播放器确认。
+- 全服页、歌单中的全服点歌按钮及 `/minekumusic request` 都先显示确认弹窗，列出本次费用和币名。确认有效期 60 秒；取消或过期不扣款。命令点歌会在离开聊天界面后打开播放器确认。
 - 暂停只暂停本人收听，恢复时跟上全服进度；下一首按钮和快捷键用于投票切歌。个人拖动、上一首、随机和循环在频道模式不可用。
 - 队列先进先出。默认每人最多 3 首待播、成功点歌间隔 30 秒；当前歌曲不占待播名额。
 - 切歌门槛为当前已加入频道人数的 15%，向上取整且至少 1 票。例如 1–6 人需 1 票、7–13 人需 2 票、14–20 人需 3 票；不计入仅在线但未加入频道的玩家。每首歌每人一票，退出移除其投票，换歌清空投票。
@@ -101,8 +101,8 @@ economy-bridge-only=false
 
 ### Velocity 群组服
 
-1. Velocity 安装 `MineKUmusic-server-1.6.1-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.1-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+1. Velocity 安装 `MineKUmusic-server-1.6.2-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
+2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.2-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -121,7 +121,7 @@ request-fee-enabled=false
 - 费用购买的是一次点歌入队。扣款确认成功后，即使玩家已经离线，歌曲仍会入队；撤回、投票切歌、管理员删除，以及之后播放时音源变化导致的失败不自动退款。
 - `queue.json` 保存尚待核对的点歌，原扣款 Folia 后端的 `payments.json` 保存交易结果。回执延迟或重启后会核对原交易，已完成的扣款不会再次执行；核对期间暂停接受新的点歌，搜索和当前播放仍可继续。不要删除有未完成交易的文件，也不要在核对完成前更换后端名称或密钥。
 - 未送达的扣款首次执行期限为两分钟；如果后端确认没有执行过且期限已过，则不再扣款。已记录的结果保留 30 天；有待人工核对的记录持续保留，交易文件最多保留 50000 条，达到上限会停止新的扣款并提示维护。
-- Vault 扣款和本插件文件之间没有共同的数据库事务。若进程恰好在扣款执行中退出，插件会标记为待管理员核对，不自动重复扣款。管理员应先查询经济插件交易记录，然后在**原扣款 Folia 后端控制台**执行 `dgm payment <交易ID> paid`（确认已经扣款）或 `dgm payment <交易ID> cancel`（确认未扣款）。该命令只处理不确定交易，不能覆盖已确定的结果。代理随后会继续入队或结束该请求。
+- Vault 扣款和本插件文件之间没有共同的数据库事务。若进程恰好在扣款执行中退出，插件会标记为待管理员核对，不自动重复扣款。管理员应先查询经济插件交易记录，然后在**原扣款 Folia 后端控制台**执行 `minekumusic payment <交易ID> paid`（确认已经扣款）或 `minekumusic payment <交易ID> cancel`（确认未扣款）。该命令只处理不确定交易，不能覆盖已确定的结果。代理随后会继续入队或结束该请求。
 
 配置示例见仓库根目录的 `config.properties.example`，每项都带中文用途、取值范围和独立服 / 群组服说明。插件生成的 `config.properties` 使用同一份注释模板；旧版升级后启动一次，会自动补齐缺少的选项和中文注释，保留已有配置值，无需删除旧配置。首次将 `server-id` 留空会自动生成，生成后应保留。不要把真实密钥、账号 Cookie、`payments.json` 或运行中的配置文件提交到公开仓库。
 
@@ -141,37 +141,37 @@ request-fee-enabled=false
 | `economy-bridge-only` | `false` | Folia 后端仅提供经济桥接，队列由 Velocity 管理 |
 | `economy-bridge-secret` | 空 | 代理与桥接后端共享的随机密钥，至少 32 个字符 |
 
-配置文件使用 UTF-8。常用配置调整后执行 `/dgm reload`，频道标识、桥接模式和密钥变更则需完整重启，具体范围见下文；Cookie 文件下一次解析即生效。`queue.json` 自动保存队列和进度，重启时重新解析播放地址并从保存进度继续，不补算停机时间；不保存音频地址、Cookie 和投票。
+配置文件使用 UTF-8。常用配置调整后执行 `/minekumusic reload`，频道标识、桥接模式和密钥变更则需完整重启，具体范围见下文；Cookie 文件下一次解析即生效。`queue.json` 自动保存队列和进度，重启时重新解析播放地址并从保存进度继续，不补算停机时间；不保存音频地址、Cookie 和投票。
 
 ## 命令与权限
 
 | 命令 | 用途 | 权限 |
 | --- | --- | --- |
-| `/dgm` / `/dgm help [子命令]` | 中文帮助，仅列出当前身份和服务器模式可用的指令 | 所有人可查看帮助 |
-| `/dgm queue [页码]` | 查看当前歌曲和队列条目 ID | `dangomusic.use` |
-| `/dgm search <关键词>` | 搜索歌曲 ID | `dangomusic.use` |
-| `/dgm request <歌曲ID>` | 点歌，需要已加入频道 | `dangomusic.request` |
-| `/dgm withdraw <条目ID>` | 撤回自己的待播歌曲 | `dangomusic.use` |
-| `/dgm vote` | 投票切歌，需要已加入频道 | `dangomusic.vote` |
-| `/dgm skip` | 直接切歌 | `dangomusic.admin` |
-| `/dgm pause` / `/dgm resume` | 暂停或恢复整个频道 | `dangomusic.admin` |
-| `/dgm remove <条目ID>` | 删除任意待播歌曲 | `dangomusic.admin` |
-| `/dgm clear` | 停止当前歌曲并清空队列 | `dangomusic.admin` |
-| `/dgm reload` | 热重载常用配置，保留队列及交易状态 | `dangomusic.admin` |
-| `/dgm payment <交易ID> paid` / `cancel` | 原扣款 Folia 后端核对中断交易 | `dangomusic.admin` |
+| `/minekumusic` / `/minekumusic help [子命令]` | 中文帮助，仅列出当前身份和服务器模式可用的指令 | 所有人可查看帮助 |
+| `/minekumusic queue [页码]` | 查看当前歌曲和队列条目 ID | `dangomusic.use` |
+| `/minekumusic search <关键词>` | 搜索歌曲 ID | `dangomusic.use` |
+| `/minekumusic request <歌曲ID>` | 点歌，需要已加入频道 | `dangomusic.request` |
+| `/minekumusic withdraw <条目ID>` | 撤回自己的待播歌曲 | `dangomusic.use` |
+| `/minekumusic vote` | 投票切歌，需要已加入频道 | `dangomusic.vote` |
+| `/minekumusic skip` | 直接切歌 | `dangomusic.admin` |
+| `/minekumusic pause` / `/minekumusic resume` | 暂停或恢复整个频道 | `dangomusic.admin` |
+| `/minekumusic remove <条目ID>` | 删除任意待播歌曲 | `dangomusic.admin` |
+| `/minekumusic clear` | 停止当前歌曲并清空队列 | `dangomusic.admin` |
+| `/minekumusic reload` | 热重载常用配置，保留队列及交易状态 | `dangomusic.admin` |
+| `/minekumusic payment <交易ID> paid` / `cancel` | 原扣款 Folia 后端核对中断交易 | `dangomusic.admin` |
 
-以上命令也可将 `/dgm` 替换为 `/minekumusic`。普通功能默认允许，管理权限在 Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
+以上命令也可将 `/minekumusic` 替换为 `/music` 或 `/kum`，两者使用相同的权限、Tab 补全和处理逻辑。`/dgm` 已移除。普通功能默认允许，管理权限在 Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
 
 Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 补全可用子命令，`queue` 补全实际页码，`withdraw` 只补全自己的待播条目 ID，管理员的 `remove` 补全全部待播条目 ID，`vote` 可补全当前播放实例，`payment` 的最后一个参数补全 `paid` / `cancel`。搜索关键词和歌曲 ID 需按搜索结果输入，不会误补成在线玩家姓名。经济桥接后端只显示 `help`、`reload`、`payment`；Velocity 不处理后端的交易核对命令。
 
 ### 配置热重载
 
-1. 保存实际数据目录中的 `config.properties`，由管理员或控制台执行 `/dgm reload`（控制台省略 `/`）。群组服的频道和费用配置在 Velocity 重载。
+1. 保存实际数据目录中的 `config.properties`，由管理员或控制台执行 `/minekumusic reload`（控制台省略 `/`）。群组服的频道和费用配置在 Velocity 重载。
 2. 可热重载频道名称、每人及全局队列上限、点歌冷却、同步间隔、收费开关、价格和币名。队列、当前歌曲、播放进度、暂停状态、订阅、投票和交易记录保留；降低队列上限不会删除已入队歌曲。
 3. 调整收费开关、价格或币名后，尚未确认的旧报价失效，玩家需重新点歌；已经确认的请求按确认时的金额和币名继续处理，未决扣款仍核对原交易。
 4. `server-id`、`economy-bridge-only`、`economy-bridge-secret` 变更必须完整重启。若它们同时被修改，热重载会拒绝整次变更，并指出需重启的配置项；不会部分应用其他修改。密钥变更前应先处理完未决交易，再协调代理和后端。
 5. 配置格式或取值错误时，重载提示失败并继续使用运行中的原配置；修正文件后可以再次重载。连续重复执行时会提示正在处理。重载在异步线程读取文件，Folia 玩家线程不会等待磁盘操作。
-6. Folia 经济桥接后端也支持 `help`、Tab 和 `reload`，但它不拥有音乐队列，修改费用应在代理端完成。安装或更新插件 JAR、Vault 及经济插件仍需完整重启，`/dgm reload` 不会重新加载 JAR。
+6. Folia 经济桥接后端也支持 `help`、Tab 和 `reload`，但它不拥有音乐队列，修改费用应在代理端完成。安装或更新插件 JAR、Vault 及经济插件仍需完整重启，`/minekumusic reload` 不会重新加载 JAR。
 
 ## 构建与验证
 
@@ -191,6 +191,7 @@ Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 
 
 ### 本次验证记录
 
+- 1.6.2 将主指令改为 `/minekumusic`，仅注册 `/music`、`/kum` 两个别名；帮助、配置注释、搜索提示和聊天投票点击均使用主指令。服务端 62 项测试重新运行通过，客户端 14 项测试检查通过（代码未变，复用 Gradle 已通过结果），四个 JAR 均构建成功；已核对 Folia 成品命令描述及 Velocity 成品的注册与注销名称。尚未在实际服务器上验证别名与 Tab 补全。
 - 1.6.1 版本通过 76 项自动化测试（服务端 62 项、客户端 14 项）；本次新增指令帮助、补全规则、重载保留播放及队列、降低上限后恢复队列、无效配置回退、需重启选项及重载期间原价交易延续的验证。此前已覆盖中文配置注释、特殊字符和原配置值保留。尚未进行实际经济插件联调。
 - 四个 JAR 均构建成功；共享协议类、加载器描述文件和许可证已核对。
 - 收费测试使用隔离的合成余额与曲目，覆盖搜索免费、取消、费用确认、余额不足、重复提交、歌曲不可播放、命令点歌、离线与跨后端交易归属、重启核对、交易记录复用及人工核对。客户端测试覆盖确认、取消、过期、切服、旧版免费服务器及延迟回执。

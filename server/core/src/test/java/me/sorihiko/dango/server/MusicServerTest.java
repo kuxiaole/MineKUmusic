@@ -163,8 +163,8 @@ class MusicServerTest {
             send(server, a, "vote", "first-vote", vote);
             await(() -> wire.prompts.size() == 7);
             assertTrue(wire.prompts.stream().noneMatch(p -> p.player().equals(observer.id())));
-            assertTrue(wire.prompts.stream().allMatch(p -> p.command().equals("/dgm vote " + instance) && p.text().contains("1/2")));
-            String[] click = wire.prompts.getFirst().command().substring("/dgm ".length()).split(" ");
+            assertTrue(wire.prompts.stream().allMatch(p -> p.command().equals("/minekumusic vote " + instance) && p.text().contains("1/2")));
+            String[] click = wire.prompts.getFirst().command().substring("/minekumusic ".length()).split(" ");
             server.command(a, click);
             await(() -> wire.chat.stream().anyMatch(c -> c.player().equals(a.id()) && c.text().equals("You have already voted for this song")));
             assertEquals(7, wire.prompts.size());
