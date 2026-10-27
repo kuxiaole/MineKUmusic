@@ -59,6 +59,68 @@ class MusicServerTest {
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(10);
         assertTrue(condition.getAsBoolean(), "Expected music event was not received");
     }
+    @Test void rootHelpAndInvalidArgumentsProduceUsefulChatResponses() throws Exception {
+        Wire wire = new Wire(); var a = peer("Synthetic command user");
+        try (MusicServer server = server(wire)) {
+            server.command(a, new String[0]);
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("指令帮助")));
+            server.command(a, new String[]{"queue", "not-a-page"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("参数必须是有效的数字")));
+            server.command(a, new String[]{"help", "request"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("确认点歌费用")));
+            assertTrue(wire.errors.isEmpty(), wire.errors.toString());
+        }
+    }
+    @Test void reloadPreservesPlaybackListenersAndQueuedEntriesWhenLimitsShrink() throws Exception {
+        Wire wire = new Wire(); var a = peer("Synthetic reload user");
+        try (MusicServer server = server(wire)) {
+            send(server, a, "hello"); send(server, a, "subscribe");
+            for (int i = 0; i < 4; i++) {
+                String rid = "reload-song-" + i;
+                JsonObject body = new JsonObject(); body.addProperty("songId", 101 + i);
+                send(server, a, "request", rid, body);
+                await(() -> wire.of(a.id(), "result").stream().anyMatch(m -> m.get("requestId").getAsString().equals(rid)));
+            }
+            await(() -> !wire.of(a.id(), "audio").isEmpty());
+            server.command(MusicServer.console(), new String[]{"pause"});
+            await(() -> wire.last(a.id(), "snapshot").get("paused").getAsBoolean());
+            JsonObject before = wire.last(a.id(), "snapshot");
+            List<String> entries = server.suggest(a, new String[]{"withdraw", ""}, MusicCommands.Mode.FOLIA);
+            assertEquals(3, entries.size());
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=合成重载频道\nplayer-queue-limit=1\nqueue-limit=1\nrequest-cooldown-seconds=0\nsync-seconds=3\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.startsWith("配置重载成功")));
+            JsonObject after = wire.last(a.id(), "snapshot");
+            assertEquals(before.get("instance"), after.get("instance"));
+            assertEquals(before.get("positionMs"), after.get("positionMs"));
+            assertTrue(after.get("paused").getAsBoolean()); assertEquals(1, after.get("listeners").getAsInt());
+            assertEquals(3, after.get("queueSize").getAsInt());
+            assertEquals(entries, server.suggest(a, new String[]{"withdraw", ""}, MusicCommands.Mode.FOLIA));
+            assertEquals("合成重载频道", wire.last(a.id(), "welcome").get("channelName").getAsString());
+            server.close(); server.termination().toCompletableFuture().get(5, TimeUnit.SECONDS);
+            QueueEngine restored = new QueueEngine(System::nanoTime, 1, 1, 0);
+            restored.restore(JsonParser.parseString(Files.readString(directory.resolve("queue.json"))).getAsJsonObject());
+            assertEquals(3, restored.queue().size());
+            assertTrue(wire.errors.isEmpty(), wire.errors.toString());
+        }
+    }
+    @Test void invalidReloadKeepsTheRunningConfigurationAndCorrectedReloadSucceeds() throws Exception {
+        Wire wire = new Wire(); var a = peer("Synthetic config user");
+        try (MusicServer server = server(wire)) {
+            send(server, a, "hello"); await(() -> !wire.of(a.id(), "welcome").isEmpty());
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=Invalid update\nqueue-limit=0\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.startsWith("配置重载失败")));
+            send(server, a, "hello", "after-invalid-reload", new JsonObject());
+            await(() -> wire.of(a.id(), "welcome").stream().anyMatch(m -> m.get("requestId").getAsString().equals("after-invalid-reload")));
+            assertEquals("Fixture channel", wire.last(a.id(), "welcome").get("channelName").getAsString());
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=Corrected update\nqueue-limit=10\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.startsWith("配置重载成功")));
+            assertEquals("Corrected update", wire.last(a.id(), "welcome").get("channelName").getAsString());
+            assertTrue(wire.errors.isEmpty(), wire.errors.toString());
+        }
+    }
     @Test void optInSharedPlaybackRehandshakeAndVoteWorkEndToEnd() throws Exception {
         Wire wire = new Wire(); var a = peer("A"); var b = peer("B");
         try (MusicServer server = server(wire)) {

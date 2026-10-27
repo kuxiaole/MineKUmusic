@@ -23,6 +23,9 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
     }
 
     public static ServerConfig load(Path directory) throws IOException {
+        return load(directory, null);
+    }
+    public static ServerConfig load(Path directory, ServerConfig running) throws IOException {
         Files.createDirectories(directory);
         Path cookie = directory.resolve("netease-cookie.txt");
         if (!Files.exists(cookie)) {
@@ -51,6 +54,13 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
                 integer(p, "player-queue-limit", 1, 100), integer(p, "queue-limit", 1, 1000),
                 integer(p, "request-cooldown-seconds", 0, 3600), integer(p, "sync-seconds", 1, 10),
                 bool(p, "request-fee-enabled"), amount, currency, bool(p, "economy-bridge-only"), p.getProperty("economy-bridge-secret").strip());
+        if (running != null) {
+            List<String> restart = new ArrayList<>();
+            if (!config.serverId.equals(running.serverId)) restart.add("server-id");
+            if (config.economyBridgeOnly != running.economyBridgeOnly) restart.add("economy-bridge-only");
+            if (!config.economyBridgeSecret.equals(running.economyBridgeSecret)) restart.add("economy-bridge-secret");
+            if (!restart.isEmpty()) throw new IllegalArgumentException("以下配置变更需要完整重启，本次未应用：" + String.join("、", restart));
+        }
         writeAnnotated(path, p, template);
         return config;
     }

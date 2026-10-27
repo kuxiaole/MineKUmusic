@@ -66,6 +66,18 @@ class ServerConfigTest {
         assertEquals(preferred, ServerConfig.dataDirectory(preferred, "minekumusic", "DangoMusic"));
         assertEquals("MineKU Music", ServerConfig.load(preferred).channelName());
     }
+    @Test void topologyChangesRequireRestartAndFailedReloadDoesNotRewriteTheFile() throws Exception {
+        ServerConfig running = ServerConfig.load(plugins);
+        Path file = plugins.resolve("config.properties");
+        for (String setting : new String[]{"server-id=synthetic-other-channel", "economy-bridge-only=true",
+                "economy-bridge-secret=synthetic-replacement-secret-not-a-real-credential"}) {
+            String edited = "server-id=" + running.serverId() + "\n" + setting + "\n";
+            Files.writeString(file, edited);
+            IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> ServerConfig.load(plugins, running));
+            assertTrue(error.getMessage().contains("完整重启"));
+            assertEquals(edited, Files.readString(file));
+        }
+    }
 
     @Test void existingFoliaAndVelocityConfigsKeepTheirServerIdAndFiles() throws Exception {
         for (String legacyName : new String[]{"DangoMusic", "dangomusic-server"}) {

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
@@ -145,5 +146,22 @@ class RequestFeeTest {
         assertEquals(1, withdrawals.size()); assertEquals(2, payments.size());
         assertEquals(transaction, payments.getLast().id()); assertEquals("fixture-backend-a", payments.getLast().backend());
         assertEquals(transaction, last("audio").getAsJsonObject("current").get("entryId").getAsString());
+    }
+    @Test void reloadKeepsAnAcceptedPaymentAtItsQuotedPriceAndUpdatesNewQuotes() throws Exception {
+        delayed = new CompletableFuture<>(); start(true);
+        String first = send("confirmRequest", confirmation(quote(101)));
+        await(() -> payments.size() == 1);
+        Files.writeString(directory.resolve("config.properties"), "server-id=synthetic-network\nrequest-fee-enabled=true\nrequest-fee-amount=20\ncurrency-name=新版测试币\nrequest-cooldown-seconds=0\n");
+        server.command(MusicServer.console(), new String[]{"reload"});
+        await(() -> last("welcome").get("requestPrice").getAsString().equals("20"));
+        delayed.complete(EconomyService.Result.paid());
+        awaitResult(first); await(() -> !of("audio").isEmpty());
+        assertEquals(1, payments.size()); assertEquals(new BigDecimal("12.50"), payments.getFirst().amount());
+        String next = quote(102);
+        assertEquals("20", last("requestQuote").get("amount").getAsString());
+        assertEquals("新版测试币", last("requestQuote").get("currencyName").getAsString());
+        String second = send("confirmRequest", confirmation(next)); awaitResult(second);
+        assertEquals(2, payments.size()); assertEquals(2, withdrawals.size());
+        assertEquals(0, new BigDecimal("20").compareTo(payments.getLast().amount()));
     }
 }

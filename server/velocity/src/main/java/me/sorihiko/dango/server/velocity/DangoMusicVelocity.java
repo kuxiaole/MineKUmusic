@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.*;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.0", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.1", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -44,11 +44,14 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("dgm").aliases("minekumusic").plugin(this).build(), new SimpleCommand() {
                 @Override public void execute(Invocation invocation) {
                     MusicServer current = music; if (current == null) return;
-                    if (invocation.source() instanceof Player player) current.command(peer(player), invocation.arguments());
-                    else if (invocation.source() instanceof ConsoleCommandSource) current.command(MusicServer.console(), invocation.arguments());
+                    if (invocation.source() instanceof Player player) current.command(peer(player), invocation.arguments(), MusicCommands.Mode.VELOCITY);
+                    else if (invocation.source() instanceof ConsoleCommandSource) current.command(MusicServer.console(), invocation.arguments(), MusicCommands.Mode.VELOCITY);
                 }
                 @Override public List<String> suggest(Invocation invocation) {
-                    return invocation.arguments().length <= 1 ? List.of("queue", "search", "request", "withdraw", "vote", "skip", "pause", "resume", "clear", "remove") : List.of();
+                    MusicServer current = music;
+                    MusicServer.Peer peer = invocation.source() instanceof Player player ? peer(player)
+                            : invocation.source() instanceof ConsoleCommandSource ? MusicServer.console() : null;
+                    return current == null || peer == null ? List.of() : current.suggest(peer, invocation.arguments(), MusicCommands.Mode.VELOCITY);
                 }
             });
         } catch (Exception e) { logger.error("Could not start MineKUmusic", e); shutdown(null); }

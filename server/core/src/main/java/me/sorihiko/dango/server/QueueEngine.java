@@ -13,8 +13,8 @@ public final class QueueEngine {
         public RuleException(String message) { super(message); }
     }
     private final LongSupplier clock;
-    private final int playerLimit, queueLimit;
-    private final long cooldownNanos;
+    private int playerLimit, queueLimit;
+    private long cooldownNanos;
     private final List<Entry> queue = new ArrayList<>();
     private final Set<String> listeners = new HashSet<>(), votes = new HashSet<>();
     private final Map<String, Long> lastRequest = new HashMap<>();
@@ -24,7 +24,11 @@ public final class QueueEngine {
     private long baseMs, anchorNanos, revision;
 
     public QueueEngine(LongSupplier clock, int playerLimit, int queueLimit, long cooldownSeconds) {
-        this.clock = clock; this.playerLimit = playerLimit; this.queueLimit = queueLimit;
+        this.clock = clock;
+        configure(playerLimit, queueLimit, cooldownSeconds);
+    }
+    public void configure(int playerLimit, int queueLimit, long cooldownSeconds) {
+        this.playerLimit = playerLimit; this.queueLimit = queueLimit;
         cooldownNanos = cooldownSeconds * 1_000_000_000L;
     }
     public boolean subscribed(String id) { return listeners.contains(id); }
@@ -111,7 +115,8 @@ public final class QueueEngine {
         queue.clear(); current = null; votes.clear(); listeners.clear(); lastRequest.clear();
         if (saved.has("queue")) for (JsonElement item : saved.getAsJsonArray("queue")) {
             Entry entry = MusicProtocol.GSON.fromJson(item, Entry.class);
-            if (valid(entry) && queue.size() < queueLimit) queue.add(entry);
+            // Keep accepted songs when a reload lowered the configured queue limit.
+            if (valid(entry) && queue.size() < 1000) queue.add(entry);
         }
         if (saved.has("current") && !saved.get("current").isJsonNull()) {
             Entry entry = MusicProtocol.GSON.fromJson(saved.get("current"), Entry.class);

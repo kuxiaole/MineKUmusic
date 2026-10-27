@@ -9,7 +9,7 @@ authors: ["\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"]
 commands:
   dgm:
     aliases: [minekumusic]
-    description: Server music queue and administration
+    description: 全服音乐帮助、点歌、队列管理与配置重载
     usage: /dgm help
 permissions:
   dangomusic.use:
