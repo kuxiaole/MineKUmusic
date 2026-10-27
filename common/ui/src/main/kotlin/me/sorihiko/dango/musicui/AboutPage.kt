@@ -13,6 +13,9 @@ internal class AboutPage(screen: MusicScreen) {
     private val ui = screen.ui
     private data class Credit(val title: String, val author: String, val description: String, val url: String = "")
     private val credits = listOf(
+        Credit("Project source", "MineKUmusic | \u5c0f\u4e50 | GPL-3.0",
+            "Source code and issue tracker for MineKUmusic. Use the button to copy the repository link.",
+            "https://github.com/kuxiaole/MineKUmusic"),
         Credit("DangoMusic", "Sorihiko | GPL-3.0",
             "Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.",
             "https://github.com/Sorihiko/DangoMusic"),
@@ -66,7 +69,7 @@ internal class AboutPage(screen: MusicScreen) {
                 }
                 if (credit.url.isNotEmpty()) {
                     val linkY = top + 43f + descriptions[index].size * 18f
-                    ui.text(ui.trim(credit.url.removePrefix("https://"), width - 42f, 11f), view.x, linkY + 8f, 11f, Theme.TEXT_PRIMARY)
+                    ui.text(ui.trim(credit.url, width - 42f, 11f), view.x, linkY + 8f, 11f, Theme.TEXT_PRIMARY)
                     val copy = LayoutBounds(view.x + width - 30f, linkY, 28f, 28f)
                     if (ui.hover(copy)) ui.card(copy, Theme.CARD_HOVER, 6f)
                     val copied = copiedUrl == credit.url && System.currentTimeMillis() < copiedUntil

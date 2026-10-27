@@ -151,6 +151,8 @@ Payment is being checked; do not request this song again	正在核对扣款结�
 Payment requires an administrator to check the transaction record	扣款结果需要管理员核对交易记录
 Project origins and credits	项目来源与署名
 This version is developed by %s.	本版本由%s开发
+Project source	本项目开源地址
+Source code and issue tracker for MineKUmusic. Use the button to copy the repository link.	MineKUmusic 的源码与问题反馈仓库，点击右侧按钮可复制开源地址。
 Upstream design credit	上游设计参考
 License	许可证
 Bundled components	内置开源组件
