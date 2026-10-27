@@ -1,6 +1,6 @@
-# Server-side NetEase login, independent of each player's personal login.
-# Paste your complete request Cookie header or MUSIC_U=value on the next line.
-# Leave blank for anonymous playback. Do not include quotes around the full header.
-# A nonempty value here takes priority over an AllMusic-format cookie.json.
-# Changes take effect on the next song lookup; no server restart is needed.
-# Keep this file private. Never distribute it with the plugin or client.
+# 网易云服务端账号登录配置，与玩家客户端的个人登录相互独立。
+# 在下方空白处填写完整的 Cookie 请求头，或 MUSIC_U=你的实际登录值；整段不要加引号。
+# 留空表示匿名播放；是否能播放会员歌曲，取决于该账号的实际播放权限。
+# 本文件有有效内容时优先使用；为空或只有注释时，会尝试读取同目录的 AllMusic 格式 cookie.json。
+# 保存后下一次搜索、点歌或刷新播放地址时生效，无需重启服务器。
+# Cookie 相当于账号登录凭据，请妥善保管，不要发给玩家，也不要上传到公开仓库。

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.math.BigDecimal;
+import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ServerConfigTest {
@@ -26,6 +27,38 @@ class ServerConfigTest {
             Files.writeString(plugins.resolve("config.properties"), "request-fee-amount=" + amount + "\n");
             assertThrows(IllegalArgumentException.class, () -> ServerConfig.load(plugins));
         }
+    }
+
+    @Test void chineseCommentsAndExistingValuesSurviveUpgradeAndRestart() throws Exception {
+        Path file = plugins.resolve("config.properties");
+        Properties original = new Properties();
+        original.setProperty("server-id", "synthetic-comment-upgrade");
+        original.setProperty("channel-name", " 合成频道:=测试\\名称");
+        original.setProperty("request-fee-enabled", "true");
+        original.setProperty("request-fee-amount", "2.50");
+        original.setProperty("currency-name", "测试KU币");
+        original.setProperty("economy-bridge-secret", "synthetic-test-secret-only:=not-a-real-credential\\");
+        original.setProperty("custom:option", " 合成值\n保留特殊字符:=\\");
+        try (var writer = Files.newBufferedWriter(file)) { original.store(writer, null); }
+        ServerConfig first = ServerConfig.load(plugins);
+        String annotated = Files.readString(file);
+        assertEquals(first, ServerConfig.load(plugins));
+        assertEquals(annotated, Files.readString(file));
+        Properties reloaded = new Properties();
+        try (var reader = Files.newBufferedReader(file)) { reloaded.load(reader); }
+        for (String key : original.stringPropertyNames()) assertEquals(original.getProperty(key), reloaded.getProperty(key), key);
+        int documented = 0;
+        String previous = "";
+        for (String line : annotated.lines().toList()) {
+            if (!line.isBlank() && !line.startsWith("#")) {
+                assertTrue(previous.startsWith("#") && previous.codePoints().anyMatch(c -> c >= 0x4e00 && c <= 0x9fff), line);
+                documented++;
+            }
+            previous = line;
+        }
+        assertEquals(reloaded.size(), documented);
+        assertTrue(annotated.contains("默认 KU币"));
+        assertTrue(annotated.contains("单位：秒"));
     }
 
     @Test void freshInstallationUsesTheNewDirectoryAndBrand() throws Exception {

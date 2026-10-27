@@ -1,17 +1,56 @@
-# MineKUmusic: copy selected settings into the generated config.properties.
-# Keep the generated server-id unchanged. Restart after editing.
+# MineKUmusic 全服音乐配置（UTF-8 编码）
+# 修改等号右边的值即可；true 表示开启，false 表示关闭。
+# 修改后需完整重启插件所在的 Folia 或 Velocity，配置才会生效。
+# 插件启动时会补齐缺少的选项和中文说明，保留已有配置值。
+
+# 【频道与点歌规则】
+# 服务器或群组频道的固定标识。首次留空会自动生成，请保留生成后的值。
+# 客户端根据它记住是否加入频道；更换它会让玩家的加入偏好重新开始。
+# 群组服以 Velocity 的标识为准，经济桥接后端的此项不参与频道管理。
+server-id=
+
+# 客户端显示的全服音乐频道名称，可以改成自己的服务器名称。
 channel-name=MineKU Music
+
+# 每位玩家最多可保留的待播歌曲数：1～100，默认 3 首；正在播放的歌曲不占名额。
 player-queue-limit=3
+
+# 整个频道最多可保留的待播歌曲数：1～1000，默认 100 首；队列满后不能继续点歌。
 queue-limit=100
+
+# 同一玩家两次成功点歌之间的冷却时间，单位：秒；范围 0～3600，默认 30。
+# 设为 0 表示不限制间隔；点歌失败不会开始新的冷却。
 request-cooldown-seconds=30
+
+# 服务端向客户端同步播放进度的间隔，单位：秒；范围 1～10，默认 2。
+# 数值越小，同步越频繁、消息越多；一般保持默认值即可。
 sync-seconds=2
 
-# Only successful song requests are charged. Search and listening stay free.
+# 【点歌收费】
+# 是否启用全服点歌收费，默认 false（免费）；true 为收费。
+# 只收取点歌入队的费用，搜索、收听、查看队列、投票和个人播放均免费。
+# 独立 Folia 需要 Vault 接口插件及支持 Folia 的经济插件；群组服还需配置下方经济桥接。
+# 群组服由 Velocity 的收费配置决定费用，后端经济桥接模式不读取此项决定价格。
 request-fee-enabled=false
+
+# 每首歌曲点歌入队的价格，默认 10；范围 0～1000000，最多两位小数，例如 2.50。
+# 经济插件也必须支持所填的小数精度；收费关闭或价格为 0 时免费。
+# 玩家确认后由服务端执行扣款；扣款成功才入队，撤回、切歌或之后播放失败不自动退款。
 request-fee-amount=10
+
+# 弹窗与付款提示显示的货币名称，默认 KU币；支持 1～32 个可见字符。
+# 例如：金币、银币、积分。这里只改名称，实际余额仍使用 Vault 对接的经济插件。
 currency-name=KU币
 
-# Folia backends behind Velocity: true. Standalone Folia: false.
+# 【Velocity 群组服经济桥接】
+# 是否让 Folia 插件只负责扣款、不建立音乐频道，默认 false。
+# 独立 Folia：false。群组服收费的 Folia 后端：true。Velocity 配置中保持 false。
+# 群组服队列由 Velocity 统一管理，各后端的 Vault 经济插件还需共用或同步余额。
+# 设为 true 时，上方频道、队列和收费规则由 Velocity 配置决定。
 economy-bridge-only=false
-# Set the same random secret (at least 32 characters) on proxy and backends.
+
+# 代理与后端之间校验扣款消息的共享密钥，默认留空。
+# 独立 Folia 不需要填写；群组服收费时，在 Velocity 和所有经济桥接后端填写同一个随机值。
+# 密钥至少 32 个字符，建议使用随机字母和数字；启用经济桥接模式后不能留空。
+# 密钥仅供服务器之间使用，不要发给玩家，也不要上传到公开仓库。
 economy-bridge-secret=
