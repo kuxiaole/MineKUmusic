@@ -1,0 +1,21 @@
+name: MineKUmusic
+version: '${version}'
+main: me.sorihiko.dango.server.folia.DangoMusicFolia
+api-version: '26.2'
+folia-supported: true
+description: Server music for MineKU Music, based on DangoMusic with AllMusic as a server design reference
+authors: ["\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"]
+commands:
+  dgm:
+    aliases: [minekumusic]
+    description: Server music queue and administration
+    usage: /dgm help
+permissions:
+  dangomusic.use:
+    default: true
+  dangomusic.request:
+    default: true
+  dangomusic.vote:
+    default: true
+  dangomusic.admin:
+    default: op

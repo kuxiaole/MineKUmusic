@@ -1,0 +1,116 @@
+package me.sorihiko.dango.music
+
+import com.google.gson.JsonObject
+import me.sorihiko.dango.DangoMusic
+import me.sorihiko.dango.platform.Platform
+import me.sorihiko.dango.protocol.MusicProtocol
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.BeforeClass
+import org.junit.Test
+import java.lang.reflect.Proxy
+import java.nio.file.Files
+import java.util.UUID
+import java.util.concurrent.CompletableFuture
+
+class ServerMusicTest {
+    companion object {
+        @BeforeClass @JvmStatic fun initialize() {
+            val directory = Files.createTempDirectory("dango-channel-test-")
+            val platform = Proxy.newProxyInstance(Platform::class.java.classLoader, arrayOf(Platform::class.java)) { _, method, _ ->
+                when (method.name) {
+                    "getConfigDir" -> directory
+                    "getPlayerName" -> "Synthetic test player"
+                    "getLanguageCode" -> "en_us"
+                    else -> when (method.returnType) {
+                        java.lang.Boolean.TYPE -> false
+                        java.lang.Integer.TYPE -> 0
+                        java.lang.Float.TYPE -> 0f
+                        else -> null
+                    }
+                }
+            } as Platform
+            DangoMusic.start(platform, emptyList())
+        }
+    }
+    private val sent = mutableListOf<JsonObject>()
+    private val assembler = MusicProtocol.Assembler()
+    private var network = ""
+    private val transport = ServerMusic.Transport { bytes -> assembler.accept(bytes)?.let { sent.add(it) }; true }
+    @Before fun reset() {
+        ServerMusic.disconnected(); MusicPlayer.restoreQueue(emptyList(), -1, 0, false, false)
+        network = UUID.randomUUID().toString(); sent.clear()
+    }
+    private fun deliver(type: String, body: JsonObject, rid: String = "") {
+        body.addProperty("serverId", network)
+        MusicProtocol.frames(MusicProtocol.message(type, rid, body)).forEach { ServerMusic.receive(it) }
+    }
+    private fun welcome(epoch: String = "first") {
+        ServerMusic.connectionOpened(); ServerMusic.playReady(transport)
+        deliver("welcome", JsonObject().apply {
+            addProperty("epoch", epoch); addProperty("channelName", "Test channel"); addProperty("playerId", "player")
+            addProperty("canRequest", true); addProperty("canVote", true)
+        })
+    }
+    private fun join() {
+        ServerMusic.join()
+        val rid = sent.last { it.get("type").asString == "subscribe" }.get("requestId").asString
+        deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Joined server music") }, rid)
+    }
+    @Test fun firstVisitDoesNotAutoJoin() { welcome(); assertTrue(ServerMusic.available); assertFalse(ServerMusic.joined); assertFalse(sent.any { it.get("type").asString == "subscribe" }) }
+    @Test fun leavingRestoresAnInactivePersonalQueue() {
+        val track = NeteaseTrack(101, "Synthetic personal track", listOf("Fixture artist"), 180000, "")
+        MusicPlayer.restoreQueue(listOf(track), 0, 0, false, false)
+        welcome(); join(); assertTrue(ServerMusic.joined)
+        ServerMusic.leave(); assertFalse(ServerMusic.joined); assertEquals(101, MusicPlayer.queue.single().id); assertFalse(MusicPlayer.active)
+    }
+    @Test fun backendConfigurationAndRehandshakeKeepSubscription() {
+        welcome(); join(); ServerMusic.configurationPhase()
+        assertTrue(ServerMusic.joined)
+        welcome(); assertTrue(ServerMusic.joined)
+        ServerMusic.disconnected(); assertFalse(ServerMusic.joined); assertFalse(ServerMusic.available)
+    }
+    @Test fun personalSelectionRequiresConfirmation() {
+        welcome(); join()
+        ServerMusic.playPersonal(emptyList(), 0)
+        assertTrue(ServerMusic.joined); assertNotNull(ServerMusic.pendingPersonal)
+        ServerMusic.cancelPersonal(); assertTrue(ServerMusic.joined); assertNull(ServerMusic.pendingPersonal)
+    }
+    @Test fun pauseIsLocalAndNextSendsVote() {
+        welcome(); join()
+        deliver("snapshot", JsonObject().apply { addProperty("revision", 1); addProperty("instance", "fixture-current-song") })
+        sent.clear()
+        ServerMusic.togglePause(); assertTrue(ServerMusic.locallyPaused); assertTrue(sent.isEmpty())
+        ServerMusic.previous(); ServerMusic.seek(5000); assertTrue(sent.isEmpty())
+        ServerMusic.next(); assertEquals("vote", sent.single().get("type").asString)
+        assertEquals("fixture-current-song", sent.single().getAsJsonObject("body").get("instance").asString)
+    }
+    @Test fun snapshotsIgnoreOlderRevisionAndRestartResetsIt() {
+        welcome()
+        deliver("snapshot", JsonObject().apply { addProperty("revision", 10); addProperty("listeners", 4) })
+        deliver("snapshot", JsonObject().apply { addProperty("revision", 9); addProperty("listeners", 2) })
+        assertEquals(4, ServerMusic.listeners)
+        welcome("restarted")
+        deliver("snapshot", JsonObject().apply { addProperty("revision", 0); addProperty("listeners", 1) })
+        assertEquals(1, ServerMusic.listeners)
+    }
+    @Test fun subscriptionPreferenceBelongsToNetworkId() {
+        welcome(); join()
+        ServerMusic.disconnected(); sent.clear(); welcome()
+        assertTrue(sent.any { it.get("type").asString == "subscribe" })
+        ServerMusic.disconnected(); network = UUID.randomUUID().toString(); sent.clear(); welcome()
+        assertFalse(sent.any { it.get("type").asString == "subscribe" })
+    }
+    @Test fun serverPauseFreezesPositionAndDisconnectClearsClock() {
+        welcome()
+        val track = MusicProtocol.Track(101, "Synthetic clock song", listOf("Fixture"), 180000, "")
+        deliver("snapshot", JsonObject().apply {
+            addProperty("revision", 1); addProperty("instance", "clock")
+            add("current", MusicProtocol.GSON.toJsonTree(MusicProtocol.Entry(track, "a", "A")))
+            addProperty("positionMs", 5000); addProperty("paused", true); addProperty("ready", true)
+        })
+        assertEquals(5000L, ServerMusic.expectedPosition())
+        assertEquals(5000L, CompletableFuture.supplyAsync { ServerMusic.expectedPosition() }.get())
+        ServerMusic.disconnected(); assertEquals(0L, ServerMusic.expectedPosition())
+    }
+}

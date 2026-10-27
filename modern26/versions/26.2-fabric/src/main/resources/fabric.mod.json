@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "dangomusic",
+  "version": "${version}",
+  "name": "MineKU Music",
+  "description": "Personal and server music, based on DangoMusic by Sorihiko. Server design references AllMusic by Coloryr. Project credits are available in Settings > About.",
+  "authors": ["\u5c0f\u4e50 (MineKU Music)", "Sorihiko (DangoMusic)"],
+  "license": "GPL-3.0",
+  "icon": "assets/dangomusic/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["me.sorihiko.dango.fabric.DangoMusicFabric"]
+  },
+  "mixins": ["dangomusic.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_range}",
+    "java": ">=${java_version}"
+  }
+}

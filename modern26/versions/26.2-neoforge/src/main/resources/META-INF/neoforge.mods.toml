@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0"
+
+[[mods]]
+modId="dangomusic"
+version="${version}"
+displayName="MineKU Music"
+authors="\u5c0f\u4e50 (MineKU Music), Sorihiko (DangoMusic)"
+logoFile="assets/dangomusic/icon.png"
+description='''
+Personal and server music, based on DangoMusic by Sorihiko.
+Server design references AllMusic by Coloryr. Project credits are available in Settings > About.
+'''
+
+[[mixins]]
+config="dangomusic.mixins.json"
+
+[[dependencies.dangomusic]]
+modId="neoforge"
+type="required"
+versionRange="[26.2,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.dangomusic]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_range}"
+ordering="NONE"
+side="CLIENT"

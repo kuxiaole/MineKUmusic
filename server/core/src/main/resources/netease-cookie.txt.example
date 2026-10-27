@@ -1,0 +1,6 @@
+# Server-side NetEase login, independent of each player's personal login.
+# Paste your complete request Cookie header or MUSIC_U=value on the next line.
+# Leave blank for anonymous playback. Do not include quotes around the full header.
+# A nonempty value here takes priority over an AllMusic-format cookie.json.
+# Changes take effect on the next song lookup; no server restart is needed.
+# Keep this file private. Never distribute it with the plugin or client.

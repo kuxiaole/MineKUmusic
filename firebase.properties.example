@@ -1,0 +1,5 @@
+# 复制到 common/core/src/main/resources/firebase.properties（构建时打进 jar），
+# 或者放到 .minecraft/config/dangomusic/firebase.properties（只对这台电脑生效）。
+# Firebase 控制台 → 项目设置 → 常规 → 你的应用（Web）里能找到这两个值。
+apiKey=AIzaSy...
+databaseUrl=https://your-project-default-rtdb.firebaseio.com

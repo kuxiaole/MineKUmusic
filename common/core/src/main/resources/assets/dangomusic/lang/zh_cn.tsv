@@ -1,0 +1,263 @@
+# English source text<TAB>Simplified Chinese
+Language	语言
+Choose the player interface language	选择播放器界面语言
+Settings	设置
+Changes apply instantly and are saved automatically	修改立即生效并自动保存
+Lyrics	歌词
+Music & HUD	音乐与 HUD
+Player	播放器
+Playback	播放设置
+Hotkeys	快捷键
+Click, then press a key · Backspace clears	点击后按键设置，退格键清除
+Song card	歌曲卡片
+Overlay	悬浮显示
+Dynamic Island	灵动岛
+Placement	位置
+In the world	世界中的歌词
+Glow	发光
+Deep Glow	柔和光晕
+Motion	动态效果
+Animation	动画
+Now playing	正在播放
+Classic overlay	经典悬浮显示
+Other	其他
+More	更多设置
+Press a key	请按键
+None	未绑定
+Volume	音量
+Playback volume	播放音量
+Shuffle	随机播放
+Play songs in random order	以随机顺序播放歌曲
+Repeat one	单曲循环
+Repeat the current song when it finishes	歌曲播完后自动重播
+Open key	打开播放器
+Key that opens the player	打开播放器界面的快捷键
+Play / Pause	播放 / 暂停
+Hotkey to play or pause	播放或暂停的快捷键
+Previous	上一首
+Hotkey for the previous song	切换上一首的快捷键
+Next	下一首
+Hotkey for the next song	切换下一首的快捷键
+Volume up	增大音量
+Hotkey to raise the volume by 5%	每次增大 5% 音量
+Volume down	减小音量
+Hotkey to lower the volume by 5%	每次减小 5% 音量
+Toggle lyrics	开关歌词
+Hotkey to turn lyrics on or off	显示或隐藏歌词的快捷键
+3D lyrics	3D 歌词
+Show lyrics floating in the world	在世界中显示漂浮歌词
+Show the current song in the top left	在左上角显示当前歌曲
+Cover	封面
+Show the album cover in the top left	在左上角显示专辑封面
+Scale	大小
+Lyrics size	歌词大小
+Distance	距离
+How far away 3D lyrics appear (blocks)	3D 歌词的显示距离（方块）
+Deep Glow style: white-hot core, wide soft halo	明亮文字与宽阔柔和的光晕
+Glow color	发光颜色
+Glow tint: text color, pink, blue or gold	跟随字色、粉色、蓝色或金色
+Glow strength	发光强度
+Glow brightness	光晕亮度
+Glow radius	发光范围
+Halo spread: higher is wider and softer	数值越大，光晕越宽越柔和
+Smooth font	平滑字体
+Smooth font instead of the Minecraft pixel font	用平滑字体替代游戏像素字体
+Wiggle	抖动
+Low-fps jitter on every letter, like hand-drawn animation	让每个字呈现手绘动画般的低帧率抖动
+Wiggle fps	抖动帧率
+Jitter frame rate: lower feels more hand-drawn	帧率越低，手绘感越强
+Wiggle amount	抖动幅度
+Jitter strength	文字抖动的强度
+Text flash	文闪
+Words slam onto the screen one by one, synced to the beat	文字随节拍逐个闪现
+Word pop	逐词弹出
+Words pop in one by one as they are sung	跟随演唱进度逐词弹出
+Flash size	文闪大小
+Text flash size	文闪文字大小
+Face player	朝向玩家
+Lyrics keep turning to face you	歌词始终转向玩家
+Keep away	保持距离
+Lyrics back off when you walk or sprint into them	靠近歌词时自动向后避让
+Stay on screen	保持在屏幕内
+Lyrics glide back into view when you turn away, so they never leave the screen	转动视角时，歌词平滑移回屏幕内
+Above ground	保持离地
+Lyrics never appear below your eyes, so they don't sink into the ground	避免歌词过低或沉入地面
+Spread	分布范围
+How far left or right each line can appear (degrees)	每句歌词的左右偏移范围（度）
+Split lines	自动拆句
+Split two lines written as one (NetEase often does this) so they appear separately	将网易云合并在一行的两句歌词分开显示
+Card size	歌曲卡片大小
+Show when paused	暂停时显示
+Keep the card visible while paused	暂停播放后仍显示歌曲卡片
+Pos X	水平位置
+Horizontal position (or drag it with chat open)	水平位置，也可打开聊天栏后拖动
+Pos Y	垂直位置
+Vertical position (or drag it with chat open)	垂直位置，也可打开聊天栏后拖动
+Liquid glass	液态玻璃
+Liquid glass background; off is a solid black pill	关闭后使用纯黑背景
+Music	音乐
+Show what the built-in player is playing	显示内置播放器的当前歌曲
+Song notify	歌曲通知
+Expand to show the song on track change or pause	切歌或暂停时展开显示歌曲
+Island size	灵动岛大小
+Notify time	通知时长
+How long song notifications stay (seconds)	歌曲通知的显示时间（秒）
+Home	首页
+Charts	排行榜
+Now Playing	正在播放
+Listen Together	一起听歌
+Listen Together · 	一起听歌 · 
+DISCOVER	发现音乐
+MY PLAYLISTS	我的歌单
+Search songs...	搜索歌曲…
+Loading...	加载中…
+No playlists	暂无歌单
+Log in to see your playlists	登录后查看你的歌单
+Logged in	已登录
+Log out	退出登录
+Log in to NetEase	登录网易云音乐
+Not playing	尚未播放
+Your playlists	你的歌单
+Recommended playlists	推荐歌单
+Welcome to %s!	欢迎使用 %s！
+About	关于
+Project origins and credits	项目来源与署名
+This version is developed by %s.	本版本由%s开发
+Upstream design credit	上游设计参考
+License	许可证
+Bundled components	内置开源组件
+Copy project link	复制项目地址
+Project link copied	项目地址已复制
+Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.	MineKU Music 基于 DangoMusic 修改，继承其客户端播放器、音频播放、歌词、HUD 和界面。
+Server design reference: shared queue, song requests, client playback and Velocity integration. Uses a separate music protocol.	全服队列、点歌、客户端播放与 Velocity 群组服接入参考 AllMusic；MineKU Music 使用独立通信协议。
+DangoMusic's original interface comments credit MuoniumPlayer as a layout reference.	DangoMusic 原有界面代码注明排版参考 MuoniumPlayer，在此保留这项上游设计署名。
+Original author credits and license notices are retained. Full license texts and CREDITS.md are included in the distribution.	保留原作者署名与许可证声明。完整许可证和 CREDITS.md 随发行包提供。
+Fonts, MP3 decoding, login QR codes and Kotlin runtime retain their respective open-source licenses.	字体、MP3 解码、登录二维码和 Kotlin 运行时分别保留其原有开源许可证。
+%d charts	%d 个排行榜
+Searching...	搜索中…
+Search failed: 	搜索失败：
+No results	暂无结果
+Nothing in the queue yet	播放队列为空
+%d of %d songs	共 %2$d 首，筛选出 %1$d 首
+%d songs	%d 首歌曲
+Search  "%s"	搜索「%s」
+No songs match "%s"	没有匹配「%s」的歌曲
+Play all	播放全部
+List	列表
+Covers	封面墙
+Locate	定位当前歌曲
+Filter this list...	筛选当前列表…
+TITLE	歌曲
+TIME	时长
+Play the same song in sync with friends who also have this mod	和同样安装本模组的朋友同步听歌
+You are the host · everyone in the room follows your music	你是房主，房间内的成员将同步你的音乐
+Following 	正在跟随 
+Listen Together is not set up (missing firebase.properties)	一起听歌尚未配置（缺少 firebase.properties）
+Working...	处理中…
+Create a room	创建房间
+OR JOIN WITH A ROOM CODE	或输入房间码加入
+ROOM CODE	房间码
+Join	加入
+Copied	已复制
+Copy	复制
+IN THIS ROOM · 	房间成员 · 
+  (you)	  （你）
+HOST	房主
+Close room	关闭房间
+Leave room	离开房间
+Resync	重新同步
+Everyone streams from their own NetEase account, so VIP songs need VIP on each side.	每位成员使用自己的网易云账号播放，VIP 歌曲需要各自拥有会员。
+Refresh QR	刷新二维码
+Failed to get QR code	获取二维码失败
+Getting QR code…	正在获取二维码…
+Scan with the NetEase Cloud Music app	打开手机网易云音乐 App 扫码
+Scanned. Confirm login on your phone	已扫码，请在手机上确认登录
+QR code expired	二维码已过期
+Something went wrong. Please try again	出错了，请重试
+Please wait…	请稍候…
+Reading playlists…	正在读取歌单…
+No playlists found (check your connection or login)	没有读到歌单（检查网络或登录）
+Failed to read playlists	读取歌单失败
+Loading…	加载中…
+Unable to get playback URL	拿不到播放地址
+You don't have permission to play this song	这首歌没有播放权限
+Log in to play (VIP songs require membership)	需要登录才能播放（VIP 歌曲）
+Preview only	仅试听片段
+Load failed: 	加载失败：
+Playback failed: 	播放失败：
+PAUSED	已暂停
+LOADING	加载中
+NOW PLAYING	正在播放
+Creating room…	正在创建房间…
+Firebase is not configured (firebase.properties)	还没配置 Firebase（firebase.properties）
+The host closed the room	房主关闭了房间
+Room expired. Create or join a room again	房间已失效（掉线太久），请重新创建或加入
+Joining %s…	正在加入 %s …
+Room %s does not exist	房间 %s 不存在
+Room %s is empty	房间 %s 已经没人了
+Unable to connect to Firebase: %s	连不上 Firebase（%s）
+Failed to create room: %s	创建房间失败（%s）
+Failed to join room: %s	加入失败（%s）
+Reset	重置
+Server Music	全服音乐
+Not connected to a server	未连接服务器
+Server music is not available	当前服务器未提供全服音乐
+Join channel	加入频道
+Leave channel	退出频道
+Not joined	尚未加入频道
+Listening to server music	正在收听全服音乐
+Joined server music	已加入全服音乐
+Left server music	已退出全服音乐
+Joining server music...	正在加入全服音乐…
+Waiting for song requests	等待玩家点歌
+%d listeners	%d 人收听
+Requested by %s	点歌人：%s
+Skip vote %d/%d	切歌投票 %d/%d
+Channel queue	全服队列
+Request a song	搜索点歌
+Add to server queue	点到全服队列
+Withdraw song	撤回点歌
+Page %d	第 %d 页
+Pause your listening	暂停本人收听
+Vote to skip	投票切歌
+Switch to personal music?	切换到个人播放？
+Leave the server channel and play this selection	退出全服频道并播放所选歌曲
+Play personally	个人播放
+Adding song...	正在添加歌曲…
+Join the channel before requesting a song	请先加入全服频道再点歌
+Join the channel before voting	请先加入全服频道再投票
+Join the channel before withdrawing a song	请先加入全服频道再撤回歌曲
+You do not have permission to request songs	没有点歌权限
+You do not have permission to vote	没有切歌投票权限
+The queue is full	全服队列已满
+Your pending-song limit has been reached	你的待播歌曲已达到上限
+Please wait before requesting another song	点歌冷却中，请稍后重试
+This song is already playing or queued	这首歌曲正在播放或已在队列中
+That pending song no longer exists	这首待播歌曲已不在队列中
+You can only withdraw your own songs	只能撤回自己点的歌曲
+Song withdrawn	已撤回歌曲
+Song added to the queue	歌曲已加入全服队列
+Vote recorded	已提交切歌投票
+Reduced channel motion	减少频道动画
+Fade channel tabs without sliding	频道标签仅淡入淡出，不滑动
+You have already voted for this song	你已经为这首歌投过票了
+This skip vote has expired because the song changed	歌曲已切换，这条切歌投票已失效
+Nothing is playing	当前没有播放歌曲
+A song request is already being processed	正在处理点歌，请稍后再试
+Server music request timed out	全服音乐请求超时
+Incompatible server music response	服务端音乐协议不兼容
+Server audio could not be loaded	全服音频加载失败
+This song is not available for channel playback	音源未提供此歌曲的全服播放地址
+This song has no complete MP3 available for channel playback	音源未提供可用于全服播放的完整 MP3
+Music provider is unavailable	暂时无法连接音乐服务
+Music search failed	音乐搜索失败
+Please wait for the current search	请等待当前搜索完成
+Song not found	没有找到这首歌曲
+Server NetEase login expired or was rejected; update the server Cookie	服务端网易云登录已失效或被拒绝，请更新服务端 Cookie
+No complete playback URL; VIP songs require a server NetEase Cookie with playback rights	未取得完整播放地址；会员歌曲需要配置有播放权限的服务端网易云 Cookie
+Server NetEase account cannot play this song; check login, membership and song availability	服务端网易云账号无法播放此歌曲，请检查登录、会员权限及歌曲可用性
+NetEase returned only a preview; check the server account's playback rights	网易云仅返回试听片段，请检查服务端账号的播放权限
+Invalid server cookie.json; expected an array of cookie objects	服务端 cookie.json 格式错误，应使用 Cookie 对象数组
+Invalid server NetEase Cookie; use name=value pairs separated by semicolons	服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value
+Server NetEase Cookie file is too large	服务端网易云 Cookie 文件过大
+Server NetEase Cookie header is too large	服务端网易云 Cookie 请求头过大
