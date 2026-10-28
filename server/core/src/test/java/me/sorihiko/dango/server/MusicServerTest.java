@@ -121,6 +121,37 @@ class MusicServerTest {
             assertTrue(wire.errors.isEmpty(), wire.errors.toString());
         }
     }
+    @Test void languageReloadAppliesWithConfigAndInvalidLanguageKeepsBothRunningSnapshots() throws Exception {
+        Wire wire = new Wire(); var a = peer("Synthetic theme user");
+        try (MusicServer server = server(wire)) {
+            send(server, a, "hello"); await(() -> !wire.of(a.id(), "welcome").isEmpty());
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=First channel\n");
+            Files.writeString(directory.resolve("messages.properties"), "help.title=自定义合成帮助\ncolor.action=#67E8F9\nreload.success=<success>合成语言应用成功</success>\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.equals("合成语言应用成功")));
+            server.command(a, new String[]{"help"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("自定义合成帮助")));
+            MusicMessages first = server.messages();
+            assertEquals("First channel", wire.last(a.id(), "welcome").get("channelName").getAsString());
+            Files.writeString(directory.resolve("messages.properties"), "color.action=incorrect-color\n");
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=Should not apply\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("color.action") && c.text.startsWith("配置重载失败")));
+            assertSame(first, server.messages());
+            send(server, a, "hello", "after-bad-language", new JsonObject());
+            await(() -> wire.of(a.id(), "welcome").stream().anyMatch(m -> m.get("requestId").getAsString().equals("after-bad-language")));
+            assertEquals("First channel", wire.last(a.id(), "welcome").get("channelName").getAsString());
+            Files.writeString(directory.resolve("messages.properties"), "help.title=Second theme\n");
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nqueue-limit=0\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("queue-limit") && c.text.startsWith("配置重载失败")));
+            assertSame(first, server.messages());
+            Files.writeString(directory.resolve("config.properties"), "server-id=test-network\nchannel-name=Corrected channel\n");
+            server.command(MusicServer.console(), new String[]{"reload"});
+            await(() -> server.messages().text("help.title").equals("Second theme"));
+            assertTrue(wire.errors.isEmpty(), wire.errors.toString());
+        }
+    }
     @Test void optInSharedPlaybackRehandshakeAndVoteWorkEndToEnd() throws Exception {
         Wire wire = new Wire(); var a = peer("A"); var b = peer("B");
         try (MusicServer server = server(wire)) {
@@ -166,7 +197,7 @@ class MusicServerTest {
             assertTrue(wire.prompts.stream().allMatch(p -> p.command().equals("/minekumusic vote " + instance) && p.text().contains("1/2")));
             String[] click = wire.prompts.getFirst().command().substring("/minekumusic ".length()).split(" ");
             server.command(a, click);
-            await(() -> wire.chat.stream().anyMatch(c -> c.player().equals(a.id()) && c.text().equals("You have already voted for this song")));
+            await(() -> wire.chat.stream().anyMatch(c -> c.player().equals(a.id()) && c.text().equals("你已经为这首歌投过票了")));
             assertEquals(7, wire.prompts.size());
             assertEquals(1, wire.last(a.id(), "snapshot").get("votes").getAsInt());
             server.command(b, click);
@@ -177,7 +208,7 @@ class MusicServerTest {
             assertEquals(7, wire.chat.stream().filter(c -> c.text().contains("\u5207\u6b4c\u6295\u7968\u5df2\u901a\u8fc7")).count());
             assertTrue(wire.chat.stream().noneMatch(c -> c.player().equals(observer.id())));
             server.command(listeners.get(2), click);
-            await(() -> wire.chat.stream().anyMatch(c -> c.text().equals("This skip vote has expired because the song changed")));
+            await(() -> wire.chat.stream().anyMatch(c -> c.text().equals("歌曲已切换，这条切歌投票已失效")));
             send(server, a, "vote", "old-ui-vote", vote);
             await(() -> wire.of(a.id(), "result").stream().anyMatch(m -> m.get("requestId").getAsString().equals("old-ui-vote")));
             assertFalse(wire.last(a.id(), "result").get("ok").getAsBoolean());

@@ -19,10 +19,10 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.3+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.3+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.3-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.3-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| Fabric 客户端 | `MineKUmusic-1.6.4+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.4+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.4-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.4-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -35,9 +35,15 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - 切歌需要当前频道成员人数的 15%，向上取整且至少 1 票；聊天支持点击投票，旧投票消息绑定原歌曲。
 - 暂停只暂停本人收听；退出频道恢复个人播放。群组切服由 Velocity 维持同一频道。
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
-- `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
+- `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置、聊天语言和配色，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
 26.2 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。
+
+## 聊天语言与配色
+
+插件首次启动生成带中文注释的 `messages.properties`，可修改帮助、搜索、翻页按钮、悬浮说明、投票、交易及错误提示。`color.*` 统一调整主题色，支持英文颜色名和 `#RRGGBB`；也可在单条文案中使用颜色标签。修改后执行 `/minekumusic reload`，错误配置会保留原运行设置。
+
+群组服的全服消息在 Velocity 端配置，Folia 桥接后端的本地提示分别配置。示例见 [messages.properties.example](messages.properties.example)，完整说明见 [语言与配色客制化](SERVER-MUSIC.md#聊天语言与配色客制化)。客户端播放器继续保留自身语言切换。
 
 ## 点歌收费
 

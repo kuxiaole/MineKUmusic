@@ -20,12 +20,16 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
     private EconomyService economy = EconomyService.UNAVAILABLE;
     private Path directory;
     private volatile ServerConfig config;
+    private volatile MusicMessages language = MusicMessages.defaults();
+    private MusicMessages messages() { MusicServer current = music; return current == null ? language : current.messages(); }
+    private void tellKey(UUID id, String key, Object... args) { notice(id, messages().render(key, args)); }
     private final AtomicBoolean reloading = new AtomicBoolean();
     @Override public void onEnable() {
         try {
             directory = ServerConfig.dataDirectory(getDataFolder().toPath(), "minekumusic", "DangoMusic");
             getLogger().info("Music data directory: " + directory);
             config = ServerConfig.load(directory);
+            language = MusicMessages.load(directory);
             if (getServer().getPluginManager().isPluginEnabled("Vault") || getServer().getPluginManager().isPluginEnabled("VaultUnlocked"))
                 economy = new VaultPayments(this, players, directory);
             else if (config.requestPrice().signum() > 0 || config.economyBridgeOnly())
@@ -52,7 +56,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
                 getLogger().info("Economy bridge enabled; the music queue is managed by Velocity.");
                 return;
             }
-            music = new MusicServer(directory, config, new NeteaseProvider(directory), this, economy);
+            music = new MusicServer(directory, config, new NeteaseProvider(directory), this, economy, language);
             getServer().getMessenger().registerOutgoingPluginChannel(this, MusicProtocol.CHANNEL);
             getServer().getMessenger().registerIncomingPluginChannel(this, MusicProtocol.CHANNEL, (channel, player, bytes) -> {
                 byte[] copy = bytes.clone();
@@ -82,27 +86,27 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) atPlayer(player, () -> dispatch(peer(player), args));
         else if (sender instanceof ConsoleCommandSender) dispatch(MusicServer.console(), args);
-        else sender.sendMessage("此指令仅支持玩家或服务器控制台。");
+        else sender.sendMessage(messages().render("command.sender"));
         return true;
     }
     private MusicCommands.Mode mode() { return config != null && config.economyBridgeOnly() ? MusicCommands.Mode.BRIDGE : MusicCommands.Mode.FOLIA; }
     private void dispatch(MusicServer.Peer peer, String[] args) {
         String name = MusicCommands.name(args);
-        if (!MusicCommands.known(name, mode())) { tell(peer.id(), "未知或不适用于当前模式的指令，请使用 /minekumusic help。"); return; }
-        if (!MusicCommands.allowed(peer, name, mode())) { tell(peer.id(), "你没有权限使用该指令，或该指令仅限游戏内玩家使用。"); return; }
+        if (!MusicCommands.known(name, mode())) { tellKey(peer.id(), "command.unknown"); return; }
+        if (!MusicCommands.allowed(peer, name, mode())) { tellKey(peer.id(), "command.denied"); return; }
         if (name.equals("payment")) { reconcilePayment(peer, args); return; }
         if (mode() == MusicCommands.Mode.BRIDGE) {
             if (name.equals("help")) {
-                if (args.length > 2) { tell(peer.id(), "用法：" + MusicCommands.usage(name)); return; }
-                chat(peer.id(), MusicCommands.help(peer, mode(), args.length == 2 ? args[1] : ""));
+                if (args.length > 2) { tellKey(peer.id(), "command.usage", "usage", MusicCommands.usage(messages(), name)); return; }
+                chat(peer.id(), MusicCommands.help(messages(), peer, mode(), args.length == 2 ? args[1] : ""));
             } else if (name.equals("reload")) {
-                if (args.length != 1) { tell(peer.id(), "用法：" + MusicCommands.usage(name)); return; }
+                if (args.length != 1) { tellKey(peer.id(), "command.usage", "usage", MusicCommands.usage(messages(), name)); return; }
                 reloadBridge(peer);
             }
             return;
         }
         MusicServer current = music;
-        if (current == null) tell(peer.id(), "音乐服务尚未就绪，请检查插件启动日志。");
+        if (current == null) tellKey(peer.id(), "command.not-ready");
         else current.command(peer, args, MusicCommands.Mode.FOLIA);
     }
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
@@ -114,24 +118,26 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         return current == null ? MusicCommands.suggest(peer, mode(), args, MusicCommands.Snapshot.EMPTY) : current.suggest(peer, args, mode());
     }
     private void reloadBridge(MusicServer.Peer peer) {
-        if (!reloading.compareAndSet(false, true)) { tell(peer.id(), "配置正在重载，请稍候。"); return; }
-        tell(peer.id(), "正在重载经济桥接配置……");
+        if (!reloading.compareAndSet(false, true)) { tellKey(peer.id(), "reload.busy"); return; }
+        tellKey(peer.id(), "reload.loading");
         getServer().getAsyncScheduler().runNow(this, task -> {
             try {
+                MusicMessages nextLanguage = MusicMessages.load(directory);
                 ServerConfig next = ServerConfig.load(directory, config);
                 if (isEnabled()) {
                     config = next;
-                    tell(peer.id(), "经济桥接配置重载成功，交易记录已保留。频道及收费规则请在 Velocity 执行 /minekumusic reload。");
+                    language = nextLanguage;
+                    tellKey(peer.id(), "reload.bridge");
                 }
-            } catch (Exception e) { tell(peer.id(), "配置重载失败，当前配置继续生效：" + e.getMessage()); }
+            } catch (Exception e) { tellKey(peer.id(), "reload.failed", "reason", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()); }
             finally { reloading.set(false); }
         });
     }
     private void reconcilePayment(MusicServer.Peer peer, String[] args) {
-        if (!peer.admin()) { tell(peer.id(), "需要管理员权限。"); return; }
-        if (args.length != 3 || !Set.of("paid", "cancel").contains(args[2].toLowerCase(Locale.ROOT))) { tell(peer.id(), "用法：" + MusicCommands.usage("payment") + "；请先核对经济插件交易记录。"); return; }
-        if (!(economy instanceof VaultPayments vault)) { tell(peer.id(), "经济服务不可用，请检查 Vault 和经济插件。"); return; }
-        vault.reconcile(args[1], args[2].equalsIgnoreCase("paid")).thenAccept(result -> tell(peer.id(), result.message()));
+        if (!peer.admin()) { tellKey(peer.id(), "command.denied"); return; }
+        if (args.length != 3 || !Set.of("paid", "cancel").contains(args[2].toLowerCase(Locale.ROOT))) { tellKey(peer.id(), "payment.usage", "usage", MusicCommands.usage(messages(), "payment")); return; }
+        if (!(economy instanceof VaultPayments vault)) { tellKey(peer.id(), "payment.unavailable"); return; }
+        vault.reconcile(args[1], args[2].equalsIgnoreCase("paid")).thenAccept(result -> notice(peer.id(), messages().translated(result.message(), result.status() == EconomyService.Status.PAID)));
     }
     @Override public void send(UUID id, List<byte[]> frames) {
         Player player = players.get(id);
@@ -141,7 +147,10 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         });
     }
     @Override public void tell(UUID id, String text) {
-        chat(id, List.of(MusicChat.notice(text)));
+        notice(id, messages().translated(text, true));
+    }
+    @Override public void notice(UUID id, Component content) {
+        chat(id, List.of(MusicChat.notice(messages(), content)));
     }
     @Override public void chat(UUID id, List<Component> lines) {
         List<Component> copy = List.copyOf(lines);
@@ -150,7 +159,10 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         if (player != null) atPlayer(player, () -> { if (player.isOnline()) copy.forEach(player::sendMessage); });
     }
     @Override public void votePrompt(UUID id, String text, String command) {
-        chat(id, List.of(MusicChat.vote(text, command)));
+        votePrompt(id, messages().render("notice.text", "text", text), command);
+    }
+    @Override public void votePrompt(UUID id, Component text, String command) {
+        chat(id, List.of(MusicChat.vote(messages(), text, command)));
     }
     @Override public void log(String message, Throwable error) { getLogger().log(Level.WARNING, message, error); }
     @Override public void onDisable() {

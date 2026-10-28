@@ -10,13 +10,13 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.3-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.4-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.3-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.4-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -25,7 +25,7 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 从旧版升级
 
-- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.3+26.2-fabric.jar` 或 `MineKUmusic-1.6.3+26.2-neoforge.jar`。1.6.0～1.6.2 客户端可继续配合 1.6.3 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.4+26.2-fabric.jar` 或 `MineKUmusic-1.6.4+26.2-neoforge.jar`。1.6.0～1.6.3 客户端可继续配合 1.6.4 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -101,8 +101,8 @@ economy-bridge-only=false
 
 ### Velocity 群组服
 
-1. Velocity 安装 `MineKUmusic-server-1.6.3-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.3-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+1. Velocity 安装 `MineKUmusic-server-1.6.4-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
+2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.4-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -173,13 +173,60 @@ Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 
 - 每位玩家只保留最近一次聊天搜索的关键词和页码，10 分钟无操作后失效，离线时清理。翻页按钮绑定该次搜索，重新搜索后点击旧翻页按钮会提示失效；旧歌曲按钮始终对应当时显示的歌曲 ID。网络请求失败可重试，不改动队列。
 - Folia 与 Velocity 使用相同的消息组件；Folia 在玩家实体调度器中一次发送整组消息，网络搜索继续异步执行。客户端播放器内的搜索仍每页 20 首。
 
+### 聊天语言与配色客制化
+
+1.6.4 起，插件的聊天文案保存在实际数据目录的 **`messages.properties`**，与 `config.properties` 放在一起；首次启动自动生成，模板见仓库根目录的 `messages.properties.example`。文件使用 **UTF-8**，每项都有中文用途和占位符说明。可以翻译成其他语言，也可保留中文并改成自己的服务器风格。
+
+- 独立 Folia 修改 `plugins/MineKUmusic/messages.properties`；旧版升级使用启动日志显示的实际数据目录。
+- 群组服的帮助、搜索、队列、投票和点歌结果由 **Velocity** 发送，因此修改代理端数据目录的文件，并在代理执行 `/minekumusic reload`。
+- Folia 经济桥接后端的本地帮助、交易核对和重载提示使用自己的语言文件；需要统一外观时复制同一份配置到各后端，并分别重载。不会自动跨服覆盖文件。
+- 语言文件控制插件聊天展示。客户端播放器仍使用自己的语言切换和文案；音源、经济插件提供的未知错误详情会按原文插入。按钮指令、权限、15% 投票规则和收费确认逻辑不随文字修改而改变。
+
+默认采用紫色品牌、金色重点、黄色正文、青色按钮、灰色说明、深灰禁用项、绿色成功提示和红色错误。以下为可直接修改的示例，替换已有同名项即可，不要追加重复键：
+
+```properties
+# 八种主题色支持 Minecraft 英文颜色名或 #RRGGBB；这里示范柔和的紫金青配色。
+color.brand=#C084FC
+color.heading=#FBBF24
+color.primary=#FDE68A
+color.action=#67E8F9
+color.muted=#A1A1AA
+color.disabled=#71717A
+color.success=#86EFAC
+color.error=#F87171
+# 普通提示的前缀；留空可以隐藏，不会给帮助每行添加前缀。
+chat.prefix=<brand>[KU音乐] </brand>
+# 搜索点歌按钮文字；仍然走服务端报价和客户端费用确认。
+search.request=点这首歌
+# 可调整占位符顺序，动态值保持为普通文字。
+search.heading=<heading>第 {page} 页</heading><muted> · 搜索：</muted><primary>{query}</primary>
+# 成功支付后的提示；金额来自实际扣款，币名来自 config.properties。
+payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
+```
+
+| 配置项 | 用途 |
+| --- | --- |
+| `color.*` | 全局主题色，供 `<brand>`、`<heading>`、`<primary>` 等标签引用 |
+| `chat.prefix` / `chat.title` | 普通提示前缀和帮助 / 搜索标题外观 |
+| `button.*` | 可用按钮、禁用按钮和分隔符外观 |
+| `help.*` / `command.<子命令>.description` / `.arguments` | 帮助内容、说明、参数显示文字与悬浮提示 |
+| `search.*` | 搜索结果、完整歌曲悬浮信息、点歌和翻页按钮 |
+| `queue.*` / `vote.*` / `admin.*` | 队列、投票及管理员操作通知 |
+| `reload.*` / `payment.*` / `audio.*` / `result.*` | 重载、交易、播放及常见业务结果 |
+
+格式采用 MiniMessage 的颜色和基础样式子集：`<red>文字</red>`、`<#C084FC>文字</#C084FC>`、`<bold>粗体</bold>`、`<italic>斜体</italic>`、`<underlined>下划线</underlined>`，`<newline>` 换行。颜色和样式必须闭合；不接受 `&` 颜色码、`reset`、`click` 或 `hover` 标签。悬浮文字使用对应的 `*-hover` 配置，点击动作由程序绑定。
+
+占位符写作 `{query}`、`{page}` 等，只能使用该项中文注释列出的名称，可重排、重复或省略。帮助的 `.arguments` 为普通文本；更改参数提示不会改变真实指令语法。歌曲名、搜索词、玩家名等动态内容不会作为格式解析。币名在 `config.properties` 的 `currency-name` 修改。
+
+保存后执行 **`/minekumusic reload`**（或 `/music reload`、`/kum reload`），无需重启，之后发送的新消息立即使用新设置；聊天历史中的旧消息不会被重绘。颜色、标签、占位符或配置校验失败时，**运行中的配置和语言都保持原样**，提示会指出错误项，修正后重新执行即可。已有配置缺少新键时自动补齐默认值和中文注释，保留自定义值；普通重载保留语言文件中的自写注释和排版，升级补齐键时重新按中文模板整理。
+
 ### 配置热重载
 
-1. 保存实际数据目录中的 `config.properties`，由管理员或控制台执行 `/minekumusic reload`（控制台省略 `/`）。群组服的频道和费用配置在 Velocity 重载。
-2. 可热重载频道名称、每人及全局队列上限、点歌冷却、同步间隔、收费开关、价格和币名。队列、当前歌曲、播放进度、暂停状态、订阅、投票和交易记录保留；降低队列上限不会删除已入队歌曲。
+1. 保存实际数据目录中的 `config.properties` 和 / 或 `messages.properties`，由管理员或控制台执行 `/minekumusic reload`（控制台省略 `/`）。群组服的频道和费用配置在 Velocity 重载。
+2. 可热重载聊天语言、主题颜色、按钮文字、悬浮说明、频道名称、每人及全局队列上限、点歌冷却、同步间隔、收费开关、价格和币名。队列、当前歌曲、播放进度、暂停状态、订阅、投票和交易记录保留；降低队列上限不会删除已入队歌曲。
 3. 调整收费开关、价格或币名后，尚未确认的旧报价失效，玩家需重新点歌；已经确认的请求按确认时的金额和币名继续处理，未决扣款仍核对原交易。
 4. `server-id`、`economy-bridge-only`、`economy-bridge-secret` 变更必须完整重启。若它们同时被修改，热重载会拒绝整次变更，并指出需重启的配置项；不会部分应用其他修改。密钥变更前应先处理完未决交易，再协调代理和后端。
-5. 配置格式或取值错误时，重载提示失败并继续使用运行中的原配置；修正文件后可以再次重载。连续重复执行时会提示正在处理。重载在异步线程读取文件，Folia 玩家线程不会等待磁盘操作。
+5. 配置或语言文件格式、颜色、占位符错误时，整次重载失败并继续使用运行中的原配置和语言；修正文件后可以再次重载。连续重复执行时会提示正在处理。重载在异步线程读取文件，Folia 玩家线程不会等待磁盘操作。
 6. Folia 经济桥接后端也支持 `help`、Tab 和 `reload`，但它不拥有音乐队列，修改费用应在代理端完成。安装或更新插件 JAR、Vault 及经济插件仍需完整重启，`/minekumusic reload` 不会重新加载 JAR。
 
 ## 构建与验证
@@ -200,6 +247,7 @@ Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 
 
 ### 本次验证记录
 
+- 1.6.4 服务端 75 项测试通过；客户端 14 项测试检查通过（客户端代码未变，复用 Gradle 已通过结果），共 89 项，四种 JAR 构建成功。新增验证中文注释和自定义值保留、缺项补齐、主题色、按钮标签及悬浮文字、动态占位符、独立服务器主题、格式错误保留文件、配置与语言一起重载、任一校验失败时保留两份旧运行设置。收费确认和搜索点击原有测试继续通过；已核对两种插件内的语言模板且未重复打包 Adventure。尚未在实际 Folia / Velocity 上验证配色观感与鼠标交互。
 - 1.6.3 共 82 项测试通过（服务端 68 项、客户端 14 项），四种 JAR 构建成功。新增检查彩色帮助与点击动作、10 首分页及音源请求偏移、旧翻页失效、离线清理、空结果、失败重试和权限过滤；收费测试通过实际生成的聊天按钮指令验证先确认再扣款。尚未在实际 Folia / Velocity 服务器上检查聊天显示和鼠标操作。
 - 1.6.2 将主指令改为 `/minekumusic`，仅注册 `/music`、`/kum` 两个别名；帮助、配置注释、搜索提示和聊天投票点击均使用主指令。服务端 62 项测试重新运行通过，客户端 14 项测试检查通过（代码未变，复用 Gradle 已通过结果），四个 JAR 均构建成功；已核对 Folia 成品命令描述及 Velocity 成品的注册与注销名称。尚未在实际服务器上验证别名与 Tab 补全。
 - 1.6.1 版本通过 76 项自动化测试（服务端 62 项、客户端 14 项）；本次新增指令帮助、补全规则、重载保留播放及队列、降低上限后恢复队列、无效配置回退、需重启选项及重载期间原价交易延续的验证。此前已覆盖中文配置注释、特殊字符和原配置值保留。尚未进行实际经济插件联调。

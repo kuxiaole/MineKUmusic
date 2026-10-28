@@ -16,6 +16,7 @@ common/core/src/main/resources/firebase.properties
 netease-cookie.txt
 cookie.json
 config.properties
+messages.properties
 payments.json
 payments.json.tmp
 queue.json

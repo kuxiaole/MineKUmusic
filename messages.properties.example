@@ -1,0 +1,507 @@
+# MineKUmusic 聊天语言与配色（UTF-8）
+# 修改后执行 /minekumusic reload；Velocity 和各 Folia 后端分别读取自身数据目录。
+# 支持 <red>文字</red>、<#A78BFA>文字</#A78BFA>、<bold>粗体</bold>、<underlined>下划线</underlined>、<newline>换行。
+# 主题色用 <brand>、<heading>、<primary>、<action>、<muted>、<disabled>、<error>、<success>，非换行标签必须闭合。
+# 不支持 & 颜色码、reset、click、hover 等标签；按钮动作由插件保持，语言配置只修改显示。
+# {占位符} 只能使用各项注释列出的名字，可以重排或省略。动态歌曲名、玩家名不会解析成标签。
+# 修改每项等号右侧的值；不要改键名。空值显示空文字；chat.prefix 可留空。帮助参数 arguments 是普通文本。
+# 错误标签、未知占位符或无效颜色会拒绝本次重载，保留原运行配置和语言；错误项会显示在提示中。
+# 普通重载保留文件排版和自定义注释；升级补齐新项目时重新附上中文注释并保留已有值。
+
+# 品牌色：标题和前缀。支持英文颜色名或 #RRGGBB，例如 #C084FC。
+color.brand=light_purple
+
+# 重点色：标题副文、指令与页码，例如 #FBBF24。
+color.heading=gold
+
+# 正文色：歌曲名、常规提示和悬浮说明，例如 #FDE68A。
+color.primary=yellow
+
+# 操作色：可点击按钮，例如 #67E8F9。
+color.action=aqua
+
+# 次要文字色：歌手、说明和辅助信息，例如 #A1A1AA。
+color.muted=gray
+
+# 不可用按钮、分隔线和歌曲 ID 的颜色，例如 #71717A。
+color.disabled=dark_gray
+
+# 错误色：权限、输入和加载失败，例如 #F87171。
+color.error=red
+
+# 成功色：扣款、入队与配置重载成功，例如 #86EFAC。
+color.success=green
+
+# 普通提示前缀，可留空；帮助和搜索列表不逐行添加。
+chat.prefix=<brand>[MineKUmusic] </brand>
+
+# 标题格式；{title} 为当前页面标题。
+chat.title=<disabled>━━ </disabled><brand><bold>MineKU Music</bold></brand><heading> · {title}</heading><disabled> ━━</disabled>
+
+# 未定义专用模板的普通提示；{text} 为原始内容。
+notice.text=<primary>{text}</primary>
+
+# 外部服务或未定义错误；{text} 为原始错误，不会解析其中格式。
+error.text=<error>{text}</error>
+
+# 可点击按钮外观；{label} 为按钮文字，点击动作固定由插件处理。
+button.label=<action><underlined>[{label}]</underlined></action>
+
+# 不可点击按钮；{label} 为按钮文字。
+button.disabled=<disabled>[{label}]</disabled>
+
+# 翻页按钮之间的分隔文字。
+button.separator=<disabled>  |  </disabled>
+
+# 帮助页标题。
+help.title=指令帮助
+
+# 主指令与别名说明，修改文字不会注册新指令。
+help.aliases=<muted>主指令：/minekumusic  别名：/music、/kum</muted>
+
+# 帮助主题不存在或无权查看时的提示。
+help.unavailable=<error>没有可用的对应指令，请使用 /minekumusic help 查看你能使用的指令。</error>
+
+# 每条帮助的格式；{usage} 为用法，{description} 为指令说明。
+help.row=<heading>{usage}</heading><primary> — {description}</primary>
+
+# 立即执行按钮文字。
+help.run=执行
+
+# 填入聊天输入框按钮文字。
+help.suggest=填入指令
+
+# 立即执行悬浮说明；{description} 为说明，{command} 为实际指令。
+help.run-hover=<primary>{description}<newline>点击执行：{command}</primary>
+
+# 填入指令悬浮说明；{description} 为说明，{command} 为实际指令。
+help.suggest-hover=<primary>{description}<newline>点击填入聊天输入框：{command}</primary>
+
+# reload 详细帮助第一行。
+help.reload-settings=<muted>可热重载：语言、配色、频道名称、队列上限、冷却、同步间隔、收费开关、价格和币名。</muted>
+
+# reload 详细帮助第二行。
+help.reload-restart=<muted>server-id、economy-bridge-only、economy-bridge-secret 变更需重启；配置或语言错误时继续使用原设置。</muted>
+
+# 经济桥接模式说明。
+help.bridge=<muted>当前为经济桥接后端，音乐队列由 Velocity 管理；请在代理端执行音乐指令。</muted>
+
+# 普通帮助页末尾说明。
+help.footer=<muted>加入或退出收听请在客户端“全服音乐”页面操作。Tab 可补全子命令、页码和待播条目 ID。</muted>
+
+# 搜索列表标题。
+search.title=搜索结果 · 免费
+
+# 搜索信息；{query} 为关键词，{page} 从 1 开始。
+search.heading=<muted>关键词：</muted><primary>{query}</primary><heading>  第 {page} 页</heading>
+
+# 结果行；{index} 为序号，{name} 和 {artists} 为缩略歌名、歌手，{id} 为歌曲 ID。
+search.row=<muted>{index}. </muted><primary>{name}</primary><muted> · {artists}</muted><disabled>  #{id}</disabled>
+
+# 结果悬浮信息；{name} 和 {artists} 保留完整内容，{id} 为歌曲 ID。
+search.detail=<primary>{name}<newline>歌手：{artists}<newline>歌曲 ID：{id}</primary>
+
+# 搜索结果点歌按钮。
+search.request=点歌
+
+# 点歌按钮悬浮说明；{detail} 为完整歌曲信息。
+search.request-hover={detail}<newline><primary>点击后在客户端确认点歌费用，确认前不扣款。</primary>
+
+# 搜索第一页无结果。
+search.empty=<muted>没有找到匹配的歌曲，请更换关键词。</muted>
+
+# 上一页按钮文字。
+search.previous=上一页
+
+# 上一页悬浮说明。
+search.previous-hover=<primary>查看上一页搜索结果（免费）</primary>
+
+# 下一页按钮文字。
+search.next=下一页
+
+# 下一页悬浮说明。
+search.next-hover=<primary>查看下一页搜索结果（免费）</primary>
+
+# 重新搜索按钮文字。
+search.again=重新搜索
+
+# 重新搜索悬浮说明。
+search.again-hover=<primary>在聊天输入框填写新的搜索关键词</primary>
+
+# 搜索列表末尾说明。
+search.footer=<muted>搜索与翻页免费；点歌需加入频道，并在客户端确认费用。</muted>
+
+# 开始搜索提示；{query} 为关键词，{page} 从 1 开始。
+search.loading=<primary>正在搜索「{query}」第 {page} 页（免费）……</primary>
+
+# 搜索失败；{reason} 为原因。
+search.failed=<error>搜索失败：{reason}；可重新搜索或再次翻页。</error>
+
+# 后续页面无结果。
+search.no-more=<primary>此页没有更多歌曲，请返回上一页或更换关键词。</primary>
+
+# 搜索关键词不合法。
+search.invalid=<error>搜索关键词需为 1～120 个字符。</error>
+
+# 搜索尚未完成。
+search.busy=<error>正在搜索，请稍候再操作。</error>
+
+# 旧搜索的翻页按钮失效。
+search.expired=<error>搜索结果已过期或已更新，请使用 /minekumusic search 关键词 重新搜索。</error>
+
+# 搜索页码不合法。
+search.invalid-page=<error>没有对应的搜索结果页，请使用结果下方的翻页按钮。</error>
+
+# 投票提示；{song} 为歌名，{votes} 为票数，{required} 为门槛，{listeners} 为频道人数。
+vote.prompt=<primary>《{song}》切歌投票 {votes}/{required}（{listeners} 人收听，达到 15% 即切歌）</primary>
+
+# 投票按钮文字。
+vote.button=点击投票切歌
+
+# 投票按钮悬浮说明。
+vote.hover=<primary>为当前歌曲投一票，每人限一票</primary>
+
+# 投票通过；占位符与 vote.prompt 相同，仅改变展示文字不会改变 15% 规则。
+vote.passed=<success>切歌投票已通过（{votes}/{required}，收听人数 {listeners}，阈值 15%），已跳过《{song}》</success>
+
+# 当前无歌曲。
+queue.empty=<muted>当前没有正在播放的歌曲。</muted>
+
+# 当前歌曲；{song} 为歌名。
+queue.current=<primary>正在播放：{song}</primary>
+
+# 队列页标题；{page} 为当前页，{pages} 为总页数，{count} 为待播数量。
+queue.heading=<heading>待播队列：第 {page}/{pages} 页，共 {count} 首。</heading><muted>条目格式：队列条目ID | 歌曲 | 点歌人</muted>
+
+# 队列条目；{entry} 为条目 ID，{song} 为歌名，{player} 为点歌人。
+queue.row=<disabled>{entry}</disabled><primary> | {song}</primary><muted> | {player}</muted>
+
+# 队列页码错误；{pages} 为总页数。
+queue.invalid-page=<error>页码超出范围，请输入 1～{pages}。</error>
+
+# 指令撤回成功。
+queue.withdrawn=<success>已撤回待播歌曲；已支付的点歌费用不自动退还。</success>
+
+# 未知或当前模式不支持的指令。
+command.unknown=<error>未知或不适用于当前服务器的指令，请使用 /minekumusic help 查看帮助。</error>
+
+# 权限不足或调用身份不支持。
+command.denied=<error>你没有权限使用该指令，或该指令仅限游戏内玩家使用。</error>
+
+# 不支持的指令发送者。
+command.sender=<error>此指令仅支持玩家或服务器控制台。</error>
+
+# 参数数量错误；{usage} 为当前指令用法。
+command.usage=<error>用法：{usage}</error>
+
+# 数字参数错误；{usage} 为当前指令用法。
+command.number=<error>参数必须是有效的数字。用法：{usage}</error>
+
+# 音乐服务尚未启动。
+command.not-ready=<error>音乐服务尚未就绪，请检查插件启动日志。</error>
+
+# 代理端无法核对交易。
+command.backend=<error>交易核对请在原扣款 Folia 后端控制台执行 minekumusic payment 交易ID paid或cancel。</error>
+
+# 管理员切歌通知；{song} 为被跳过歌曲。
+admin.skipped=<primary>管理员已跳过《{song}》</primary>
+
+# 管理员操作成功。
+admin.updated=<success>音乐频道已更新。</success>
+
+# 已有重载正在执行。
+reload.busy=<primary>配置正在重载，请稍候。</primary>
+
+# 重载开始。
+reload.loading=<primary>正在重载 MineKUmusic 配置、语言和配色……</primary>
+
+# 重载失败；{reason} 为具体文件或配置项错误。
+reload.failed=<error>配置重载失败，当前配置和语言继续生效：{reason}</error>
+
+# 普通模式重载成功。
+reload.success=<success>配置重载成功，语言和配色已更新。队列、播放进度、收听状态和交易记录已保留；降低上限不会删除已入队歌曲。</success>
+
+# 价格变更通知。
+reload.pricing=<primary>点歌费用已更新，未确认的报价已失效，请重新选择歌曲。已确认的点歌按原报价处理。</primary>
+
+# 桥接模式重载成功。
+reload.bridge=<success>经济桥接配置、语言和配色重载成功，交易记录已保留。频道及收费规则请在 Velocity 执行 /minekumusic reload。</success>
+
+# 核对交易指令用法；{usage} 为实际用法。
+payment.usage=<error>用法：{usage}；请先核对经济插件交易记录。</error>
+
+# 经济插件不可用。
+payment.unavailable=<error>经济服务不可用，请检查 Vault 和经济插件。</error>
+
+# 收费点歌成功；{amount} 为实扣金额，{currency} 为币名。
+payment.paid=<success>歌曲已加入队列，已扣除 {amount} {currency}。</success>
+
+# 待核对的交易；{reason} 为状态说明，{transaction} 为交易 ID。
+payment.pending=<primary>{reason} [{transaction}]</primary>
+
+# 控制台交易状态；{status} 为详细状态，{player} 为玩家 UUID，{backend} 为扣款后端。
+payment.console={status}<muted> 玩家={player} 后端={backend}</muted>
+
+# 歌曲解析失败；{song} 为歌名，{reason} 为原因。
+audio.failed=<error>《{song}》播放失败：{reason}</error>
+
+# 通信版本或消息不完整提示。
+protocol.invalid=<error>音乐消息不兼容或不完整，请检查客户端版本。</error>
+
+
+# help 指令参数的显示文字，不改变指令实际语法。
+command.help.arguments=[子命令]
+# help 指令帮助说明。
+command.help.description=查看帮助；可查看某条指令的详细用法
+
+# queue 指令参数的显示文字，不改变指令实际语法。
+command.queue.arguments=[页码]
+# queue 指令帮助说明。
+command.queue.description=查看当前歌曲和待播队列；页码从 1 开始
+
+# search 指令参数的显示文字，不改变指令实际语法。
+command.search.arguments=<关键词>
+# search 指令帮助说明。
+command.search.description=免费搜索歌曲，点击结果中的按钮点歌或翻页
+
+# searchpage 指令参数的显示文字，不改变指令实际语法。
+command.searchpage.arguments=<页码>
+# searchpage 指令帮助说明。
+command.searchpage.description=查看最近一次搜索的指定页，也可点击搜索结果下方的翻页按钮
+
+# request 指令参数的显示文字，不改变指令实际语法。
+command.request.arguments=<歌曲ID>
+# request 指令帮助说明。
+command.request.description=先加入频道，再在客户端确认点歌费用；确认后才会扣款入队
+
+# withdraw 指令参数的显示文字，不改变指令实际语法。
+command.withdraw.arguments=<队列条目ID>
+# withdraw 指令帮助说明。
+command.withdraw.description=撤回自己的待播歌曲；已支付的点歌费用不自动退还
+
+# vote 指令参数的显示文字，不改变指令实际语法。
+command.vote.arguments=[播放实例ID]
+# vote 指令帮助说明。
+command.vote.description=投票跳过当前歌曲，达到频道收听人数的 15% 即切歌；通常无需填写参数
+
+# skip 指令参数的显示文字，不改变指令实际语法。
+command.skip.arguments=
+# skip 指令帮助说明。
+command.skip.description=管理员直接跳过当前歌曲
+
+# pause 指令参数的显示文字，不改变指令实际语法。
+command.pause.arguments=
+# pause 指令帮助说明。
+command.pause.description=管理员暂停整个频道
+
+# resume 指令参数的显示文字，不改变指令实际语法。
+command.resume.arguments=
+# resume 指令帮助说明。
+command.resume.description=管理员恢复整个频道
+
+# remove 指令参数的显示文字，不改变指令实际语法。
+command.remove.arguments=<队列条目ID>
+# remove 指令帮助说明。
+command.remove.description=管理员删除指定待播歌曲；已支付的费用不自动退还
+
+# clear 指令参数的显示文字，不改变指令实际语法。
+command.clear.arguments=
+# clear 指令帮助说明。
+command.clear.description=管理员停止当前歌曲并清空待播队列；不自动退款
+
+# reload 指令参数的显示文字，不改变指令实际语法。
+command.reload.arguments=
+# reload 指令帮助说明。
+command.reload.description=管理员重新读取配置、语言和配色；保留队列、播放进度、收听状态和交易记录
+
+# payment 指令参数的显示文字，不改变指令实际语法。
+command.payment.arguments=<交易ID> <paid|cancel>
+# payment 指令帮助说明。
+command.payment.description=仅在原扣款 Folia 后端核对中断交易：paid 表示已扣款，cancel 表示未扣款；务必先核对经济插件记录
+
+# 业务提示：有一笔点歌扣款正在核对，请稍候；无占位符。
+result.a-payment-is-still-being-checked-please-wait=<error>有一笔点歌扣款正在核对，请稍候</error>
+
+# 业务提示：正在处理点歌，请稍后再试；无占位符。
+result.a-song-request-is-already-being-processed=<error>正在处理点歌，请稍后再试</error>
+
+# 业务提示：请在播放器弹窗中确认点歌费用；无占位符。
+result.confirm-the-song-request-in-the-music-player=<primary>请在播放器弹窗中确认点歌费用</primary>
+
+# 业务提示：扣款记录保存失败，未扣除费用；无占位符。
+result.could-not-save-the-payment-record-no-payment-was-made=<error>扣款记录保存失败，未扣除费用</error>
+
+# 业务提示：点歌记录保存失败，扣款处理已暂停，正在重试。；无占位符。
+result.could-not-save-the-song-request-payment-processing-is-paused-retrying=<error>点歌记录保存失败，扣款处理已暂停，正在重试。</error>
+
+# 业务提示：搜索参数不合法。；无占位符。
+result.invalid-search=<error>搜索参数不合法。</error>
+
+# 业务提示：搜索页码不合法。；无占位符。
+result.invalid-search-page=<error>搜索页码不合法。</error>
+
+# 业务提示：服务端 cookie.json 格式错误，应使用 Cookie 对象数组；无占位符。
+result.invalid-server-cookie-json-expected-an-array-of-cookie-objects=<error>服务端 cookie.json 格式错误，应使用 Cookie 对象数组</error>
+
+# 业务提示：服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value；无占位符。
+result.invalid-server-netease-cookie-use-name-value-pairs-separated-by-semicolons=<error>服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value</error>
+
+# 业务提示：请先加入全服频道再点歌；无占位符。
+result.join-the-channel-before-requesting-a-song=<error>请先加入全服频道再点歌</error>
+
+# 业务提示：请先加入全服频道再投票；无占位符。
+result.join-the-channel-before-voting=<error>请先加入全服频道再投票</error>
+
+# 业务提示：请先加入全服频道再撤回歌曲；无占位符。
+result.join-the-channel-before-withdrawing-a-song=<error>请先加入全服频道再撤回歌曲</error>
+
+# 业务提示：请使用 MineKU Music 客户端加入频道后再点歌；无占位符。
+result.join-the-channel-using-mineku-music-before-requesting-songs=<error>请使用 MineKU Music 客户端加入频道后再点歌</error>
+
+# 业务提示：已加入全服音乐；无占位符。
+result.joined-server-music=<success>已加入全服音乐</success>
+
+# 业务提示：已退出全服音乐；无占位符。
+result.left-server-music=<success>已退出全服音乐</success>
+
+# 业务提示：暂时无法连接音乐服务；无占位符。
+result.music-provider-is-unavailable=<error>暂时无法连接音乐服务</error>
+
+# 业务提示：音源返回内容过大。；无占位符。
+result.music-response-is-too-large=<error>音源返回内容过大。</error>
+
+# 业务提示：音乐搜索失败；无占位符。
+result.music-search-failed=<error>音乐搜索失败</error>
+
+# 业务提示：网易云仅返回试听片段，请检查服务端账号的播放权限；无占位符。
+result.netease-returned-only-a-preview-check-the-server-account-s-playback-rights=<error>网易云仅返回试听片段，请检查服务端账号的播放权限</error>
+
+# 业务提示：未取得完整播放地址；会员歌曲需要配置有播放权限的服务端网易云 Cookie；无占位符。
+result.no-complete-playback-url-vip-songs-require-a-server-netease-cookie-with-playback-rights=<error>未取得完整播放地址；会员歌曲需要配置有播放权限的服务端网易云 Cookie</error>
+
+# 业务提示：当前没有播放歌曲；无占位符。
+result.nothing-is-playing=<error>当前没有播放歌曲</error>
+
+# 业务提示：只能核对处理中断的交易。；无占位符。
+result.only-an-interrupted-transaction-can-be-reconciled=<error>只能核对处理中断的交易。</error>
+
+# 业务提示：管理员核对后已取消这笔扣款请求；无占位符。
+result.payment-cancelled-after-administrator-review=<error>管理员核对后已取消这笔扣款请求</error>
+
+# 业务提示：扣款已完成。；无占位符。
+result.payment-completed=<success>扣款已完成。</success>
+
+# 业务提示：正在核对扣款结果，请勿重复点歌；无占位符。
+result.payment-is-being-checked-do-not-request-this-song-again=<primary>正在核对扣款结果，请勿重复点歌</primary>
+
+# 业务提示：扣款结果需要管理员核对交易记录；无占位符。
+result.payment-requires-an-administrator-to-check-the-transaction-record=<primary>扣款结果需要管理员核对交易记录</primary>
+
+# 业务提示：点歌冷却中，请稍后重试；无占位符。
+result.please-wait-before-requesting-another-song=<error>点歌冷却中，请稍后重试</error>
+
+# 业务提示：请等待当前搜索完成。；无占位符。
+result.please-wait-for-the-current-search=<error>请等待当前搜索完成。</error>
+
+# 业务提示：服务端网易云账号无法播放此歌曲，请检查登录、会员权限及歌曲可用性；无占位符。
+result.server-netease-account-cannot-play-this-song-check-login-membership-and-song-availability=<error>服务端网易云账号无法播放此歌曲，请检查登录、会员权限及歌曲可用性</error>
+
+# 业务提示：服务端网易云 Cookie 文件过大；无占位符。
+result.server-netease-cookie-file-is-too-large=<error>服务端网易云 Cookie 文件过大</error>
+
+# 业务提示：服务端网易云 Cookie 请求头过大；无占位符。
+result.server-netease-cookie-header-is-too-large=<error>服务端网易云 Cookie 请求头过大</error>
+
+# 业务提示：服务端网易云登录已失效或被拒绝，请更新服务端 Cookie；无占位符。
+result.server-netease-login-expired-or-was-rejected-update-the-server-cookie=<error>服务端网易云登录已失效或被拒绝，请更新服务端 Cookie</error>
+
+# 业务提示：歌曲已加入全服队列；无占位符。
+result.song-added-to-the-queue=<success>歌曲已加入全服队列</success>
+
+
+# 业务提示：没有找到这首歌曲；无占位符。
+result.song-not-found=<error>没有找到这首歌曲</error>
+
+# 业务提示：已取消点歌；无占位符。
+result.song-request-cancelled=<success>已取消点歌</success>
+
+# 业务提示：这首待播歌曲已不在队列中；无占位符。
+result.that-pending-song-no-longer-exists=<error>这首待播歌曲已不在队列中</error>
+
+# 业务提示：点歌费用的小数位数超过经济插件支持范围；无占位符。
+result.the-configured-price-has-more-decimal-places-than-the-economy-supports=<error>点歌费用的小数位数超过经济插件支持范围</error>
+
+# 业务提示：经济系统拒绝扣款，歌曲未加入队列；无占位符。
+result.the-economy-rejected-the-payment-the-song-was-not-requested=<error>经济系统拒绝扣款，歌曲未加入队列</error>
+
+# 业务提示：扣款请求已过期，未扣除费用；无占位符。
+result.the-payment-expired-before-it-could-be-processed=<error>扣款请求已过期，未扣除费用</error>
+
+# 业务提示：交易记录需要管理员维护；无占位符。
+result.the-payment-journal-needs-administrator-maintenance=<error>交易记录需要管理员维护</error>
+
+# 业务提示：玩家尚未连接到经济系统所在服务器；无占位符。
+result.the-player-is-not-connected-to-this-economy-server=<error>玩家尚未连接到经济系统所在服务器</error>
+
+# 业务提示：玩家在扣款前离开，未扣除费用；无占位符。
+result.the-player-left-before-payment-no-payment-was-made=<error>玩家在扣款前离开，未扣除费用</error>
+
+# 业务提示：全服队列已满；无占位符。
+result.the-queue-is-full=<error>全服队列已满</error>
+
+# 业务提示：服务端经济系统暂不可用；无占位符。
+result.the-server-economy-is-unavailable=<error>服务端经济系统暂不可用</error>
+
+# 业务提示：点歌确认已过期，请重新选择歌曲；无占位符。
+result.the-song-request-confirmation-expired-please-select-the-song-again=<error>点歌确认已过期，请重新选择歌曲</error>
+
+# 业务提示：歌曲已切换，这条切歌投票已失效；无占位符。
+result.this-skip-vote-has-expired-because-the-song-changed=<error>歌曲已切换，这条切歌投票已失效</error>
+
+# 业务提示：音源未提供可用于全服播放的完整 MP3；无占位符。
+result.this-song-has-no-complete-mp3-available-for-channel-playback=<error>音源未提供可用于全服播放的完整 MP3</error>
+
+# 业务提示：这首歌曲正在播放或已在队列中；无占位符。
+result.this-song-is-already-playing-or-queued=<error>这首歌曲正在播放或已在队列中</error>
+
+# 业务提示：交易信息不一致。；无占位符。
+result.transaction-details-do-not-match=<error>交易信息不一致。</error>
+
+# 业务提示：未知的音乐操作。；无占位符。
+result.unknown-music-operation=<error>未知的音乐操作。</error>
+
+# 业务提示：请更新 MineKU Music 客户端，并在确认费用后点歌；无占位符。
+result.update-mineku-music-and-confirm-the-request-price-before-requesting-songs=<error>请更新 MineKU Music 客户端，并在确认费用后点歌</error>
+
+# 业务提示：已提交切歌投票；无占位符。
+result.vote-recorded=<success>已提交切歌投票</success>
+
+# 业务提示：请等待服务器连接完成后再点歌；无占位符。
+result.wait-until-you-have-connected-to-a-backend-server-before-requesting-a-song=<error>请等待服务器连接完成后再点歌</error>
+
+# 业务提示：只能撤回自己点的歌曲；无占位符。
+result.you-can-only-withdraw-your-own-songs=<error>只能撤回自己点的歌曲</error>
+
+# 业务提示：余额不足，无法支付本次点歌费用；无占位符。
+result.you-do-not-have-enough-currency-to-request-this-song=<error>余额不足，无法支付本次点歌费用</error>
+
+# 业务提示：没有点歌权限；无占位符。
+result.you-do-not-have-permission-to-request-songs=<error>没有点歌权限</error>
+
+# 业务提示：没有切歌投票权限；无占位符。
+result.you-do-not-have-permission-to-vote=<error>没有切歌投票权限</error>
+
+# 业务提示：你已经为这首歌投过票了；无占位符。
+result.you-have-already-voted-for-this-song=<primary>你已经为这首歌投过票了</primary>
+
+# 业务提示：你的待播歌曲已达到上限；无占位符。
+result.your-pending-song-limit-has-been-reached=<error>你的待播歌曲已达到上限</error>
+
+# 业务提示：歌曲 ID 不合法。；无占位符。
+result.invalid-song-id=<error>歌曲 ID 不合法。</error>
+
+# 业务提示：已撤回歌曲；无占位符。
+result.song-withdrawn=<success>已撤回歌曲</success>
+
+# 业务提示：音源返回的音频地址不受支持。；无占位符。
+result.unsupported-audio-address=<error>音源返回的音频地址不受支持。</error>

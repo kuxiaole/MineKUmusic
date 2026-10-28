@@ -17,13 +17,14 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.*;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.3", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.4", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path directory;
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(MusicProtocol.CHANNEL);
     private volatile MusicServer music;
+    private MusicMessages messages() { MusicServer current = music; return current == null ? MusicMessages.defaults() : current.messages(); }
     private EconomyService economy = EconomyService.UNAVAILABLE;
     @Inject public DangoMusicVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path directory) {
         this.proxy = proxy; this.logger = logger; this.directory = directory;
@@ -33,9 +34,10 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
             Path data = ServerConfig.dataDirectory(directory, "dangomusic-server");
             logger.info("Music data directory: {}", data);
             ServerConfig config = ServerConfig.load(data);
+            MusicMessages language = MusicMessages.load(data);
             if (!config.economyBridgeSecret().isEmpty()) economy = new VelocityEconomy(proxy, this, config.economyBridgeSecret());
             else if (config.requestPrice().signum() > 0) logger.warn("Set economy-bridge-secret on Velocity and its economy backends before enabling paid song requests.");
-            music = new MusicServer(data, config, new NeteaseProvider(data), this, economy);
+            music = new MusicServer(data, config, new NeteaseProvider(data), this, economy, language);
             proxy.getChannelRegistrar().register(channel);
             proxy.getChannelRegistrar().register(VelocityEconomy.CHANNEL);
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("minekumusic").aliases("music", "kum").plugin(this).build(), new SimpleCommand() {
@@ -75,7 +77,10 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
         proxy.getPlayer(id).ifPresent(player -> { for (byte[] frame : frames) player.sendPluginMessage(channel, frame); });
     }
     @Override public void tell(UUID id, String text) {
-        chat(id, List.of(MusicChat.notice(text)));
+        notice(id, messages().translated(text, true));
+    }
+    @Override public void notice(UUID id, Component content) {
+        chat(id, List.of(MusicChat.notice(messages(), content)));
     }
     @Override public void chat(UUID id, List<Component> lines) {
         if (id.equals(MusicServer.console().id())) lines.forEach(line -> logger.info(MusicChat.plain(line)));
@@ -83,7 +88,11 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
     }
     @Override public void votePrompt(UUID id, String text, String command) {
         if (music == null) return;
-        chat(id, List.of(MusicChat.vote(text, command)));
+        votePrompt(id, messages().render("notice.text", "text", text), command);
+    }
+    @Override public void votePrompt(UUID id, Component text, String command) {
+        if (music == null) return;
+        chat(id, List.of(MusicChat.vote(messages(), text, command)));
     }
     @Override public void log(String message, Throwable error) { logger.warn(message, error); }
     @Subscribe public void shutdown(ProxyShutdownEvent event) {

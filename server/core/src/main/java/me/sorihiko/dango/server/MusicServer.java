@@ -4,7 +4,6 @@ import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.protocol.MusicProtocol.Entry;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import java.math.BigDecimal;
 import java.nio.file.*;
 import java.util.*;
@@ -17,14 +16,18 @@ public final class MusicServer implements AutoCloseable {
     public interface Endpoint {
         void send(UUID player, List<byte[]> frames);
         void tell(UUID player, String text);
+        default void notice(UUID player, Component content) { tell(player, MusicChat.plain(content)); }
         default void chat(UUID player, List<Component> lines) { lines.forEach(line -> tell(player, MusicChat.plain(line))); }
         void votePrompt(UUID player, String text, String command);
+        default void votePrompt(UUID player, Component text, String command) { votePrompt(player, MusicChat.plain(text), command); }
         void log(String message, Throwable error);
     }
     private static final UUID CONSOLE = new UUID(0, 0);
     public static Peer console() { return new Peer(CONSOLE, "Console", true, true, true, true); }
     private final Endpoint endpoint;
     private ServerConfig config;
+    private volatile MusicMessages messages;
+    public MusicMessages messages() { return messages; }
     private final MusicProvider provider;
     private final EconomyService economy;
     private final Path stateFile;
@@ -74,6 +77,10 @@ public final class MusicServer implements AutoCloseable {
         this(directory, config, provider, endpoint, EconomyService.UNAVAILABLE);
     }
     public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint, EconomyService economy) throws Exception {
+        this(directory, config, provider, endpoint, economy, MusicMessages.load(directory));
+    }
+    public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint, EconomyService economy, MusicMessages messages) throws Exception {
+        this.messages = messages;
         this.endpoint = endpoint; this.config = config; this.provider = provider; this.economy = economy; stateFile = directory.resolve("queue.json");
         engine = new QueueEngine(System::nanoTime, config.playerLimit(), config.queueLimit(), config.cooldownSeconds());
         if (Files.exists(stateFile)) {
@@ -99,7 +106,7 @@ public final class MusicServer implements AutoCloseable {
         try {
             JsonObject message = decoders.computeIfAbsent(peer.id(), id -> new MusicProtocol.Assembler()).accept(bytes);
             if (message != null) submit(() -> handle(peer, message));
-        } catch (Exception e) { decoders.remove(peer.id()); endpoint.tell(peer.id(), "MineKUmusic: incompatible or incomplete message"); }
+        } catch (Exception e) { decoders.remove(peer.id()); tell(peer.id(), "protocol.invalid"); }
     }
     public void disconnect(UUID id) {
         decoders.remove(id);
@@ -180,19 +187,18 @@ public final class MusicServer implements AutoCloseable {
     }
     private void votePrompt(UUID id) {
         if (engine.current() == null) return;
-        String text = "\u300a" + engine.current().track.name + "\u300b\u5207\u6b4c\u6295\u7968 "
-                + engine.votes() + "/" + engine.votesRequired() + "\uff08" + engine.listeners()
-                + " \u4eba\u6536\u542c\uff0c\u8fbe\u5230 15% \u5373\u5207\u6b4c\uff09";
-        endpoint.votePrompt(id, text, "/minekumusic vote " + engine.instance());
+        endpoint.votePrompt(id, messages.render("vote.prompt", "song", engine.current().track.name,
+                "votes", engine.votes(), "required", engine.votesRequired(), "listeners", engine.listeners()), "/minekumusic vote " + engine.instance());
     }
-    private void tellListeners(String text) {
-        sessions.keySet().stream().filter(id -> engine.subscribed(id.toString())).forEach(id -> endpoint.tell(id, text));
+    private void tell(UUID id, String key, Object... args) { endpoint.notice(id, messages.render(key, args)); }
+    private void tellListeners(String key, Object... args) {
+        Component content = messages.render(key, args);
+        sessions.keySet().stream().filter(id -> engine.subscribed(id.toString())).forEach(id -> endpoint.notice(id, content));
     }
     private void skipByVote() {
         if (engine.current() == null) return;
-        tellListeners("\u5207\u6b4c\u6295\u7968\u5df2\u901a\u8fc7\uff08" + engine.votes() + "/" + engine.votesRequired()
-                + "\uff0c\u6536\u542c\u4eba\u6570 " + engine.listeners() + "\uff0c\u9608\u503c 15%\uff09\uff0c\u5df2\u8df3\u8fc7\u300a"
-                + engine.current().track.name + "\u300b");
+        tellListeners("vote.passed", "votes", engine.votes(), "required", engine.votesRequired(),
+                "listeners", engine.listeners(), "song", engine.current().track.name);
         engine.skip(); audio = null;
     }
     private void request(Peer peer, String rid, long id) {
@@ -261,7 +267,7 @@ public final class MusicServer implements AutoCloseable {
         persist().whenComplete((ignored, error) -> submit(() -> {
             if (error != null) {
                 paying = false; paymentRetryAt = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-                endpoint.tell(accepted.payment.playerId(), "Could not save the song request; payment processing is paused. Retrying.");
+                endpoint.notice(accepted.payment.playerId(), messages.translated("Could not save the song request; payment processing is paused. Retrying.", false));
             } else withdraw(accepted);
         }));
     }
@@ -280,8 +286,10 @@ public final class MusicServer implements AutoCloseable {
                 if (!text.equals(paymentNotice)) {
                     paymentNotice = text;
                     JsonObject body = new JsonObject(); body.addProperty("ok", false); body.addProperty("message", text); body.addProperty("pending", true);
-                    send(player.id(), "result", accepted.requestId, body); endpoint.tell(player.id(), text);
-                    endpoint.tell(CONSOLE, text + " player=" + player.id() + " backend=" + accepted.payment.backend());
+                    send(player.id(), "result", accepted.requestId, body);
+                    Component status = messages.render("payment.pending", "reason", messages.translated(outcome.message(), false), "transaction", accepted.payment.id());
+                    endpoint.notice(player.id(), status);
+                    tell(CONSOLE, "payment.console", "status", status, "player", player.id(), "backend", accepted.payment.backend());
                 }
                 return;
             }
@@ -289,8 +297,9 @@ public final class MusicServer implements AutoCloseable {
             if (outcome.status() == EconomyService.Status.PAID) {
                 engine.addAccepted(accepted.payment.id(), player.id().toString(), player.name(), accepted.track);
                 String text = "Song added to the queue; paid " + accepted.payment.amount().toPlainString() + " " + accepted.currency;
-                result(player, accepted.requestId, true, text);
-                if (sessions.containsKey(player.id())) endpoint.tell(player.id(), text);
+                Component paid = messages.render("payment.paid", "amount", accepted.payment.amount().toPlainString(), "currency", accepted.currency);
+                result(player, accepted.requestId, true, text, paid);
+                if (sessions.containsKey(player.id()) && !accepted.requestId.startsWith("cmd:")) endpoint.notice(player.id(), paid);
             } else result(player, accepted.requestId, false, outcome.message());
             changed(); nextRequest();
         }));
@@ -314,9 +323,9 @@ public final class MusicServer implements AutoCloseable {
         }));
     }
     private void startChatSearch(Peer peer, String query) {
-        if (query.isBlank() || query.length() > 120) throw new IllegalArgumentException("搜索关键词需为 1～120 个字符。");
+        if (query.isBlank() || query.length() > 120) throw messages.failure("search.invalid");
         ChatSearch previous = chatSearches.get(peer.id());
-        if (previous != null && previous.loading) throw new IllegalArgumentException("正在搜索，请稍候再操作。");
+        if (previous != null && previous.loading) throw messages.failure("search.busy");
         ChatSearch search = new ChatSearch(query);
         chatSearches.put(peer.id(), search);
         loadChatSearch(peer, search, 0);
@@ -324,16 +333,16 @@ public final class MusicServer implements AutoCloseable {
     private void chatSearchPage(Peer peer, int page, String expectedId) {
         ChatSearch search = chatSearches.get(peer.id());
         if (search == null || System.nanoTime() >= search.expires || !expectedId.isEmpty() && !search.id.equals(expectedId))
-            throw new IllegalArgumentException("搜索结果已过期或已更新，请使用 /minekumusic search <关键词> 重新搜索。");
-        if (search.loading) throw new IllegalArgumentException("正在搜索，请稍候再操作。");
+            throw messages.failure("search.expired");
+        if (search.loading) throw messages.failure("search.busy");
         if (page < 0 || page > 100 || page > search.page + 1 || page == search.page + 1 && !search.hasNext)
-            throw new IllegalArgumentException("没有对应的搜索结果页，请使用结果下方的翻页按钮。");
+            throw messages.failure("search.invalid-page");
         loadChatSearch(peer, search, page);
     }
     private void loadChatSearch(Peer peer, ChatSearch search, int page) {
         search.loading = true;
         search.expires = System.nanoTime() + TimeUnit.MINUTES.toNanos(10);
-        endpoint.tell(peer.id(), "正在搜索「" + search.query + "」第 " + (page + 1) + " 页（免费）……");
+        tell(peer.id(), "search.loading", "query", search.query, "page", page + 1);
         CompletableFuture.supplyAsync(() -> {
             try { return provider.search(search.query, page, MusicChat.SEARCH_PAGE_SIZE); }
             catch (Exception e) { throw new CompletionException(e); }
@@ -341,16 +350,16 @@ public final class MusicServer implements AutoCloseable {
             if (chatSearches.get(peer.id()) != search) return;
             search.loading = false;
             if (error != null) {
-                endpoint.chat(peer.id(), List.of(Component.text("搜索失败：" + reason(error) + "；可重新搜索或再次翻页。", NamedTextColor.RED)));
+                endpoint.chat(peer.id(), List.of(messages.render("search.failed", "reason", messages.translated(reason(error), false))));
                 return;
             }
             if (page > 0 && found.tracks().isEmpty()) {
                 if (page == search.page + 1) search.hasNext = false;
-                endpoint.chat(peer.id(), List.of(Component.text("此页没有更多歌曲，请返回上一页或更换关键词。", NamedTextColor.YELLOW)));
+                endpoint.chat(peer.id(), List.of(messages.render("search.no-more")));
                 return;
             }
             search.page = page; search.hasNext = found.hasNext() && page < 100;
-            endpoint.chat(peer.id(), MusicChat.search(peer, search.query, search.id, page, found.tracks(), search.hasNext));
+            endpoint.chat(peer.id(), MusicChat.search(messages, peer, search.query, search.id, page, found.tracks(), search.hasNext));
         }));
     }
     private void pump() {
@@ -362,7 +371,7 @@ public final class MusicServer implements AutoCloseable {
             if (!engine.instance().equals(expected)) return;
             resolvingInstance = "";
             if (failure != null) {
-                sessions.keySet().forEach(id -> endpoint.tell(id, "MineKUmusic: " + current.track.name + ": " + reason(failure)));
+                sessions.keySet().forEach(id -> tell(id, "audio.failed", "song", current.track.name, "reason", messages.translated(reason(failure), false)));
                 engine.skip(); audio = null;
             } else { audio = resolved; engine.ready(); sessions.keySet().forEach(this::sendAudio); }
             changed();
@@ -409,10 +418,13 @@ public final class MusicServer implements AutoCloseable {
     }
     private void changed() { pump(); broadcast(); persist(); }
     private void result(Peer peer, String rid, boolean ok, String text) {
+        result(peer, rid, ok, text, messages.translated(text, ok));
+    }
+    private void result(Peer peer, String rid, boolean ok, String text, Component chat) {
         Session session = sessions.get(peer.id());
         JsonObject body = new JsonObject(); body.addProperty("ok", ok); body.addProperty("message", text);
         if (session != null) { session.pending.remove(rid); remember(session, rid, body); send(peer.id(), "result", rid, body); }
-        if (rid.startsWith("cmd:") || session == null) if (!text.isEmpty()) endpoint.tell(peer.id(), text);
+        if (rid.startsWith("cmd:") || session == null) if (!text.isEmpty()) endpoint.notice(peer.id(), chat);
     }
     private void remember(Session session, String rid, JsonObject result) {
         session.results.put(rid, result);
@@ -432,46 +444,46 @@ public final class MusicServer implements AutoCloseable {
             String rid = "cmd:" + UUID.randomUUID();
             try {
                 if (cmd.equals("payment") && mode == MusicCommands.Mode.VELOCITY)
-                    throw new IllegalArgumentException("交易核对请在原扣款 Folia 后端控制台执行 minekumusic payment <交易ID> <paid|cancel>。");
-                if (!MusicCommands.known(cmd, mode)) throw new IllegalArgumentException("未知或不适用于当前服务器的指令，请使用 /minekumusic help 查看帮助。");
-                if (!MusicCommands.allowed(peer, cmd, mode)) throw new IllegalArgumentException("你没有权限使用该指令，或该指令仅限游戏内玩家使用。");
+                    throw messages.failure("command.backend");
+                if (!MusicCommands.known(cmd, mode)) throw messages.failure("command.unknown");
+                if (!MusicCommands.allowed(peer, cmd, mode)) throw messages.failure("command.denied");
                 switch (cmd) {
                     case "help" -> {
-                        if (args.length > 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
-                        endpoint.chat(peer.id(), MusicCommands.help(peer, mode, args.length == 2 ? args[1] : ""));
+                        if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
+                        endpoint.chat(peer.id(), MusicCommands.help(messages, peer, mode, args.length == 2 ? args[1] : ""));
                     }
                     case "reload" -> {
-                        if (args.length != 1) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length != 1) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         reload(peer);
                     }
                     case "queue" -> {
-                        if (args.length > 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         int page = args.length == 2 ? Integer.parseInt(args[1]) - 1 : 0;
                         int pages = Math.max(1, (engine.queue().size() + PAGE_SIZE - 1) / PAGE_SIZE);
-                        if (page < 0 || page >= pages) throw new IllegalArgumentException("页码超出范围，请输入 1～" + pages + "。");
-                        endpoint.tell(peer.id(), engine.current() == null ? "当前没有正在播放的歌曲。" : "正在播放：" + engine.current().track.name);
-                        endpoint.tell(peer.id(), "待播队列：第 " + (page + 1) + "/" + pages + " 页，共 " + engine.queue().size() + " 首。条目格式：队列条目ID | 歌曲 | 点歌人");
-                        engine.queue().stream().skip((long) page * PAGE_SIZE).limit(PAGE_SIZE).forEach(e -> endpoint.tell(peer.id(), e.entryId + " | " + e.track.name + " | " + e.requesterName));
+                        if (page < 0 || page >= pages) throw messages.failure("queue.invalid-page", "pages", pages);
+                        tell(peer.id(), engine.current() == null ? "queue.empty" : "queue.current", "song", engine.current() == null ? "" : engine.current().track.name);
+                        tell(peer.id(), "queue.heading", "page", page + 1, "pages", pages, "count", engine.queue().size());
+                        engine.queue().stream().skip((long) page * PAGE_SIZE).limit(PAGE_SIZE).forEach(e -> tell(peer.id(), "queue.row", "entry", e.entryId, "song", e.track.name, "player", e.requesterName));
                     }
-                    case "request" -> { if (args.length != 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd)); quote(peer, rid, Long.parseLong(args[1])); }
-                    case "withdraw" -> { if (args.length != 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd)); engine.remove(peer.id().toString(), args[1], false); changed(); result(peer, rid, true, "已撤回待播歌曲；已支付的点歌费用不自动退还。"); }
+                    case "request" -> { if (args.length != 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd)); quote(peer, rid, Long.parseLong(args[1])); }
+                    case "withdraw" -> { if (args.length != 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd)); engine.remove(peer.id().toString(), args[1], false); changed(); result(peer, rid, true, messages.text("queue.withdrawn"), messages.render("queue.withdrawn")); }
                     case "vote" -> {
-                        if (args.length > 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         vote(peer, rid, args.length == 2 ? args[1] : "");
                     }
                     case "search" -> {
-                        if (args.length < 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length < 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         startChatSearch(peer, String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
                     }
                     case "searchpage" -> {
-                        if (args.length < 2 || args.length > 3) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length < 2 || args.length > 3) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         chatSearchPage(peer, Integer.parseInt(args[1]) - 1, args.length == 3 ? args[2] : "");
                     }
                     case "skip", "pause", "resume", "clear", "remove" -> {
-                        if (args.length != (cmd.equals("remove") ? 2 : 1)) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        if (args.length != (cmd.equals("remove") ? 2 : 1)) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         switch (cmd) {
                             case "skip" -> {
-                                if (engine.current() != null) tellListeners("\u7ba1\u7406\u5458\u5df2\u8df3\u8fc7\u300a" + engine.current().track.name + "\u300b");
+                                if (engine.current() != null) tellListeners("admin.skipped", "song", engine.current().track.name);
                                 engine.skip(); audio = null;
                             }
                             case "pause" -> engine.pause(true);
@@ -479,25 +491,34 @@ public final class MusicServer implements AutoCloseable {
                             case "clear" -> { engine.clear(); audio = null; }
                             case "remove" -> engine.remove(peer.id().toString(), args[1], true);
                         }
-                        changed(); endpoint.tell(peer.id(), "音乐频道已更新。");
+                        changed(); tell(peer.id(), "admin.updated");
                     }
-                    default -> endpoint.tell(peer.id(), "此指令应在原扣款 Folia 后端执行，请使用 /minekumusic help 查看说明。");
+                    default -> tell(peer.id(), "command.backend");
                 }
-            } catch (NumberFormatException e) { result(peer, rid, false, "参数必须是有效的数字。用法：" + MusicCommands.usage(cmd)); }
+            } catch (NumberFormatException e) {
+                Component content = messages.render("command.number", "usage", MusicCommands.usage(messages, cmd));
+                result(peer, rid, false, MusicChat.plain(content), content);
+            } catch (MusicMessages.Failure e) { result(peer, rid, false, e.getMessage(), e.render(messages)); }
             catch (Exception e) { result(peer, rid, false, reason(e)); }
         });
     }
+    private record Reload(ServerConfig config, MusicMessages messages) {}
     private void reload(Peer peer) {
-        if (reloading) { endpoint.tell(peer.id(), "配置正在重载，请稍候。"); return; }
+        if (reloading) { tell(peer.id(), "reload.busy"); return; }
         reloading = true;
         ServerConfig previous = config;
-        endpoint.tell(peer.id(), "正在重载 MineKUmusic 配置……");
+        tell(peer.id(), "reload.loading");
         CompletableFuture.supplyAsync(() -> {
-            try { return ServerConfig.load(stateFile.getParent(), previous); }
+            try {
+                MusicMessages language = MusicMessages.load(stateFile.getParent());
+                return new Reload(ServerConfig.load(stateFile.getParent(), previous), language);
+            }
             catch (Exception e) { throw new CompletionException(e); }
-        }, disk).whenComplete((next, error) -> submit(() -> {
+        }, disk).whenComplete((loaded, error) -> submit(() -> {
             reloading = false;
-            if (error != null) { endpoint.tell(peer.id(), "配置重载失败，当前配置继续生效：" + reason(error)); return; }
+            if (error != null) { tell(peer.id(), "reload.failed", "reason", reason(error)); return; }
+            ServerConfig next = loaded.config;
+            messages = loaded.messages;
             config = next;
             engine.configure(next.playerLimit(), next.queueLimit(), next.cooldownSeconds());
             boolean priceChanged = previous.requestFeeEnabled() != next.requestFeeEnabled()
@@ -505,12 +526,12 @@ public final class MusicServer implements AutoCloseable {
             for (Session session : sessions.values()) {
                 if (priceChanged && session.quote != null) {
                     session.quote = null;
-                    endpoint.tell(session.peer.id(), "点歌费用已更新，未确认的报价已失效，请重新选择歌曲。已确认的点歌按原报价处理。");
+                    tell(session.peer.id(), "reload.pricing");
                 }
                 welcome(session.peer, "");
             }
             changed();
-            endpoint.tell(peer.id(), "配置重载成功。队列、播放进度、收听状态和交易记录已保留；降低上限不会删除已入队歌曲。");
+            tell(peer.id(), "reload.success");
         }));
     }
     private CompletionStage<Void> persist() {

@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import java.util.*;
 import java.util.stream.IntStream;
 import static me.sorihiko.dango.protocol.MusicProtocol.PAGE_SIZE;
-import static net.kyori.adventure.text.format.NamedTextColor.*;
 
 /** Shared command descriptions and completion rules; snapshots contain no platform objects. */
 public final class MusicCommands {
@@ -14,22 +13,22 @@ public final class MusicCommands {
         public static final Snapshot EMPTY = new Snapshot(List.of(), "");
         public Snapshot { queue = List.copyOf(queue); }
     }
-    private record Definition(String name, String arguments, String description) {}
+    private record Definition(String name, boolean arguments) {}
     private static final List<Definition> COMMANDS = List.of(
-            new Definition("help", "[子命令]", "查看帮助；可查看某条指令的详细用法"),
-            new Definition("queue", "[页码]", "查看当前歌曲和待播队列；页码从 1 开始"),
-            new Definition("search", "<关键词>", "免费搜索歌曲，点击结果中的按钮点歌或翻页"),
-            new Definition("searchpage", "<页码>", "查看最近一次搜索的指定页，也可点击搜索结果下方的翻页按钮"),
-            new Definition("request", "<歌曲ID>", "先加入频道，再在客户端确认点歌费用；确认后才会扣款入队"),
-            new Definition("withdraw", "<队列条目ID>", "撤回自己的待播歌曲；已支付的点歌费用不自动退还"),
-            new Definition("vote", "[播放实例ID]", "投票跳过当前歌曲，达到频道收听人数的 15% 即切歌；通常无需填写参数"),
-            new Definition("skip", "", "管理员直接跳过当前歌曲"),
-            new Definition("pause", "", "管理员暂停整个频道"),
-            new Definition("resume", "", "管理员恢复整个频道"),
-            new Definition("remove", "<队列条目ID>", "管理员删除指定待播歌曲；已支付的费用不自动退还"),
-            new Definition("clear", "", "管理员停止当前歌曲并清空待播队列；不自动退款"),
-            new Definition("reload", "", "管理员重新读取配置；保留队列、播放进度、收听状态和交易记录"),
-            new Definition("payment", "<交易ID> <paid|cancel>", "仅在原扣款 Folia 后端核对中断交易：paid 表示已扣款，cancel 表示未扣款；务必先核对经济插件记录")
+            new Definition("help", true),
+            new Definition("queue", true),
+            new Definition("search", true),
+            new Definition("searchpage", true),
+            new Definition("request", true),
+            new Definition("withdraw", true),
+            new Definition("vote", true),
+            new Definition("skip", false),
+            new Definition("pause", false),
+            new Definition("resume", false),
+            new Definition("remove", true),
+            new Definition("clear", false),
+            new Definition("reload", false),
+            new Definition("payment", true)
     );
     private static final Set<String> ADMIN = Set.of("skip", "pause", "resume", "remove", "clear", "reload", "payment");
     private MusicCommands() {}
@@ -47,33 +46,37 @@ public final class MusicCommands {
         if (Set.of("request", "withdraw", "vote").contains(command) && peer.id().equals(MusicServer.console().id())) return false;
         return switch (command) { case "request" -> peer.request(); case "vote" -> peer.vote(); default -> true; };
     }
-    public static String usage(String name) {
+    public static String usage(String name) { return usage(MusicMessages.defaults(), name); }
+    public static String usage(MusicMessages m, String name) {
         return COMMANDS.stream().filter(c -> c.name.equals(name)).findFirst()
-                .map(c -> "/minekumusic " + c.name + (c.arguments.isEmpty() ? "" : " " + c.arguments)).orElse("/minekumusic help");
+                .map(c -> "/minekumusic " + c.name + (c.arguments ? " " + m.value("command." + c.name + ".arguments") : "")).orElse("/minekumusic help");
     }
     public static List<Component> help(MusicServer.Peer peer, Mode mode, String topic) {
+        return help(MusicMessages.defaults(), peer, mode, topic);
+    }
+    public static List<Component> help(MusicMessages m, MusicServer.Peer peer, Mode mode, String topic) {
         String selected = topic.toLowerCase(Locale.ROOT);
-        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of(Component.text("没有可用的对应指令，请使用 /minekumusic help 查看你能使用的指令。", RED));
+        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of(m.render("help.unavailable"));
         List<Component> lines = new ArrayList<>();
-        lines.add(MusicChat.title("指令帮助"));
-        lines.add(Component.text("主指令：/minekumusic  别名：/music、/kum", GRAY));
+        lines.add(MusicChat.title(m, "help.title"));
+        lines.add(m.render("help.aliases"));
         boolean console = peer.id().equals(MusicServer.console().id());
         for (Definition command : COMMANDS) if (allowed(peer, command.name, mode) && (selected.isEmpty() || selected.equals(command.name))) {
-            Component line = Component.text(usage(command.name), GOLD).append(Component.text(" — " + command.description, YELLOW));
+            Component description = m.render("command." + command.name + ".description");
+            Component line = m.render("help.row", "usage", usage(m, command.name), "description", description);
             if (!console) {
                 boolean run = Set.of("help", "queue", "vote").contains(command.name);
-                String click = "/minekumusic " + command.name + (!run && !command.arguments.isEmpty() ? " " : "");
-                line = line.append(Component.space()).append(MusicChat.action(run ? "执行" : "填入指令", click,
-                        command.description + (run ? "\n点击执行：" : "\n点击填入聊天输入框：") + click, !run));
+                String click = "/minekumusic " + command.name + (!run && command.arguments ? " " : "");
+                line = line.append(Component.space()).append(MusicChat.action(m, m.render(run ? "help.run" : "help.suggest"), click,
+                        m.render(run ? "help.run-hover" : "help.suggest-hover", "description", description, "command", click), !run));
             }
             lines.add(line);
         }
         if (selected.equals("reload")) {
-            lines.add(Component.text("可热重载：频道名称、队列上限、冷却、同步间隔、收费开关、价格和币名。", GRAY));
-            lines.add(Component.text("server-id、economy-bridge-only、economy-bridge-secret 变更需重启；配置错误时继续使用原配置。", GRAY));
+            lines.add(m.render("help.reload-settings"));
+            lines.add(m.render("help.reload-restart"));
         }
-        if (mode == Mode.BRIDGE) lines.add(Component.text("当前为经济桥接后端，音乐队列由 Velocity 管理；请在代理端执行音乐指令。", GRAY));
-        else lines.add(Component.text("加入或退出收听请在客户端“全服音乐”页面操作。Tab 可补全子命令、页码和待播条目 ID。", GRAY));
+        lines.add(m.render(mode == Mode.BRIDGE ? "help.bridge" : "help.footer"));
         return List.copyOf(lines);
     }
     public static List<String> suggest(MusicServer.Peer peer, Mode mode, String[] args, Snapshot state) {

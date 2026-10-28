@@ -64,7 +64,7 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
         writeAnnotated(path, p, template);
         return config;
     }
-    private static void writeAnnotated(Path path, Properties values, String template) throws IOException {
+    static void writeAnnotated(Path path, Properties values, String template) throws IOException {
         StringWriter serialized = new StringWriter();
         values.store(serialized, null);
         List<String> remaining = new ArrayList<>(serialized.toString().lines().filter(line -> !line.startsWith("#")).toList());

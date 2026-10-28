@@ -4,58 +4,53 @@ import me.sorihiko.dango.protocol.MusicProtocol.Track;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import java.util.*;
-import static net.kyori.adventure.text.format.NamedTextColor.*;
 
 /** Shared chat presentation; components are immutable and contain no platform player objects. */
 public final class MusicChat {
     public static final int SEARCH_PAGE_SIZE = 10;
     private MusicChat() {}
     public static String plain(Component message) { return PlainTextComponentSerializer.plainText().serialize(message); }
-    public static Component title(String text) {
-        return Component.text("━━ ", DARK_GRAY).append(Component.text("MineKU Music", LIGHT_PURPLE, TextDecoration.BOLD))
-                .append(Component.text(" · " + text, GOLD)).append(Component.text(" ━━", DARK_GRAY));
+    public static Component title(MusicMessages m, String key) { return m.render("chat.title", "title", m.render(key)); }
+    public static Component notice(MusicMessages m, Component message) {
+        return Component.empty().append(m.render("chat.prefix")).append(message);
     }
-    public static Component notice(String text) {
-        return Component.text("[MineKUmusic] ", LIGHT_PURPLE).append(Component.text(text, YELLOW));
-    }
-    public static Component action(String label, String command, String hover, boolean suggest) {
-        return Component.text("[" + label + "]", AQUA, TextDecoration.UNDERLINED)
+    public static Component action(MusicMessages m, Component label, String command, Component hover, boolean suggest) {
+        return m.render("button.label", "label", label)
                 .clickEvent(suggest ? ClickEvent.suggestCommand(command) : ClickEvent.runCommand(command))
-                .hoverEvent(HoverEvent.showText(Component.text(hover, YELLOW)));
+                .hoverEvent(HoverEvent.showText(hover));
     }
-    public static Component vote(String text, String command) {
-        return notice(text).append(Component.space()).append(action("点击投票切歌", command, "为当前歌曲投一票，每人限一票", false));
+    public static Component vote(MusicMessages m, Component text, String command) {
+        return notice(m, text).append(Component.space()).append(action(m, m.render("vote.button"), command, m.render("vote.hover"), false));
     }
     public static List<Component> search(MusicServer.Peer peer, String query, String searchId, int page, List<Track> tracks, boolean hasNext) {
+        return search(MusicMessages.defaults(), peer, query, searchId, page, tracks, hasNext);
+    }
+    public static List<Component> search(MusicMessages m, MusicServer.Peer peer, String query, String searchId, int page, List<Track> tracks, boolean hasNext) {
         List<Component> lines = new ArrayList<>();
-        lines.add(title("搜索结果 · 免费"));
-        lines.add(Component.text("关键词：", GRAY).append(Component.text(query, YELLOW))
-                .append(Component.text("  第 " + (page + 1) + " 页", GOLD)));
+        lines.add(title(m, "search.title"));
+        lines.add(m.render("search.heading", "query", query, "page", page + 1));
         for (int i = 0; i < tracks.size(); i++) {
             Track track = tracks.get(i);
             String artists = String.join(" / ", track.artists);
-            String detail = track.name + "\n歌手：" + artists + "\n歌曲 ID：" + track.id;
-            Component row = Component.text((page * SEARCH_PAGE_SIZE + i + 1) + ". ", GRAY)
-                    .append(Component.text(shorten(track.name, 30), YELLOW))
-                    .append(Component.text(" · " + shorten(artists, 20), GRAY))
-                    .append(Component.text("  #" + track.id, DARK_GRAY));
+            Component detail = m.render("search.detail", "name", track.name, "artists", artists, "id", track.id);
+            Component row = m.render("search.row", "index", page * SEARCH_PAGE_SIZE + i + 1,
+                    "name", shorten(track.name, 30), "artists", shorten(artists, 20), "id", track.id);
             if (peer.use() && peer.request() && !peer.id().equals(MusicServer.console().id())) {
-                row = row.append(Component.space()).append(action("点歌", "/minekumusic request " + track.id,
-                        detail + "\n点击后在客户端确认点歌费用，确认前不扣款。", false));
+                row = row.append(Component.space()).append(action(m, m.render("search.request"), "/minekumusic request " + track.id,
+                        m.render("search.request-hover", "detail", detail), false));
             }
-            lines.add(row.hoverEvent(HoverEvent.showText(Component.text(detail, YELLOW))));
+            lines.add(row.hoverEvent(HoverEvent.showText(detail)));
         }
-        if (tracks.isEmpty()) lines.add(Component.text("没有找到匹配的歌曲，请更换关键词。", GRAY));
-        Component previous = page > 0 ? action("上一页", "/minekumusic searchpage " + page + " " + searchId, "查看上一页搜索结果（免费）", false)
-                : Component.text("[上一页]", DARK_GRAY);
-        Component next = hasNext ? action("下一页", "/minekumusic searchpage " + (page + 2) + " " + searchId, "查看下一页搜索结果（免费）", false)
-                : Component.text("[下一页]", DARK_GRAY);
-        lines.add(Component.empty().append(previous).append(Component.text("  |  ", DARK_GRAY)).append(next)
-                .append(Component.text("  |  ", DARK_GRAY)).append(action("重新搜索", "/minekumusic search ", "在聊天输入框填写新的搜索关键词", true)));
-        lines.add(Component.text("搜索与翻页免费；点歌需加入频道，并在客户端确认费用。", GRAY));
+        if (tracks.isEmpty()) lines.add(m.render("search.empty"));
+        Component previous = page > 0 ? action(m, m.render("search.previous"), "/minekumusic searchpage " + page + " " + searchId, m.render("search.previous-hover"), false)
+                : m.render("button.disabled", "label", m.render("search.previous"));
+        Component next = hasNext ? action(m, m.render("search.next"), "/minekumusic searchpage " + (page + 2) + " " + searchId, m.render("search.next-hover"), false)
+                : m.render("button.disabled", "label", m.render("search.next"));
+        lines.add(Component.empty().append(previous).append(m.render("button.separator")).append(next)
+                .append(m.render("button.separator")).append(action(m, m.render("search.again"), "/minekumusic search ", m.render("search.again-hover"), true)));
+        lines.add(m.render("search.footer"));
         return List.copyOf(lines);
     }
     private static String shorten(String text, int length) {
