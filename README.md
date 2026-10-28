@@ -19,10 +19,10 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.5+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.5+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.5-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.5-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| Fabric 客户端 | `MineKUmusic-1.6.6+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.6+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.6-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.6-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -56,6 +56,8 @@ currency-name=KU币
 ```
 
 独立服需要可用于 Folia 的 Vault 接口插件及经济插件。群组服还需要在各 Folia 后端安装本项目的 Folia 插件，设置 `economy-bridge-only=true`，并在代理和后端填写相同的 `economy-bridge-secret`；后端经济插件需共用余额数据。币名是显示文字，不会创建新的货币账户。详见 [收费部署与交易恢复](SERVER-MUSIC.md#点歌收费)。
+
+1.6.6 改为检测实际注册的 Vault Economy 服务，补齐 ServiceIO / XConomy 加载顺序，并区分经济不可用、桥接超时和后端无连接。已有扣款记录在经济接口暂时缺失时仍可核对。收费群组服升级时请同时替换代理与后端插件并完整重启，保留交易文件；具体排查见部署文档。
 
 ## 构建
 

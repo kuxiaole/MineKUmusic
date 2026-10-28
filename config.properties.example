@@ -34,7 +34,7 @@ sync-seconds=2
 # 【点歌收费】
 # 是否启用全服点歌收费，默认 false（免费）；true 为收费。
 # 只收取点歌入队的费用，搜索、收听、查看队列、投票和个人播放均免费。
-# 独立 Folia 需要 Vault 接口插件及支持 Folia 的经济插件；群组服还需配置下方经济桥接。
+# 独立 Folia 需要 Vault / ServiceIO 接口插件及支持 Folia 的经济插件（如 XConomy）；群组服还需配置下方经济桥接。
 # 群组服由 Velocity 的收费配置决定费用，后端经济桥接模式不读取此项决定价格。
 request-fee-enabled=false
 

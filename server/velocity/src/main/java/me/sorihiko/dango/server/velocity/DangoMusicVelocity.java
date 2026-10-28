@@ -16,8 +16,9 @@ import com.velocitypowered.api.permission.Tristate;
 import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.5", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.6", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -26,6 +27,7 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private volatile MusicServer music;
     private MusicMessages messages() { MusicServer current = music; return current == null ? MusicMessages.defaults() : current.messages(); }
     private EconomyService economy = EconomyService.UNAVAILABLE;
+    private final AtomicBoolean bridgeWarningShown = new AtomicBoolean();
     @Inject public DangoMusicVelocity(ProxyServer proxy, Logger logger, @DataDirectory Path directory) {
         this.proxy = proxy; this.logger = logger; this.directory = directory;
     }
@@ -63,7 +65,11 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
     @Subscribe public void message(PluginMessageEvent event) {
         if (VelocityEconomy.CHANNEL.equals(event.getIdentifier())) {
             event.setResult(PluginMessageEvent.ForwardResult.handled());
-            if (economy instanceof VelocityEconomy bridge && event.getSource() instanceof ServerConnection backend) bridge.receive(backend, event.getData());
+            if (economy instanceof VelocityEconomy bridge && event.getSource() instanceof ServerConnection backend) {
+                String error = bridge.receive(backend, event.getData());
+                if (error != null && bridgeWarningShown.compareAndSet(false, true))
+                    logger.warn(messages().text("economy.bridge-invalid", "reason", backend.getServerInfo().getName() + ": " + error));
+            }
             return;
         }
         if (!channel.equals(event.getIdentifier())) return;

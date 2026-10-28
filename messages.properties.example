@@ -452,6 +452,24 @@ result.the-queue-is-full=<error>全服队列已满</error>
 # 业务提示：服务端经济系统暂不可用；无占位符。
 result.the-server-economy-is-unavailable=<error>服务端经济系统暂不可用</error>
 
+# 后端启动时已识别的 Vault Economy 服务；{provider} 为经济服务名和注册插件名。
+economy.connected=<success>经济接口已连接：{provider}</success>
+
+# 后端启动时未发现可用服务；无占位符，现有交易记录仍可核对。
+economy.unavailable=<error>未找到可用的 Vault Economy 服务。请检查 ServiceIO / Vault 接口与经济插件是否正常启用并注册服务；已有交易记录仍保留。</error>
+
+# 桥接消息验证或解析失败；{reason} 为不包含密钥或消息正文的错误原因，每次启动最多提示一次。
+economy.bridge-invalid=<error>经济桥接消息验证或解析失败：{reason}。请检查两端密钥和插件版本；本次启动仅提示一次。</error>
+
+# 代理缺少经济桥接配置；无占位符，无法据此判断旧交易是否已经扣款。
+result.economy-bridge-unavailable=<error>经济桥接不可用，请检查服务端配置；未决扣款仍需核对</error>
+
+# 原扣款后端没有返回回执；无占位符，超时不会再次创建扣款交易。
+result.economy-bridge-timeout=<error>扣款后端未返回回执，请检查后端桥接模式、插件状态和密钥；请勿重复点歌</error>
+
+# 无法向原后端发送核对消息；无占位符，插件消息需要该后端有在线连接。
+result.economy-bridge-disconnected=<error>原扣款后端没有可用的插件消息连接，请让玩家连接原后端以继续核对；请勿重复点歌</error>
+
 # 业务提示：点歌确认已过期，请重新选择歌曲；无占位符。
 result.the-song-request-confirmation-expired-please-select-the-song-again=<error>点歌确认已过期，请重新选择歌曲</error>
 

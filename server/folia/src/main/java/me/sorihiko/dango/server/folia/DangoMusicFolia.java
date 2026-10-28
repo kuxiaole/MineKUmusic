@@ -24,16 +24,19 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
     private MusicMessages messages() { MusicServer current = music; return current == null ? language : current.messages(); }
     private void tellKey(UUID id, String key, Object... args) { notice(id, messages().render(key, args)); }
     private final AtomicBoolean reloading = new AtomicBoolean();
+    private final AtomicBoolean bridgeWarningShown = new AtomicBoolean();
     @Override public void onEnable() {
         try {
             directory = ServerConfig.dataDirectory(getDataFolder().toPath(), "minekumusic", "DangoMusic");
             getLogger().info("Music data directory: " + directory);
             config = ServerConfig.load(directory);
             language = MusicMessages.load(directory);
-            if (getServer().getPluginManager().isPluginEnabled("Vault") || getServer().getPluginManager().isPluginEnabled("VaultUnlocked"))
-                economy = new VaultPayments(this, players, directory);
+            VaultPayments payments = new VaultPayments(this, players, directory);
+            economy = payments;
+            String provider = payments.providerDescription();
+            if (provider != null) getLogger().info(language.text("economy.connected", "provider", provider));
             else if (config.requestPrice().signum() > 0 || config.economyBridgeOnly())
-                getLogger().warning("Vault is unavailable; paid song requests cannot be processed.");
+                getLogger().warning(language.text("economy.unavailable"));
             getServer().getPluginManager().registerEvents(this, this);
             Objects.requireNonNull(getCommand("minekumusic")).setExecutor(this);
             Objects.requireNonNull(getCommand("minekumusic")).setTabCompleter(this);
@@ -51,7 +54,10 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
                                 atPlayer(carrier, () -> { if (carrier.isOnline()) carrier.sendPluginMessage(this, EconomyWire.CHANNEL, response); });
                             });
                         });
-                    } catch (IllegalArgumentException ignored) {}
+                    } catch (IllegalArgumentException error) {
+                        if (bridgeWarningShown.compareAndSet(false, true))
+                            getLogger().warning(messages().text("economy.bridge-invalid", "reason", error.getMessage()));
+                    }
                 });
                 getLogger().info("Economy bridge enabled; the music queue is managed by Velocity.");
                 return;

@@ -11,6 +11,7 @@ public interface EconomyService extends AutoCloseable {
         public static Result paid() { return new Result(Status.PAID, "Payment completed"); }
         public static Result rejected(String message) { return new Result(Status.REJECTED, message); }
         public static Result pending() { return new Result(Status.PENDING, "Payment is being checked; do not request this song again"); }
+        public static Result pending(String message) { return new Result(Status.PENDING, message); }
         public static Result unknown() { return new Result(Status.UNKNOWN, "Payment requires an administrator to check the transaction record"); }
     }
     default String route(UUID player) { return "local"; }
@@ -18,6 +19,8 @@ public interface EconomyService extends AutoCloseable {
     @Override default void close() {}
     EconomyService UNAVAILABLE = new EconomyService() {
         @Override public String route(UUID player) { throw new IllegalStateException("The server economy is unavailable"); }
-        @Override public CompletionStage<Result> charge(Payment payment) { return CompletableFuture.completedFuture(Result.pending()); }
+        @Override public CompletionStage<Result> charge(Payment payment) {
+            return CompletableFuture.completedFuture(Result.pending("The economy bridge is unavailable; check the server configuration"));
+        }
     };
 }
