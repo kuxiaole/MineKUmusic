@@ -7,6 +7,7 @@ import me.sorihiko.dango.platform.Keys
 import net.minecraft.client.KeyMapping
 
 import me.sorihiko.dango.DangoLogger
+import me.sorihiko.dango.i18n.I18n
 
 import com.mojang.blaze3d.ProjectionType
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice
@@ -131,7 +132,7 @@ internal object McCompat {
                 }
                 f?.apply { isAccessible = true } ?: error("no backend field in ${device.javaClass.name}")
             } catch (t: Throwable) {
-                DangoLogger.error("Dango Music: cannot find GPU backend: {}", t)
+            DangoLogger.error("MineKU Music: cannot find GPU backend: {}", t)
                 null
             }
         }
@@ -146,7 +147,7 @@ internal object McCompat {
             glChecked?.let { return it }
             val backend = backend() ?: return true   // 还没建好，先当能用
             val gl = backend.javaClass.name.startsWith("com.mojang.renderpearl.backend.opengl.")
-            if (!gl) DangoLogger.warn("Dango Music: graphics backend is {}, lyrics and the player screen are disabled", backend.javaClass.name)
+            if (!gl) DangoLogger.warn("MineKU Music: graphics backend is {}, lyrics and the player screen are disabled", backend.javaClass.name)
             glChecked = gl
             return gl
         }
@@ -168,8 +169,7 @@ internal object McCompat {
         lastNoGlNotice = now
         player.sendSystemMessage(
             Component.literal(
-                "[Dango Music] Lyrics and the music screen only work with OpenGL for now. " +
-                    "Switch the graphics API to OpenGL in Video Settings (music still plays).",
+                "[MineKU Music] " + I18n.text("Lyrics and the music screen require OpenGL. Switch the graphics API to OpenGL in Video Settings; audio playback is unaffected."),
             ),
         )
     }
@@ -211,7 +211,7 @@ internal object McCompat {
         if (zeroToOneDepth) fixed.set(Matrix4f().translation(0f, 0f, 0.5f).scale(1f, 1f, 0.5f).mul(m))
         val depth = screenProjections.size
         while (orthoBuffers.size <= depth) {
-            orthoBuffers.add(ProjectionMatrixBuffer("Dango Music ortho ${orthoBuffers.size}"))
+            orthoBuffers.add(ProjectionMatrixBuffer("MineKU Music ortho ${orthoBuffers.size}"))
         }
         screenProjections.addLast(fixed)
         savedProjections.addLast(RenderSystem.getProjectionMatrixBuffer() to RenderSystem.getProjectionType())
@@ -232,7 +232,7 @@ internal object McCompat {
                 ?: fields.first { it.type == Int::class.javaPrimitiveType && !Modifier.isStatic(it.modifiers) })
                 .apply { isAccessible = true }
         } catch (t: Throwable) {
-            DangoLogger.error("Dango Music: cannot read projection buffer: {}", t)
+            DangoLogger.error("MineKU Music: cannot read projection buffer: {}", t)
             null
         }
     }
@@ -265,7 +265,7 @@ internal object McCompat {
         val backend = backend() ?: error("no GPU device")
         backend.javaClass.getDeclaredMethod(name).apply { isAccessible = true }
     } catch (t: Throwable) {
-        DangoLogger.error("Dango Music: cannot find {}: {}", name, t)
+        DangoLogger.error("MineKU Music: cannot find {}: {}", name, t)
         null
     }
 
@@ -509,7 +509,7 @@ private object ScreenLayer {
         init {
             val device = RenderSystem.getDevice()
             val t: GpuTexture = device.createTexture(
-                "Dango Music screen",
+                "MineKU Music screen",
                 GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_RENDER_ATTACHMENT,
                 GpuFormat.RGBA8_UNORM, w, h, 1, 1,
             )

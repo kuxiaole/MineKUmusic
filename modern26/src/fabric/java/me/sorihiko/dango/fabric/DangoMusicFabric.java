@@ -12,7 +12,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 /**
- * Fabric 入口：启动 mod，把 Fabric 的事件转成 mod 自己的事件。
+ * 26.2 / 26.3 共用 Fabric 入口与全服音乐通信。
  * 画世界 / 画界面的时机用 {@link me.sorihiko.dango.fabric.mixin.GameRendererMixin} 挂在原版里。
  */
 public class DangoMusicFabric implements ClientModInitializer {

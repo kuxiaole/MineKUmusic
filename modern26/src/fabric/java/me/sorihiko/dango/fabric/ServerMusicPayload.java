@@ -6,6 +6,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
+/** Shared wire format for the 26.2 and 26.3 Fabric clients. */
 public record ServerMusicPayload(byte[] bytes) implements CustomPacketPayload {
     public static final Type<ServerMusicPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("dangomusic", "channel"));
     public static final StreamCodec<FriendlyByteBuf, ServerMusicPayload> CODEC = StreamCodec.of(

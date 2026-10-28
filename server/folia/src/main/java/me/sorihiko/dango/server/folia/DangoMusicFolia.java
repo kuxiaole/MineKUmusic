@@ -116,7 +116,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         else current.command(peer, args, MusicCommands.Mode.FOLIA);
     }
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        // Folia 26.2 dispatches ordinary Bukkit player completions on the player's entity scheduler.
+        // Folia 26.2 / 26.3 dispatch player completions on the player's entity scheduler.
         MusicServer.Peer peer = sender instanceof Player player ? peer(player)
                 : sender instanceof ConsoleCommandSender ? MusicServer.console() : null;
         if (peer == null) return List.of();

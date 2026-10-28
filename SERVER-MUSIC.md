@@ -1,34 +1,44 @@
 # MineKUmusic 全服音乐
 
-Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所有组件使用 Java 25。项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。需要替换原 DangoMusic，不要同时安装两个相同 mod ID 的版本。
+Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所有组件使用 Java 25。项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。需要替换原 DangoMusic，不要同时安装两个相同 mod ID 的版本。
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-本次构建固定使用 Folia API `26.2.build.7-beta`、Velocity API `4.3.0`；Fabric Loader `0.19.5`、Fabric API `0.161.0+26.2`、NeoForge `26.2.0.93`。Fabric 客户端还需要安装对应的 Fabric API。
+1.6.10 默认编译使用 Folia API `26.3.build.5-alpha`、Velocity API `4.3.0`。Folia 插件最低 API 版本仍为 26.2，同一个 JAR 用于 Folia 26.2 / 26.3；26.3 API 当前采用 alpha 构建，实际部署仍需检查对应服务器及其他插件的兼容性。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+
+| Minecraft | Fabric Loader | Fabric API | NeoForge |
+| --- | --- | --- | --- |
+| 26.2 | `0.19.5` | `0.161.0+26.2` | `26.2.0.93` |
+| 26.3 | `0.19.5` | `0.164.0+26.3` | `26.3.0.95` |
+
+四个客户端 JAR 分别对应版本和加载器，不能互换。播放器和歌词沿用 OpenGL 渲染；Vulkan 下只保留音频播放，并在聊天中提示切换图形接口。
 
 ## 安装
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.9-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.10-folia.jar` 放入 Folia 26.2 或 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
-3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
+3. 玩家安装与游戏版本一致的 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.9-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.10-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
 
 不需要额外开放音乐插件端口，不依赖 Firebase、Redis 或 AllMusic。玩家没有安装 MineKU Music 也可以正常进入服务器，但无法收听频道。
 
+26.3 客户端沿用相同的频道协议与代理队列。Minecraft 客户端能否进入各后端，仍取决于游戏、代理及其他协议兼容组件；本插件不提供 Minecraft 跨版本协议转换。
+
 ### 从旧版升级
 
+- 1.6.10 新增 26.3 Fabric / NeoForge 全服音乐接入，同时保留 26.2 客户端。升级游戏时须选择文件名含 `+26.3` 的客户端 JAR；Folia 26.2 / 26.3 共用本版 Folia 插件。频道协议、配置、语言、队列、交易文件和 `server-id` 均沿用，升级前备份插件数据，替换 JAR 后完整重启。群组服的收费后端继续使用经济桥接模式。
 - 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
-- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件为 `MineKUmusic-1.6.9+26.2-fabric.jar` 或 `MineKUmusic-1.6.9+26.2-neoforge.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.6.10+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.6.10+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -98,7 +108,7 @@ JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`�
 - 队列先进先出。默认每人最多 3 首待播、成功点歌间隔 30 秒；当前歌曲不占待播名额。
 - 切歌门槛为当前已加入频道人数的 15%，向上取整且至少 1 票。例如 1–6 人需 1 票、7–13 人需 2 票、14–20 人需 3 票；不计入仅在线但未加入频道的玩家。每首歌每人一票，退出移除其投票，换歌清空投票。
 - 有新投票且尚未达标时，频道成员会在聊天中收到票数和“点击投票切歌”按钮；达到门槛立即切歌并公告。退出或离线使门槛降低时也会重新判断。旧聊天按钮绑定原歌曲，换歌后点击不会误投下一首。
-- 26.2 客户端打开播放器时启用原版文本输入，关闭后释放，修复搜索时中文输入法被强制关闭的问题。“全服队列 / 搜索点歌”支持选中背景滑动、悬停渐变和内容交叉淡入淡出；设置里的“减少频道动画”可关闭滑动。
+- 26.2 / 26.3 客户端打开播放器时启用各版本的原版文本输入，关闭后释放；26.3 使用 SDL 文本输入接口。“全服队列 / 搜索点歌”支持选中背景滑动、悬停渐变和内容交叉淡入淡出；设置里的“减少频道动画”可关闭滑动。
 - 无人收听时继续播放，空队列保持安静。离线不会删除已经点入的歌曲。
 
 ## 点歌收费
@@ -278,11 +288,14 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 
 ```powershell
 .\gradlew.bat :26.2-fabric:build :26.2-neoforge:build
+.\gradlew.bat :26.3-fabric:build :26.3-neoforge:build
 .\gradlew.bat -p ..\common :core:test
 .\gradlew.bat -p ..\server build
 ```
 
-客户端产物位于 `modern26/versions/26.2-*/build/libs`，插件产物位于 `server/build/libs`。不要分发名称带 `dev` 的客户端中间产物。
+客户端产物位于 `modern26/versions/26.2-*/build/libs` 和 `modern26/versions/26.3-*/build/libs`，插件产物位于 `server/build/libs`。不要分发名称带 `dev` 的客户端中间产物。
+
+Folia 旧版 API 的编译与测试可通过 `.\gradlew.bat -p ..\server :folia:check '-PfoliaApiVersion=26.2.build.7-beta'` 验证；之后执行默认的服务端 `build`，以 26.3 API 生成发行插件。
 
 自动化测试使用明确标注的合成曲目和模拟连接，覆盖队列规则、完整歌词分片、多客户端自愿订阅、重复请求、重新握手及重启恢复；新增覆盖 15% 取整边界、成员变动、重复投票、聊天通知接收范围和旧投票失效。客户端测试覆盖首次不自动加入、退出恢复队列、个人播放确认、播放控制路由和投票携带当前播放实例。
 
@@ -290,6 +303,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 
 ### 本次验证记录
 
+- 1.6.10 六个发行 JAR 构建成功：26.2 / 26.3 的 Fabric、NeoForge 客户端，以及 Folia / Velocity 插件。130 项自动化检查通过，其中服务端核心 81 项复用 Gradle 已通过结果，Folia 经济适配 7 项、客户端核心 18 项、四个客户端目标各 6 项本轮运行通过。加载器测试新增检查真实数据包编解码不改变插件消息格式、实际游戏字节码中 Mixin 渲染注入点存在；原有 Java 25 兼容测试继续通过。另以 Folia `26.2.build.7-beta` 完成编译与 7 项测试，再使用 `26.3.build.5-alpha` 构建最终插件。未启动实际 26.3 游戏或 Folia / Velocity 服务器，中文输入、音频、歌词、聊天点击与跨服续播仍需实机验收；不包含 Vulkan 界面渲染支持。
 - 1.6.9 四种 JAR 构建成功，114 项自动化测试通过（服务端核心 81 项、Folia 经济适配 7 项、客户端核心 18 项、两种加载器各 4 项）。新增验证成功入队公告、未确认或失败时无公告、重复提交不重复公告、公告发送失败不影响队列、客户端版本提示、点击加入握手、个人队列恢复、选择记忆、重复点击与旧连接消息处理，以及可定制按钮文字和颜色。未在真实 Folia / Velocity 群组服与游戏客户端中验证聊天点击和跨服收听。
 - 1.6.7 四种 JAR 构建成功；客户端 14 项与 Folia 经济适配 7 项测试通过，服务端核心 77 项复用 Gradle 已通过结果，共 98 项检查通过。扫描客户端直接调用的英文翻译键，没有缺失；300 条中文语言资源无重复键，并核对 Fabric / NeoForge 成品内的语言文件与源码完全一致。修复点歌和个人播放确认中的“取消”、全服点歌“搜索”，统一设置与扫码提示的中文文案。未启动实际游戏进行界面截图验证。
 - 1.6.6 共 98 项测试通过（服务端核心 77 项、Folia 经济适配 7 项、客户端 14 项），四种 JAR 构建成功。新增隔离的合成 Economy 服务与实体调度器测试，验证 ServiceIO 名称的服务注册、启动后注册、余额不足、调用前失败、同一交易只扣一次、重启后已付款 / 不确定记录保留，以及 Vault API 完全缺失时仍可读取旧回执并拒绝新扣款。未在真实 ServiceIO / XConomy 或实际 Velocity / Folia 服务器上联调；代理泛化的旧“正在核对”日志不足以单独确认现场根因。
@@ -305,4 +319,4 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 - 此前的网易云真实接口抽样（本轮未重复）：搜索返回 20 条；无可用完整 MP3 的歌曲被拒绝；另一首返回完整 MP3 地址，音频 HTTP 状态为 200，类型为 `audio/mpeg`，并用 JLayer 成功连续解码 100 帧。
 - 尚未启动实际 Minecraft 客户端或 Folia / Velocity 服务器，未实机验证新关于页、中文输入法候选窗、聊天点击、动画观感、游戏内音频输出及跨服连续性，也未测量 750 毫秒同步指标。输入法修复已核对实际 26.2 客户端的 `TextInputManager` 与界面生命周期，并通过两种加载器构建。
 
-保留 DangoMusic 原项目的 GPL-3.0 许可证和署名。AllMusic 为实现参考，本版本使用独立的 `dangomusic:channel` 协议。四种 JAR 和发行包均附带 `CREDITS.md` 与 `LICENSE`。
+保留 DangoMusic 原项目的 GPL-3.0 许可证和署名。AllMusic 为实现参考，本版本使用独立的 `dangomusic:channel` 协议。所有客户端和插件 JAR 及发行包均附带 `CREDITS.md` 与 `LICENSE`。

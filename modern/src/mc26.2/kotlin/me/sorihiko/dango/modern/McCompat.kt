@@ -9,6 +9,7 @@ import me.sorihiko.dango.platform.Keys
 import net.minecraft.client.KeyMapping
 
 import me.sorihiko.dango.DangoLogger
+import me.sorihiko.dango.i18n.I18n
 
 import com.mojang.blaze3d.ProjectionType
 import com.mojang.blaze3d.buffers.GpuBufferSlice
@@ -157,8 +158,7 @@ internal object McCompat {
         lastNoGlNotice = now
         player.sendSystemMessage(
             Component.literal(
-                "[MineKU Music] Lyrics and the music screen only work with OpenGL for now. " +
-                    "Switch the graphics API to OpenGL in Video Settings (music still plays).",
+                "[MineKU Music] " + I18n.text("Lyrics and the music screen require OpenGL. Switch the graphics API to OpenGL in Video Settings; audio playback is unaffected."),
             ),
         )
     }

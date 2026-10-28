@@ -47,7 +47,7 @@ DangoMusic 原有 `MusicScreen.kt` 注释注明播放器排版参考 MuoniumPlay
 | Kotlin 标准库 | 客户端运行时 | Apache-2.0 |
 | Gson | JSON 数据处理 | Apache-2.0 |
 
-保留已有第三方声明。客户端 JAR 中的 `META-INF/licenses/` 保存上游已附带的许可证文本；四种 JAR 均包含本文件及项目 `LICENSE`。Fabric、NeoForge、Folia 和 Velocity 是运行平台，各自项目与许可证归其维护者。
+保留已有第三方声明。客户端 JAR 中的 `META-INF/licenses/` 保存上游已附带的许可证文本；所有客户端和插件 JAR 均包含本文件及项目 `LICENSE`。Fabric、NeoForge、Folia 和 Velocity 是运行平台，各自项目与许可证归其维护者。
 
 收费功能通过 [MilkBowl / VaultAPI](https://github.com/MilkBowl/VaultAPI) 的经济接口与服务器经济插件交互。VaultAPI 使用 LGPL-3.0-or-later，仅作为编译期依赖，接口和经济实现由服务器提供，不打包进本项目 JAR。
 

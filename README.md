@@ -2,7 +2,7 @@
 
 本版本由 **小乐** 开发，基于 **Sorihiko / DangoMusic** 修改，提供个人音乐和自愿加入的全服音乐频道；服务端队列与 Velocity 群组服实现参考 **Coloryr / AllMusic**。项目、插件和发行文件名称为 **MineKUmusic**，客户端内显示为 **MineKU Music**。
 
-本分支交付 Minecraft **26.2 Fabric / NeoForge 客户端**、**Folia 插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支已验证的交付范围。
+本分支交付 Minecraft **26.2 / 26.3 Fabric / NeoForge 客户端**、**Folia 26.2 / 26.3 通用插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支的交付范围。构建与自动化验证不代表已完成实际游戏联调，详见部署文档。
 
 源码仓库：[kuxiaole / MineKUmusic](https://github.com/kuxiaole/MineKUmusic)。问题反馈：[Issues](https://github.com/kuxiaole/MineKUmusic/issues)。
 
@@ -21,12 +21,16 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.9+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.9+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.9-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.9-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.6.10+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.6.10+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.6.10+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.6.10+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.10-folia.jar` | Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.10-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
+
+1.6.10 接入 26.3 Fabric / NeoForge 的全服频道通信，保留 26.2 客户端；Folia 默认编译 API 更新为 `26.3.build.5-alpha`，同一个插件继续以 26.2 为最低 API 版本。26.3 沿用点歌收费、聊天点击加入、个人播放恢复和 Velocity 群组服功能。播放器与歌词仍需要 OpenGL，不支持 Vulkan 绘制；相关提示会跟随客户端语言设置显示。
 
 1.6.9 新增点歌成功后的全服聊天公告，显示点歌人、歌曲和可点击的“加入全服音乐”按钮。支持独立 Folia 与 Velocity 群组服；点击加入免费，并沿用个人播放保存与退出恢复流程。聊天按钮加入需要客户端和管理频道的插件同时更新至 1.6.9，旧客户端仍可从“全服音乐”页面手动加入。
 
@@ -46,7 +50,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
 - `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置、聊天语言和配色，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
-26.2 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。1.6.5 起仅读取 AllMusic / 浏览器导出的 `cookie.json` 数组文件，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
+26.2 / 26.3 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。1.6.5 起仅读取 AllMusic / 浏览器导出的 `cookie.json` 数组文件，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
 
 ## 聊天语言与配色
 
@@ -74,6 +78,7 @@ currency-name=KU币
 
 ```powershell
 .\gradlew.bat :26.2-fabric:build :26.2-neoforge:build
+.\gradlew.bat :26.3-fabric:build :26.3-neoforge:build
 .\gradlew.bat -p ..\common :core:test
 .\gradlew.bat -p ..\server build
 ```
@@ -82,14 +87,15 @@ Linux / macOS 在同一目录使用：
 
 ```sh
 ./gradlew :26.2-fabric:build :26.2-neoforge:build
+./gradlew :26.3-fabric:build :26.3-neoforge:build
 ./gradlew -p ../common :core:test
 ./gradlew -p ../server build
 ```
 
-客户端输出在 `modern26/versions/26.2-*/build/libs`，插件输出在 `server/build/libs`。名称带 `dev` 的 JAR 是中间产物。
+客户端输出在 `modern26/versions/26.2-*/build/libs` 和 `modern26/versions/26.3-*/build/libs`，插件输出在 `server/build/libs`。名称带 `dev` 的 JAR 是中间产物。
 
 ## 兼容与许可证
 
 项目、插件名称和发行文件使用 `MineKUmusic`，mod 列表与客户端界面显示 `MineKU Music`。为兼容已有客户端设置、资源和权限配置，内部 mod ID `dangomusic`、`dangomusic:channel` 协议、`dangomusic.*` 权限及原代码包名继续保留。Velocity 的内部插件 ID 保持小写 `minekumusic`；主指令为 `/minekumusic`，别名为 `/music` 和 `/kum`，不再注册 `/dgm`。
 
-采用上游的 [GPL-3.0](LICENSE)，保留原作者署名与第三方许可证。`CREDITS.md` 随四种 JAR 和发行包提供；客户端第三方许可证还保存在 JAR 的 `META-INF/licenses/`。
+采用上游的 [GPL-3.0](LICENSE)，保留原作者署名与第三方许可证。`CREDITS.md` 随所有客户端和插件 JAR 及发行包提供；客户端第三方许可证还保存在 JAR 的 `META-INF/licenses/`。

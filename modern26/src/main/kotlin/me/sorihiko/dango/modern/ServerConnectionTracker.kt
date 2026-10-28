@@ -4,7 +4,7 @@ import me.sorihiko.dango.music.ServerMusic
 import net.minecraft.client.Minecraft
 import net.minecraft.network.Connection
 
-/** A backend transfer replaces the play listener but keeps the proxy socket alive. */
+/** Shared 26.x lifecycle: a backend transfer changes the play listener but keeps the proxy socket. */
 object ServerConnectionTracker {
     private var connection: Connection? = null
     private var playListener: Any? = null

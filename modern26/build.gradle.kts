@@ -11,7 +11,9 @@ import java.util.Properties
  *
  *   ../modern/src/main/     所有高版本共用的代码（和 1.20.1～1.21.11 同一份）
  *   ../modern/src/mc<版本>/ 某个 Minecraft 版本专用的写法（McCompat.kt）
- *   versions/<名字>/        加载器入口和 mod 信息文件
+ *   src/main/              26.x 共用的服务器连接跟踪
+ *   src/<加载器>/          Fabric / NeoForge 的共享入口和网络数据包
+ *   versions/<名字>/       版本专用 Mixin 和 mod 信息文件
  */
 plugins {
     id("net.fabricmc.fabric-loom") version "1.18-SNAPSHOT" apply false
@@ -49,13 +51,17 @@ subprojects {
 
     val shared = rootProject.file("../modern/src")
     extensions.configure<KotlinJvmProjectExtension> {
+        sourceSets.getByName("main").kotlin.srcDir(rootProject.file("src/main/kotlin"))
         sourceSets.getByName("main").kotlin.srcDir(shared.resolve("main/kotlin"))
         sourceSets.getByName("main").kotlin.srcDir(shared.resolve("mc$compat/kotlin"))
         sourceSets.getByName("test").kotlin.srcDir(shared.resolve("test/kotlin"))
         compilerOptions { jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString())) }
     }
     extensions.configure<SourceSetContainer> {
+        getByName("main").java.srcDir(rootProject.file("src/$loader/java"))
         getByName("main").resources.srcDir(shared.resolve("main/resources"))
+        getByName("test").java.srcDir(rootProject.file("src/test/java"))
+        getByName("test").compileClasspath += getByName("main").compileClasspath
     }
     extensions.configure<JavaPluginExtension> {
         sourceCompatibility = JavaVersion.toVersion(javaVersion)
@@ -94,7 +100,7 @@ subprojects {
 
     // 在实际的中文、空格工作目录和系统临时目录中验证 HotSpot 兼容规则加载。
     tasks.withType<Test>().configureEach {
-        // 当前测试只验证 JDK 诊断接口，使用编译类路径即可，无需加载游戏原生库。
+        // 检查 JDK、数据包和渲染字节码时使用编译类路径，无需启动游戏或加载原生库。
         val testSources = project.extensions.getByType<SourceSetContainer>().getByName("test")
         classpath = testSources.output + testSources.compileClasspath
         val jitWorkingDir = layout.buildDirectory.dir("jit-tests/中文 空格").get().asFile
@@ -102,6 +108,7 @@ subprojects {
         workingDir(jitWorkingDir)
         systemProperty("java.io.tmpdir", jitTempDir.absolutePath)
         systemProperty("file.encoding", "COMPAT")
+        systemProperty("minekumusic.test.loader", loader)
         doFirst { check(jitTempDir.mkdirs() || jitTempDir.isDirectory) }
     }
 
