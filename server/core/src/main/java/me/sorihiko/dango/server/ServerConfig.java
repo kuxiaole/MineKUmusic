@@ -27,9 +27,9 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
     }
     public static ServerConfig load(Path directory, ServerConfig running) throws IOException {
         Files.createDirectories(directory);
-        Path cookie = directory.resolve("netease-cookie.txt");
+        Path cookie = directory.resolve("cookie.json");
         if (!Files.exists(cookie)) {
-            try (InputStream template = ServerConfig.class.getResourceAsStream("/netease-cookie.txt.example")) {
+            try (InputStream template = ServerConfig.class.getResourceAsStream("/cookie.json.example")) {
                 Files.copy(Objects.requireNonNull(template), cookie);
             }
         }

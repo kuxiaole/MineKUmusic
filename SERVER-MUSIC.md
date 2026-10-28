@@ -10,13 +10,13 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.4-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.5-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.4-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.5-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -25,7 +25,7 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 从旧版升级
 
-- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.4+26.2-fabric.jar` 或 `MineKUmusic-1.6.4+26.2-neoforge.jar`。1.6.0～1.6.3 客户端可继续配合 1.6.4 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.5+26.2-fabric.jar` 或 `MineKUmusic-1.6.5+26.2-neoforge.jar`。1.6.0～1.6.4 客户端可继续配合 1.6.5 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -39,28 +39,37 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 只接受接口正常返回的完整 MP3；无可用地址、仅试听或其他编码格式会明确失败。Cookie 不发送给玩家，不写入队列或协议消息，也不会被加入音频下载请求；客户端直接使用音源返回的播放地址下载音频。玩家自己的网易云登录仍只用于个人音乐。
 
-### 配置会员账号
+### 配置会员账号（仅 JSON）
 
-1. 更新插件并启动一次，会在实际插件数据目录生成 `netease-cookie.txt`。全新 Folia 安装路径为 `plugins/MineKUmusic/netease-cookie.txt`，Velocity 为 `plugins/minekumusic/netease-cookie.txt`；升级安装可能继续使用旧目录，以启动日志为准。
-2. 在文件注释下填入该网易云账号的完整 Cookie 请求头，或单独的 `MUSIC_U=实际值`。文件使用 UTF-8，整段不加引号；不需要把 Cookie 填进客户端。
-3. 保存后，下一次搜索、点歌或播放地址刷新会重新读取，无需重启。已经播放中的歌曲继续使用现有地址。
+从 **1.6.5** 开始，服务端只读取 AllMusic / 浏览器导出的 **`cookie.json` 对象数组**，不再读取 `netease-cookie.txt` 或分号分隔的 Cookie 文本。
 
-也兼容 AllMusic 使用的 `cookie.json` 数组格式：放在同一个插件数据目录，保留各项的 `name`、`value`、`domain`、`path` 字段。以下是占位示例，不是真实凭据：
+1. 替换插件 JAR 并完整重启一次。首次启动在实际插件数据目录生成内容为 `[]` 的 `cookie.json`；已有文件不会被覆盖。全新独立 Folia 的路径为 `plugins/MineKUmusic/cookie.json`，Velocity 为 `plugins/minekumusic/cookie.json`。旧版升级可能继续使用旧目录，以启动日志显示的位置为准。
+2. 将导出的 JSON 文件原样保存为上述 `cookie.json`。最外层必须是数组 `[...]`，每项有字符串类型的 `name` 和 `value`；保留 `domain`、`path` 以及浏览器附带的其他字段即可，无需手动拼接为 `name=value`。
+3. 群组服把文件放在 **Velocity 插件数据目录**，音乐音源请求由代理处理；Folia 经济桥接后端不需要配置账号。
+4. 保存后下一次搜索、点歌或播放地址刷新会重新读取，无需再重启或执行 reload。已经播放中的歌曲继续使用现有地址。
+
+以下是结构示例，所有登录值均为占位文本，不是真实凭据：
 
 ```json
 [
   {
-    "name": "MUSIC_U",
-    "value": "YOUR_SESSION_VALUE",
     "domain": ".music.163.com",
-    "path": "/",
     "hostOnly": false,
-    "httpOnly": true
+    "httpOnly": true,
+    "name": "MUSIC_U",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": true,
+    "storeId": "0",
+    "value": "YOUR_SESSION_VALUE"
   }
 ]
 ```
 
-优先级：`netease-cookie.txt` 中的有效内容优先；文件为空或只有注释时读取 `cookie.json`。两者都为空时匿名访问。登录失效、缺少播放权限或仅返回试听时会提示失败，不自动改用其他来源。凭据只保存在插件目录，交付包只包含空白模板。
+JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`、`path` 可省略，分别默认网易云域名和 `/`。浏览器导出的 `expirationDate`、`hostOnly`、`httpOnly`、`sameSite`、`secure`、`session`、`storeId` 等附加字段可原样保留。插件保留值里的逗号、等号等原始内容，不再将 JSON 转换后按 TXT 格式重新解析。
+
+文件不存在、为空或为 `[]` 时匿名访问。登录失效、账号无播放权限或仅返回试听时仍明确返回失败。旧版 `netease-cookie.txt` 即使存在也不读取、不覆盖 JSON；从 TXT 配置升级时须重新导出 JSON，不能只修改扩展名。发行包里的 `cookie.json.example` 是空数组模板，不包含账号。真实 Cookie 只放在服务器插件数据目录，不放入公开仓库或分发包。
 
 ## 使用
 
@@ -101,8 +110,8 @@ economy-bridge-only=false
 
 ### Velocity 群组服
 
-1. Velocity 安装 `MineKUmusic-server-1.6.4-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.4-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+1. Velocity 安装 `MineKUmusic-server-1.6.5-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
+2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.5-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -247,6 +256,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 
 ### 本次验证记录
 
+- 1.6.5 共 91 项测试通过（服务端 77 项、客户端 14 项），四种 JAR 构建成功。账号配置只读取 `cookie.json`，覆盖完整浏览器导出字段、UTF-8 BOM、含逗号和等号的值、空值、已有文件保留、旧 TXT 被忽略、JSON 热更新及格式错误提示；本地模拟音源确认导出值原样进入请求头。用户提供的 JSON 已完成本地解析和请求头构建检查，未发起账号网络请求；未进行实际歌曲播放联调。两种插件已核对包含空数组 JSON 模板，且不再打包 TXT 模板。
 - 1.6.4 服务端 75 项测试通过；客户端 14 项测试检查通过（客户端代码未变，复用 Gradle 已通过结果），共 89 项，四种 JAR 构建成功。新增验证中文注释和自定义值保留、缺项补齐、主题色、按钮标签及悬浮文字、动态占位符、独立服务器主题、格式错误保留文件、配置与语言一起重载、任一校验失败时保留两份旧运行设置。收费确认和搜索点击原有测试继续通过；已核对两种插件内的语言模板且未重复打包 Adventure。尚未在实际 Folia / Velocity 上验证配色观感与鼠标交互。
 - 1.6.3 共 82 项测试通过（服务端 68 项、客户端 14 项），四种 JAR 构建成功。新增检查彩色帮助与点击动作、10 首分页及音源请求偏移、旧翻页失效、离线清理、空结果、失败重试和权限过滤；收费测试通过实际生成的聊天按钮指令验证先确认再扣款。尚未在实际 Folia / Velocity 服务器上检查聊天显示和鼠标操作。
 - 1.6.2 将主指令改为 `/minekumusic`，仅注册 `/music`、`/kum` 两个别名；帮助、配置注释、搜索提示和聊天投票点击均使用主指令。服务端 62 项测试重新运行通过，客户端 14 项测试检查通过（代码未变，复用 Gradle 已通过结果），四个 JAR 均构建成功；已核对 Folia 成品命令描述及 Velocity 成品的注册与注销名称。尚未在实际服务器上验证别名与 Tab 补全。

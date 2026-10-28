@@ -50,6 +50,10 @@ class NeteaseProviderTest {
 
     @AfterEach void stop() { if (provider != null) provider.close(); if (fixture != null) fixture.stop(0); }
 
+    private void login(String session) throws Exception {
+        Files.writeString(directory.resolve("cookie.json"), MusicProtocol.GSON.toJson(List.of(Map.of("name", "MUSIC_U", "value", session))));
+    }
+
     @Test void chatUsesTenResultsAndClientKeepsTwentyWithCorrectOffsets() throws Exception {
         provider.search("synthetic", 1, MusicChat.SEARCH_PAGE_SIZE);
         provider.search("synthetic", 1);
@@ -58,8 +62,14 @@ class NeteaseProviderTest {
     }
 
     @Test void serverCookieIsUsedForLookupAndLyricsButNotReturnedToPlayers() throws Exception {
-        String login = "MUSIC_U=synthetic-entitled-session; __csrf=synthetic-csrf";
-        Files.writeString(directory.resolve("netease-cookie.txt"), login);
+        String login = "MUSIC_U=synthetic-entitled-session; __csrf=synthetic-csrf; fixture_metadata=synthetic,comma,value==";
+        Files.writeString(directory.resolve("cookie.json"), """
+                [
+                  {"name":"MUSIC_U","value":"synthetic-entitled-session"},
+                  {"name":"__csrf","value":"synthetic-csrf"},
+                  {"name":"fixture_metadata","value":"synthetic,comma,value=="}
+                ]
+                """);
         MusicProvider.Audio audio = provider.resolve(101);
         provider.search("fixture", 0);
         assertEquals(4, cookies.size()); assertTrue(cookies.stream().allMatch(login::equals));
@@ -69,9 +79,8 @@ class NeteaseProviderTest {
     }
 
     @Test void cookieChangesArePickedUpWithoutRecreatingProvider() throws Exception {
-        Path file = directory.resolve("netease-cookie.txt");
-        Files.writeString(file, "MUSIC_U=synthetic-first"); provider.resolve(101);
-        Files.writeString(file, "MUSIC_U=synthetic-second"); provider.resolve(101);
+        login("synthetic-first"); provider.resolve(101);
+        login("synthetic-second"); provider.resolve(101);
         assertEquals(List.of("MUSIC_U=synthetic-first", "MUSIC_U=synthetic-first", "MUSIC_U=synthetic-first",
                 "MUSIC_U=synthetic-second", "MUSIC_U=synthetic-second", "MUSIC_U=synthetic-second"), cookies);
     }
@@ -81,14 +90,14 @@ class NeteaseProviderTest {
     }
 
     @Test void previewIsRejectedEvenWithConfiguredLogin() throws Exception {
-        Files.writeString(directory.resolve("netease-cookie.txt"), "MUSIC_U=synthetic-account");
+        login("synthetic-account");
         playback = playback.replace("\"freeTrialInfo\":null", "\"freeTrialInfo\":{\"start\":0,\"end\":30}");
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> provider.resolve(101));
         assertTrue(error.getMessage().contains("only a preview"));
     }
 
     @Test void rejectedLoginAndMissingEntitlementHaveUsefulMessages() throws Exception {
-        Files.writeString(directory.resolve("netease-cookie.txt"), "MUSIC_U=synthetic-account");
+        login("synthetic-account");
         playback = "{\"code\":301}";
         assertTrue(assertThrows(IllegalStateException.class, () -> provider.resolve(101)).getMessage().contains("login expired or was rejected"));
         playback = "{\"code\":200,\"data\":[{\"id\":101,\"code\":-110,\"url\":null,\"type\":null}]}";

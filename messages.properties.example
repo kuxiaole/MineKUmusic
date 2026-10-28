@@ -340,11 +340,11 @@ result.invalid-search=<error>搜索参数不合法。</error>
 # 业务提示：搜索页码不合法。；无占位符。
 result.invalid-search-page=<error>搜索页码不合法。</error>
 
-# 业务提示：服务端 cookie.json 格式错误，应使用 Cookie 对象数组；无占位符。
-result.invalid-server-cookie-json-expected-an-array-of-cookie-objects=<error>服务端 cookie.json 格式错误，应使用 Cookie 对象数组</error>
+# 业务提示：JSON 必须为对象数组，每项有字符串类型的 name 和 value；无占位符。
+result.invalid-server-cookie-json-expected-an-array-of-cookie-objects=<error>服务端 cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组</error>
 
-# 业务提示：服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value；无占位符。
-result.invalid-server-netease-cookie-use-name-value-pairs-separated-by-semicolons=<error>服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value</error>
+# 业务提示：JSON Cookie 字段存在不支持的字符；无占位符，不显示登录值。
+result.invalid-server-cookie-json-cookie-names-or-values-contain-unsupported-characters=<error>服务端 cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件</error>
 
 # 业务提示：请先加入全服频道再点歌；无占位符。
 result.join-the-channel-before-requesting-a-song=<error>请先加入全服频道再点歌</error>

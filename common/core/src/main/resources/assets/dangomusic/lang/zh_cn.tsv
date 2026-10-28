@@ -287,7 +287,7 @@ Server NetEase login expired or was rejected; update the server Cookie	服务端
 No complete playback URL; VIP songs require a server NetEase Cookie with playback rights	未取得完整播放地址；会员歌曲需要配置有播放权限的服务端网易云 Cookie
 Server NetEase account cannot play this song; check login, membership and song availability	服务端网易云账号无法播放此歌曲，请检查登录、会员权限及歌曲可用性
 NetEase returned only a preview; check the server account's playback rights	网易云仅返回试听片段，请检查服务端账号的播放权限
-Invalid server cookie.json; expected an array of cookie objects	服务端 cookie.json 格式错误，应使用 Cookie 对象数组
-Invalid server NetEase Cookie; use name=value pairs separated by semicolons	服务端网易云 Cookie 格式错误，应使用分号分隔的 name=value
+Invalid server cookie.json; expected an array of cookie objects	服务端 cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组
+Invalid server cookie.json; cookie names or values contain unsupported characters	服务端 cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件
 Server NetEase Cookie file is too large	服务端网易云 Cookie 文件过大
 Server NetEase Cookie header is too large	服务端网易云 Cookie 请求头过大
