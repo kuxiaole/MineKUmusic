@@ -40,10 +40,11 @@ public final class NeteaseProvider implements MusicProvider {
             return body;
         }
     }
-    @Override public Search search(String query, int page) throws Exception {
-        int offset = page * MusicProtocol.PAGE_SIZE;
+    @Override public Search search(String query, int page, int pageSize) throws Exception {
+        if (page < 0 || page > 100 || pageSize < 1 || pageSize > MusicProtocol.PAGE_SIZE) throw new IllegalArgumentException("Invalid search page");
+        int offset = page * pageSize;
         JsonObject response = get("/api/cloudsearch/pc?s=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
-                + "&type=1&limit=20&offset=" + offset, NeteaseCookie.load(directory));
+                + "&type=1&limit=" + pageSize + "&offset=" + offset, NeteaseCookie.load(directory));
         if (!response.has("result")) throw new IllegalStateException("Music search failed");
         JsonObject result = response.getAsJsonObject("result");
         List<Track> tracks = new ArrayList<>();

@@ -17,6 +17,7 @@ class NeteaseProviderTest {
     private HttpServer fixture;
     private NeteaseProvider provider;
     private final List<String> cookies = new CopyOnWriteArrayList<>();
+    private final List<String> searchQueries = new CopyOnWriteArrayList<>();
     private volatile String playback = """
             {"code":200,"data":[{"id":101,"code":200,"fee":1,"url":"https://example.invalid/synthetic.mp3","type":"mp3","freeTrialInfo":null}]}
             """;
@@ -26,6 +27,7 @@ class NeteaseProviderTest {
         fixture.createContext("/api/", exchange -> {
             try {
                 cookies.add(Objects.toString(exchange.getRequestHeaders().getFirst("Cookie"), ""));
+                if (exchange.getRequestURI().getPath().equals("/api/cloudsearch/pc")) searchQueries.add(exchange.getRequestURI().getRawQuery());
                 String body = switch (exchange.getRequestURI().getPath()) {
                     case "/api/song/detail" -> """
                             {"code":200,"songs":[{"id":101,"name":"Synthetic licensed song","dt":180000,"ar":[{"name":"Fixture artist"}],"al":{"picUrl":""}}]}
@@ -47,6 +49,13 @@ class NeteaseProviderTest {
     }
 
     @AfterEach void stop() { if (provider != null) provider.close(); if (fixture != null) fixture.stop(0); }
+
+    @Test void chatUsesTenResultsAndClientKeepsTwentyWithCorrectOffsets() throws Exception {
+        provider.search("synthetic", 1, MusicChat.SEARCH_PAGE_SIZE);
+        provider.search("synthetic", 1);
+        assertTrue(searchQueries.get(0).contains("limit=10&offset=10"));
+        assertTrue(searchQueries.get(1).contains("limit=20&offset=20"));
+    }
 
     @Test void serverCookieIsUsedForLookupAndLyricsButNotReturnedToPlayers() throws Exception {
         String login = "MUSIC_U=synthetic-entitled-session; __csrf=synthetic-csrf";

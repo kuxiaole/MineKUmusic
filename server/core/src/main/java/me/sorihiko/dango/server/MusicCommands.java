@@ -1,8 +1,10 @@
 package me.sorihiko.dango.server;
 
+import net.kyori.adventure.text.Component;
 import java.util.*;
 import java.util.stream.IntStream;
 import static me.sorihiko.dango.protocol.MusicProtocol.PAGE_SIZE;
+import static net.kyori.adventure.text.format.NamedTextColor.*;
 
 /** Shared command descriptions and completion rules; snapshots contain no platform objects. */
 public final class MusicCommands {
@@ -16,7 +18,8 @@ public final class MusicCommands {
     private static final List<Definition> COMMANDS = List.of(
             new Definition("help", "[子命令]", "查看帮助；可查看某条指令的详细用法"),
             new Definition("queue", "[页码]", "查看当前歌曲和待播队列；页码从 1 开始"),
-            new Definition("search", "<关键词>", "免费搜索歌曲，结果中的数字为歌曲 ID"),
+            new Definition("search", "<关键词>", "免费搜索歌曲，点击结果中的按钮点歌或翻页"),
+            new Definition("searchpage", "<页码>", "查看最近一次搜索的指定页，也可点击搜索结果下方的翻页按钮"),
             new Definition("request", "<歌曲ID>", "先加入频道，再在客户端确认点歌费用；确认后才会扣款入队"),
             new Definition("withdraw", "<队列条目ID>", "撤回自己的待播歌曲；已支付的点歌费用不自动退还"),
             new Definition("vote", "[播放实例ID]", "投票跳过当前歌曲，达到频道收听人数的 15% 即切歌；通常无需填写参数"),
@@ -48,19 +51,29 @@ public final class MusicCommands {
         return COMMANDS.stream().filter(c -> c.name.equals(name)).findFirst()
                 .map(c -> "/minekumusic " + c.name + (c.arguments.isEmpty() ? "" : " " + c.arguments)).orElse("/minekumusic help");
     }
-    public static List<String> help(MusicServer.Peer peer, Mode mode, String topic) {
+    public static List<Component> help(MusicServer.Peer peer, Mode mode, String topic) {
         String selected = topic.toLowerCase(Locale.ROOT);
-        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of("没有可用的对应指令，请使用 /minekumusic help 查看你能使用的指令。");
-        List<String> lines = new ArrayList<>();
-        lines.add("MineKU Music 指令帮助（主指令：/minekumusic；别名：/music、/kum）");
-        for (Definition command : COMMANDS) if (allowed(peer, command.name, mode) && (selected.isEmpty() || selected.equals(command.name)))
-            lines.add(usage(command.name) + " — " + command.description);
-        if (selected.equals("reload")) {
-            lines.add("可热重载：频道名称、队列上限、冷却、同步间隔、收费开关、价格和币名。");
-            lines.add("server-id、economy-bridge-only、economy-bridge-secret 变更需重启；配置错误时继续使用原配置。");
+        if (!selected.isEmpty() && !allowed(peer, selected, mode)) return List.of(Component.text("没有可用的对应指令，请使用 /minekumusic help 查看你能使用的指令。", RED));
+        List<Component> lines = new ArrayList<>();
+        lines.add(MusicChat.title("指令帮助"));
+        lines.add(Component.text("主指令：/minekumusic  别名：/music、/kum", GRAY));
+        boolean console = peer.id().equals(MusicServer.console().id());
+        for (Definition command : COMMANDS) if (allowed(peer, command.name, mode) && (selected.isEmpty() || selected.equals(command.name))) {
+            Component line = Component.text(usage(command.name), GOLD).append(Component.text(" — " + command.description, YELLOW));
+            if (!console) {
+                boolean run = Set.of("help", "queue", "vote").contains(command.name);
+                String click = "/minekumusic " + command.name + (!run && !command.arguments.isEmpty() ? " " : "");
+                line = line.append(Component.space()).append(MusicChat.action(run ? "执行" : "填入指令", click,
+                        command.description + (run ? "\n点击执行：" : "\n点击填入聊天输入框：") + click, !run));
+            }
+            lines.add(line);
         }
-        if (mode == Mode.BRIDGE) lines.add("当前为经济桥接后端，音乐队列由 Velocity 管理；请在代理端执行音乐指令。");
-        else lines.add("加入或退出收听请在客户端“全服音乐”页面操作。Tab 可补全子命令、页码和待播条目 ID。");
+        if (selected.equals("reload")) {
+            lines.add(Component.text("可热重载：频道名称、队列上限、冷却、同步间隔、收费开关、价格和币名。", GRAY));
+            lines.add(Component.text("server-id、economy-bridge-only、economy-bridge-secret 变更需重启；配置错误时继续使用原配置。", GRAY));
+        }
+        if (mode == Mode.BRIDGE) lines.add(Component.text("当前为经济桥接后端，音乐队列由 Velocity 管理；请在代理端执行音乐指令。", GRAY));
+        else lines.add(Component.text("加入或退出收听请在客户端“全服音乐”页面操作。Tab 可补全子命令、页码和待播条目 ID。", GRAY));
         return List.copyOf(lines);
     }
     public static List<String> suggest(MusicServer.Peer peer, Mode mode, String[] args, Snapshot state) {

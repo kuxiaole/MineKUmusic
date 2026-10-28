@@ -12,15 +12,12 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.server.*;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
 import com.velocitypowered.api.permission.Tristate;
 import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.*;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.2", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.3", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -78,16 +75,15 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
         proxy.getPlayer(id).ifPresent(player -> { for (byte[] frame : frames) player.sendPluginMessage(channel, frame); });
     }
     @Override public void tell(UUID id, String text) {
-        if (id.equals(new UUID(0, 0))) logger.info(text);
-        else proxy.getPlayer(id).ifPresent(player -> player.sendMessage(Component.text("[MineKUmusic] " + text)));
+        chat(id, List.of(MusicChat.notice(text)));
+    }
+    @Override public void chat(UUID id, List<Component> lines) {
+        if (id.equals(MusicServer.console().id())) lines.forEach(line -> logger.info(MusicChat.plain(line)));
+        else proxy.getPlayer(id).ifPresent(player -> lines.forEach(player::sendMessage));
     }
     @Override public void votePrompt(UUID id, String text, String command) {
         if (music == null) return;
-        Component message = Component.text("[MineKUmusic] " + text + " ")
-                .append(Component.text("[\u70b9\u51fb\u6295\u7968\u5207\u6b4c]", NamedTextColor.AQUA)
-                        .clickEvent(ClickEvent.runCommand(command))
-                        .hoverEvent(HoverEvent.showText(Component.text("\u4e3a\u5f53\u524d\u6b4c\u66f2\u6295\u4e00\u7968\uff0c\u6bcf\u4eba\u9650\u4e00\u7968"))));
-        proxy.getPlayer(id).ifPresent(player -> player.sendMessage(message));
+        chat(id, List.of(MusicChat.vote(text, command)));
     }
     @Override public void log(String message, Throwable error) { logger.warn(message, error); }
     @Subscribe public void shutdown(ProxyShutdownEvent event) {

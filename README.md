@@ -19,10 +19,10 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.2+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.2+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.2-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.2-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| Fabric 客户端 | `MineKUmusic-1.6.3+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.3+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.3-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.3-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -30,11 +30,12 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
 - 在“全服音乐”中自行加入频道，搜索点歌、查看队列、撤回自己的待播歌曲和投票切歌。
+- 聊天中输入 `/music search <关键词>` 可查看彩色搜索结果，每页 10 首，支持点击点歌、上一页、下一页与悬停查看完整歌曲信息。搜索和翻页免费，点击点歌后仍在客户端确认费用。
 - 全服点歌先弹窗确认费用；可通过 Vault 对接经济插件，仅点歌收费，搜索、收听、投票均免费。收费默认关闭，启用后默认每首 10 KU币，金额和币名可以修改。
 - 切歌需要当前频道成员人数的 15%，向上取整且至少 1 票；聊天支持点击投票，旧投票消息绑定原歌曲。
 - 暂停只暂停本人收听；退出频道恢复个人播放。群组切服由 Velocity 维持同一频道。
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
-- `/minekumusic` 或 `/minekumusic help` 显示中文帮助，也可使用 `/music`、`/kum` 两个别名；Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
+- `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
 26.2 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。
 

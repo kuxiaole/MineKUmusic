@@ -18,6 +18,7 @@
 - 1.6.0 加入 Vault 点歌收费、客户端费用确认、Velocity 后端经济桥接与交易恢复。
 - 1.6.1 统一插件指令帮助和 Tab 补全，支持保留频道及交易状态的配置热重载，并补齐逐项中文配置说明。
 - 1.6.2 将主指令统一为 `/minekumusic`，提供 `/music` 和 `/kum` 两个别名，移除 `/dgm`，同步帮助、聊天点击指令和配置文档。
+- 1.6.3 参考 AllMusic 的聊天交互，加入彩色搜索结果、点击点歌、翻页和帮助按钮；帮助只显示一次品牌标题，点歌继续使用本项目的费用确认流程。
 
 ## AllMusic：服务端实现参考
 
@@ -25,6 +26,7 @@
 - 项目：[Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。
 - 参考仓库许可证：GPL-3.0。
 - 参考其“服务端管理队列和播放状态，客户端实际播放音频”的实现方式，以及点歌和 Velocity 群组服接入设计。服务端兼容其 `cookie.json` 配置格式。
+- 聊天交互参考其 `CommandHelp.java`、`MusicSearch.java` 及消息配色：命令填入或执行按钮、逐项歌曲选择、上一页和下一页。本项目在共享服务端核心中实现对应组件，沿用自己的权限、歌曲 ID、费用确认和聊天搜索生命周期。
 - MineKUmusic 的队列核心、客户端通信与插件适配位于本项目中，使用 `dangomusic:channel` 协议；部署时使用配套 MineKU Music 客户端，不兼容 AllMusic 客户端协议。
 
 ## MuoniumPlayer：上游设计参考

@@ -44,7 +44,7 @@ class MusicServerTest {
     private MusicServer.Peer peer(String name) { return new MusicServer.Peer(UUID.randomUUID(), name, true, true, true, false); }
     private MusicProvider provider() {
         return new MusicProvider() {
-            @Override public Search search(String query, int page) { return new Search(List.of(track(100 + page)), page == 0); }
+            @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(track(100 + page)), page == 0); }
             @Override public Audio resolve(long id) { return new Audio(track(id), "https://example.invalid/synthetic-test.mp3", "[00:01.00]Synthetic test lyrics", ""); }
             private Track track(long id) { return new Track(id, "Synthetic test song", List.of("Fixture artist"), 180000, ""); }
         };
@@ -238,7 +238,7 @@ class MusicServerTest {
         Wire wire = new Wire(); var a = peer("A");
         CountDownLatch resolving = new CountDownLatch(1), release = new CountDownLatch(1);
         MusicProvider delayed = new MusicProvider() {
-            @Override public Search search(String query, int page) { return new Search(List.of(), false); }
+            @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(), false); }
             @Override public Audio resolve(long id) throws Exception {
                 if (id == 101) { resolving.countDown(); assertTrue(release.await(5, TimeUnit.SECONDS)); }
                 return new Audio(new Track(id, "Synthetic delayed song", List.of("Fixture"), 180000, ""),

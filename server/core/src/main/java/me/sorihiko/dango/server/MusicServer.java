@@ -3,6 +3,8 @@ package me.sorihiko.dango.server;
 import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.protocol.MusicProtocol.Entry;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import java.math.BigDecimal;
 import java.nio.file.*;
 import java.util.*;
@@ -15,6 +17,7 @@ public final class MusicServer implements AutoCloseable {
     public interface Endpoint {
         void send(UUID player, List<byte[]> frames);
         void tell(UUID player, String text);
+        default void chat(UUID player, List<Component> lines) { lines.forEach(line -> tell(player, MusicChat.plain(line))); }
         void votePrompt(UUID player, String text, String command);
         void log(String message, Throwable error);
     }
@@ -32,6 +35,8 @@ public final class MusicServer implements AutoCloseable {
     private final ExecutorService disk = Executors.newSingleThreadExecutor(r -> new Thread(r, "Dango-State"));
     private final Map<UUID, MusicProtocol.Assembler> decoders = new ConcurrentHashMap<>();
     private final Map<UUID, Session> sessions = new HashMap<>();
+    // Owned exclusively by the queue executor; one search per sender, expired or removed on disconnect.
+    private final Map<UUID, ChatSearch> chatSearches = new HashMap<>();
     private final ArrayDeque<Request> requests = new ArrayDeque<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final CompletableFuture<Void> termination = new CompletableFuture<>();
@@ -56,6 +61,14 @@ public final class MusicServer implements AutoCloseable {
     private record Quote(String id, long songId, BigDecimal amount, String currency, long expires) {}
     private record Request(Peer peer, String requestId, long songId, Session session, Quote quote) {}
     private record Purchase(EconomyService.Payment payment, MusicProtocol.Track track, String requestId, String currency) {}
+    private static final class ChatSearch {
+        final String id = UUID.randomUUID().toString();
+        final String query;
+        int page;
+        boolean hasNext, loading;
+        long expires;
+        ChatSearch(String query) { this.query = query; }
+    }
 
     public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint) throws Exception {
         this(directory, config, provider, endpoint, EconomyService.UNAVAILABLE);
@@ -75,6 +88,7 @@ public final class MusicServer implements AutoCloseable {
         owner.scheduleAtFixedRate(() -> guarded(() -> {
             if (engine.ended()) { engine.skip(); audio = null; }
             pump(); engine.pruneCooldowns();
+            chatSearches.values().removeIf(search -> System.nanoTime() >= search.expires);
             if (purchase != null && !paying && System.nanoTime() >= paymentRetryAt) pay();
             if (++ticks % this.config.syncSeconds() == 0 || lastBroadcastRevision != engine.revision()) broadcast();
             if (ticks % 5 == 0) persist();
@@ -90,7 +104,7 @@ public final class MusicServer implements AutoCloseable {
     public void disconnect(UUID id) {
         decoders.remove(id);
         submit(() -> {
-            sessions.remove(id);
+            sessions.remove(id); chatSearches.remove(id);
             if (engine.unsubscribe(id.toString())) skipByVote();
             requests.removeIf(r -> r.peer.id().equals(id)); changed();
         });
@@ -299,6 +313,46 @@ public final class MusicServer implements AutoCloseable {
             send(peer.id(), "searchResults", rid, body); result(peer, rid, true, "");
         }));
     }
+    private void startChatSearch(Peer peer, String query) {
+        if (query.isBlank() || query.length() > 120) throw new IllegalArgumentException("搜索关键词需为 1～120 个字符。");
+        ChatSearch previous = chatSearches.get(peer.id());
+        if (previous != null && previous.loading) throw new IllegalArgumentException("正在搜索，请稍候再操作。");
+        ChatSearch search = new ChatSearch(query);
+        chatSearches.put(peer.id(), search);
+        loadChatSearch(peer, search, 0);
+    }
+    private void chatSearchPage(Peer peer, int page, String expectedId) {
+        ChatSearch search = chatSearches.get(peer.id());
+        if (search == null || System.nanoTime() >= search.expires || !expectedId.isEmpty() && !search.id.equals(expectedId))
+            throw new IllegalArgumentException("搜索结果已过期或已更新，请使用 /minekumusic search <关键词> 重新搜索。");
+        if (search.loading) throw new IllegalArgumentException("正在搜索，请稍候再操作。");
+        if (page < 0 || page > 100 || page > search.page + 1 || page == search.page + 1 && !search.hasNext)
+            throw new IllegalArgumentException("没有对应的搜索结果页，请使用结果下方的翻页按钮。");
+        loadChatSearch(peer, search, page);
+    }
+    private void loadChatSearch(Peer peer, ChatSearch search, int page) {
+        search.loading = true;
+        search.expires = System.nanoTime() + TimeUnit.MINUTES.toNanos(10);
+        endpoint.tell(peer.id(), "正在搜索「" + search.query + "」第 " + (page + 1) + " 页（免费）……");
+        CompletableFuture.supplyAsync(() -> {
+            try { return provider.search(search.query, page, MusicChat.SEARCH_PAGE_SIZE); }
+            catch (Exception e) { throw new CompletionException(e); }
+        }, io).whenComplete((found, error) -> submit(() -> {
+            if (chatSearches.get(peer.id()) != search) return;
+            search.loading = false;
+            if (error != null) {
+                endpoint.chat(peer.id(), List.of(Component.text("搜索失败：" + reason(error) + "；可重新搜索或再次翻页。", NamedTextColor.RED)));
+                return;
+            }
+            if (page > 0 && found.tracks().isEmpty()) {
+                if (page == search.page + 1) search.hasNext = false;
+                endpoint.chat(peer.id(), List.of(Component.text("此页没有更多歌曲，请返回上一页或更换关键词。", NamedTextColor.YELLOW)));
+                return;
+            }
+            search.page = page; search.hasNext = found.hasNext() && page < 100;
+            endpoint.chat(peer.id(), MusicChat.search(peer, search.query, search.id, page, found.tracks(), search.hasNext));
+        }));
+    }
     private void pump() {
         Entry current = engine.selectNext();
         if (current == null) { audio = null; return; }
@@ -384,7 +438,7 @@ public final class MusicServer implements AutoCloseable {
                 switch (cmd) {
                     case "help" -> {
                         if (args.length > 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
-                        MusicCommands.help(peer, mode, args.length == 2 ? args[1] : "").forEach(line -> endpoint.tell(peer.id(), line));
+                        endpoint.chat(peer.id(), MusicCommands.help(peer, mode, args.length == 2 ? args[1] : ""));
                     }
                     case "reload" -> {
                         if (args.length != 1) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
@@ -407,17 +461,11 @@ public final class MusicServer implements AutoCloseable {
                     }
                     case "search" -> {
                         if (args.length < 2) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
-                        String query = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                        if (query.isBlank() || query.length() > 120) throw new IllegalArgumentException("搜索关键词需为 1～120 个字符。");
-                        CompletableFuture.supplyAsync(() -> { try { return provider.search(query, 0); } catch (Exception e) { throw new CompletionException(e); } }, io)
-                                .whenComplete((found, error) -> submit(() -> {
-                                    if (error != null) endpoint.tell(peer.id(), "搜索失败：" + reason(error));
-                                    else if (found.tracks().isEmpty()) endpoint.tell(peer.id(), "没有找到匹配的歌曲。");
-                                    else {
-                                        endpoint.tell(peer.id(), "搜索结果（免费）：歌曲ID | 歌曲 | 歌手；使用 /minekumusic request <歌曲ID> 点歌。");
-                                        found.tracks().forEach(t -> endpoint.tell(peer.id(), t.id + " | " + t.name + " | " + String.join(" / ", t.artists)));
-                                    }
-                                }));
+                        startChatSearch(peer, String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
+                    }
+                    case "searchpage" -> {
+                        if (args.length < 2 || args.length > 3) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
+                        chatSearchPage(peer, Integer.parseInt(args[1]) - 1, args.length == 3 ? args[2] : "");
                     }
                     case "skip", "pause", "resume", "clear", "remove" -> {
                         if (args.length != (cmd.equals("remove") ? 2 : 1)) throw new IllegalArgumentException("用法：" + MusicCommands.usage(cmd));
@@ -486,7 +534,7 @@ public final class MusicServer implements AutoCloseable {
     @Override public void close() {
         if (!closed.compareAndSet(false, true)) return;
         owner.execute(() -> {
-            persist(); sessions.clear(); requests.clear();
+            persist(); sessions.clear(); chatSearches.clear(); requests.clear();
             disk.execute(() -> termination.complete(null)); disk.shutdown();
         });
         owner.shutdown(); provider.close(); io.shutdownNow(); decoders.clear();

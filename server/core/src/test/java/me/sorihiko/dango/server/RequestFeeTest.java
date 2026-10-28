@@ -2,6 +2,8 @@ package me.sorihiko.dango.server;
 
 import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import java.math.BigDecimal;
@@ -16,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RequestFeeTest {
     @TempDir Path directory;
     private final List<JsonObject> messages = new CopyOnWriteArrayList<>();
+    private final List<Component> chat = new CopyOnWriteArrayList<>();
     private final List<Throwable> errors = new CopyOnWriteArrayList<>();
     private final MusicServer.Peer player = new MusicServer.Peer(UUID.randomUUID(), "Synthetic payer", true, true, true, false);
     private final List<EconomyService.Payment> payments = new CopyOnWriteArrayList<>();
@@ -33,7 +36,7 @@ class RequestFeeTest {
         }
     };
     private final MusicProvider provider = new MusicProvider() {
-        @Override public Search search(String query, int page) { return new Search(List.of(track(101)), false); }
+        @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(track(101)), false); }
         @Override public Audio resolve(long id) {
             if (id == 404) throw new IllegalArgumentException("Synthetic unavailable song");
             return new Audio(track(id), "https://example.invalid/synthetic-fee-test.mp3", "", "");
@@ -48,6 +51,7 @@ class RequestFeeTest {
                 catch (Exception e) { errors.add(e); }
             }
             @Override public void tell(UUID id, String text) {}
+            @Override public void chat(UUID id, List<Component> lines) { chat.addAll(lines); }
             @Override public void votePrompt(UUID id, String text, String command) {}
             @Override public void log(String text, Throwable error) { errors.add(error); }
         };
@@ -122,11 +126,20 @@ class RequestFeeTest {
         start(false); String quote = quote(101); assertEquals("0", last("requestQuote").get("amount").getAsString());
         send("confirmRequest", confirmation(quote)); await(() -> !of("audio").isEmpty()); assertTrue(payments.isEmpty());
     }
-    @Test void commandRequestsAlsoWaitForClientConfirmation() throws Exception {
-        start(true); server.command(player, new String[]{"request", "101"});
+    @Test void clickingChatSearchStillWaitsForClientConfirmation() throws Exception {
+        start(true); server.command(player, new String[]{"search", "synthetic"});
+        await(() -> chat.stream().flatMap(RequestFeeTest::parts).anyMatch(c -> ClickEvent.runCommand("/minekumusic request 101").equals(c.clickEvent())));
+        assertTrue(payments.isEmpty()); assertTrue(of("requestQuote").isEmpty());
+        String click = ((ClickEvent.Payload.Text) chat.stream().flatMap(RequestFeeTest::parts)
+                .filter(c -> ClickEvent.runCommand("/minekumusic request 101").equals(c.clickEvent()))
+                .findFirst().orElseThrow().clickEvent().payload()).value();
+        server.command(player, click.substring("/minekumusic ".length()).split(" "));
         await(() -> !of("requestQuote").isEmpty()); assertTrue(payments.isEmpty());
         send("confirmRequest", confirmation(last("requestQuote").get("quoteId").getAsString()));
         await(() -> !of("audio").isEmpty()); assertEquals(1, payments.size());
+    }
+    private static java.util.stream.Stream<Component> parts(Component component) {
+        return java.util.stream.Stream.concat(java.util.stream.Stream.of(component), component.children().stream().flatMap(RequestFeeTest::parts));
     }
     @Test void paidRequestSurvivesLeavingAndKeepsItsOriginalBackend() throws Exception {
         delayed = new CompletableFuture<>(); start(true);

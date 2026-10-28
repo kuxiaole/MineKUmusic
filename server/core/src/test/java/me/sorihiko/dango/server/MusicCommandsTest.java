@@ -31,13 +31,13 @@ class MusicCommandsTest {
         assertEquals(List.of("help", "reload", "payment"), suggest(admin, Mode.BRIDGE, new String[]{""}, Snapshot.EMPTY));
         assertEquals(List.of("paid"), suggest(admin, Mode.BRIDGE, new String[]{"payment", "synthetic-id", "p"}, Snapshot.EMPTY));
         assertFalse(suggest(admin, Mode.VELOCITY, new String[]{""}, Snapshot.EMPTY).contains("payment"));
-        assertTrue(help(admin, Mode.BRIDGE, "").stream().anyMatch(line -> line.contains("经济桥接")));
+        assertTrue(help(admin, Mode.BRIDGE, "").stream().map(MusicChat::plain).anyMatch(line -> line.contains("经济桥接")));
     }
     @Test void helpExplainsReloadAndFiltersCommandsForTheCaller() {
-        List<String> help = help(listener, Mode.FOLIA, "");
+        List<String> help = help(listener, Mode.FOLIA, "").stream().map(MusicChat::plain).toList();
         assertTrue(help.stream().anyMatch(line -> line.startsWith("/minekumusic request") && line.contains("确认")));
         assertFalse(help.stream().anyMatch(line -> line.startsWith("/minekumusic reload")));
-        assertTrue(help(admin, Mode.FOLIA, "RELOAD").stream().anyMatch(line -> line.contains("变更需重启")));
+        assertTrue(help(admin, Mode.FOLIA, "RELOAD").stream().map(MusicChat::plain).anyMatch(line -> line.contains("变更需重启")));
         assertEquals("help", name(new String[0]));
     }
 }

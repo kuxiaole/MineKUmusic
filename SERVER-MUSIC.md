@@ -10,13 +10,13 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.2-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.3-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.2-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.3-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -25,7 +25,7 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 从旧版升级
 
-- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.2+26.2-fabric.jar` 或 `MineKUmusic-1.6.2+26.2-neoforge.jar`。1.6.0 / 1.6.1 客户端可继续配合 1.6.2 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.3+26.2-fabric.jar` 或 `MineKUmusic-1.6.3+26.2-neoforge.jar`。1.6.0～1.6.2 客户端可继续配合 1.6.3 插件使用；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -101,8 +101,8 @@ economy-bridge-only=false
 
 ### Velocity 群组服
 
-1. Velocity 安装 `MineKUmusic-server-1.6.2-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.2-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+1. Velocity 安装 `MineKUmusic-server-1.6.3-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
+2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.3-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -149,7 +149,8 @@ request-fee-enabled=false
 | --- | --- | --- |
 | `/minekumusic` / `/minekumusic help [子命令]` | 中文帮助，仅列出当前身份和服务器模式可用的指令 | 所有人可查看帮助 |
 | `/minekumusic queue [页码]` | 查看当前歌曲和队列条目 ID | `dangomusic.use` |
-| `/minekumusic search <关键词>` | 搜索歌曲 ID | `dangomusic.use` |
+| `/minekumusic search <关键词>` | 免费搜索，每页 10 首，点击结果点歌或翻页 | `dangomusic.use` |
+| `/minekumusic searchpage <页码>` | 查看最近一次聊天搜索的指定页；也可点击翻页按钮 | `dangomusic.use` |
 | `/minekumusic request <歌曲ID>` | 点歌，需要已加入频道 | `dangomusic.request` |
 | `/minekumusic withdraw <条目ID>` | 撤回自己的待播歌曲 | `dangomusic.use` |
 | `/minekumusic vote` | 投票切歌，需要已加入频道 | `dangomusic.vote` |
@@ -163,6 +164,14 @@ request-fee-enabled=false
 以上命令也可将 `/minekumusic` 替换为 `/music` 或 `/kum`，两者使用相同的权限、Tab 补全和处理逻辑。`/dgm` 已移除。普通功能默认允许，管理权限在 Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
 
 Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 补全可用子命令，`queue` 补全实际页码，`withdraw` 只补全自己的待播条目 ID，管理员的 `remove` 补全全部待播条目 ID，`vote` 可补全当前播放实例，`payment` 的最后一个参数补全 `paid` / `cancel`。搜索关键词和歌曲 ID 需按搜索结果输入，不会误补成在线玩家姓名。经济桥接后端只显示 `help`、`reload`、`payment`；Velocity 不处理后端的交易核对命令。
+
+### 聊天点击界面
+
+- 参考 AllMusic 的聊天交互：紫色品牌标题、金黄色指令和歌曲信息、青色点击按钮。`help` 仅在顶部显示一次品牌，正文不重复附加 `[MineKUmusic]`。`help`、`queue`、`vote` 的按钮直接执行；需要参数或管理频道的指令先填入聊天输入框，由玩家补全并提交。控制台帮助使用纯文字。
+- `/music search <关键词>` 每页显示 10 首，歌曲旁的 `[点歌]` 执行对应歌曲 ID 的点歌指令，悬停可查看完整歌名、歌手及歌曲 ID。无点歌权限或控制台身份不会显示点歌按钮。
+- `[上一页]`、`[下一页]` 直接翻页，不可用的按钮显示为灰色；`[重新搜索]` 将搜索指令填入输入框。搜索与翻页均免费，点击点歌仍需已加入频道，并在客户端弹窗确认后才会扣款。
+- 每位玩家只保留最近一次聊天搜索的关键词和页码，10 分钟无操作后失效，离线时清理。翻页按钮绑定该次搜索，重新搜索后点击旧翻页按钮会提示失效；旧歌曲按钮始终对应当时显示的歌曲 ID。网络请求失败可重试，不改动队列。
+- Folia 与 Velocity 使用相同的消息组件；Folia 在玩家实体调度器中一次发送整组消息，网络搜索继续异步执行。客户端播放器内的搜索仍每页 20 首。
 
 ### 配置热重载
 
@@ -191,6 +200,7 @@ Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 
 
 ### 本次验证记录
 
+- 1.6.3 共 82 项测试通过（服务端 68 项、客户端 14 项），四种 JAR 构建成功。新增检查彩色帮助与点击动作、10 首分页及音源请求偏移、旧翻页失效、离线清理、空结果、失败重试和权限过滤；收费测试通过实际生成的聊天按钮指令验证先确认再扣款。尚未在实际 Folia / Velocity 服务器上检查聊天显示和鼠标操作。
 - 1.6.2 将主指令改为 `/minekumusic`，仅注册 `/music`、`/kum` 两个别名；帮助、配置注释、搜索提示和聊天投票点击均使用主指令。服务端 62 项测试重新运行通过，客户端 14 项测试检查通过（代码未变，复用 Gradle 已通过结果），四个 JAR 均构建成功；已核对 Folia 成品命令描述及 Velocity 成品的注册与注销名称。尚未在实际服务器上验证别名与 Tab 补全。
 - 1.6.1 版本通过 76 项自动化测试（服务端 62 项、客户端 14 项）；本次新增指令帮助、补全规则、重载保留播放及队列、降低上限后恢复队列、无效配置回退、需重启选项及重载期间原价交易延续的验证。此前已覆盖中文配置注释、特殊字符和原配置值保留。尚未进行实际经济插件联调。
 - 四个 JAR 均构建成功；共享协议类、加载器描述文件和许可证已核对。
