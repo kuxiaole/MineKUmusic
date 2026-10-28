@@ -19,6 +19,7 @@ class RequestFeeTest {
     @TempDir Path directory;
     private final List<JsonObject> messages = new CopyOnWriteArrayList<>();
     private final List<Component> chat = new CopyOnWriteArrayList<>();
+    private final List<Component> announcements = new CopyOnWriteArrayList<>();
     private final List<Throwable> errors = new CopyOnWriteArrayList<>();
     private final MusicServer.Peer player = new MusicServer.Peer(UUID.randomUUID(), "Synthetic payer", true, true, true, false);
     private final List<EconomyService.Payment> payments = new CopyOnWriteArrayList<>();
@@ -52,6 +53,7 @@ class RequestFeeTest {
             }
             @Override public void tell(UUID id, String text) {}
             @Override public void chat(UUID id, List<Component> lines) { chat.addAll(lines); }
+            @Override public void announce(Component content) { announcements.add(content); }
             @Override public void votePrompt(UUID id, String text, String command) {}
             @Override public void log(String text, Throwable error) { errors.add(error); }
         };
@@ -93,29 +95,35 @@ class RequestFeeTest {
         assertEquals("12.50", last("requestQuote").get("amount").getAsString());
         assertEquals("KU\u5e01", last("requestQuote").get("currencyName").getAsString());
         String cancel = send("cancelRequest", confirmation(cancelled)); awaitResult(cancel); assertTrue(payments.isEmpty());
+        assertTrue(announcements.isEmpty());
         JsonObject confirm = confirmation(quote(101));
         String rid = send("confirmRequest", confirm); awaitResult(rid); await(() -> !of("audio").isEmpty());
         send("confirmRequest", rid, confirm);
         String ping = send("ping", new JsonObject()); await(() -> of("snapshot").stream().anyMatch(m -> m.get("requestId").getAsString().equals(ping)));
         assertEquals(1, payments.size()); assertEquals(new BigDecimal("12.50"), payments.getFirst().amount());
+        assertEquals(1, announcements.size());
     }
     @Test void rejectedPaymentDoesNotQueueOrStartACooldown() throws Exception {
         start(true); receipt = EconomyService.Result.rejected("Synthetic insufficient balance");
         String first = send("confirmRequest", confirmation(quote(101))); awaitResult(first);
         assertTrue(of("audio").isEmpty()); assertTrue(withdrawals.isEmpty());
+        assertTrue(announcements.isEmpty());
         receipt = EconomyService.Result.paid();
         send("confirmRequest", confirmation(quote(101))); await(() -> !of("audio").isEmpty());
         assertEquals(1, withdrawals.size());
+        assertEquals(1, announcements.size());
     }
     @Test void unavailableSongNeverReachesTheEconomy() throws Exception {
         start(true); String rid = send("confirmRequest", confirmation(quote(404))); awaitResult(rid);
         assertFalse(last("result").get("ok").getAsBoolean()); assertTrue(payments.isEmpty());
+        assertTrue(announcements.isEmpty());
     }
     @Test void duplicateQueuedSongIsRejectedBeforeAnotherPayment() throws Exception {
         start(true); send("confirmRequest", confirmation(quote(101))); await(() -> !of("audio").isEmpty());
         JsonObject body = new JsonObject(); body.addProperty("songId", 101);
         String rid = send("quoteRequest", body); awaitResult(rid);
         assertEquals(1, payments.size()); assertFalse(last("result").get("ok").getAsBoolean());
+        assertEquals(1, announcements.size());
     }
     @Test void legacyClientGetsAnUpdateMessageWithoutBeingCharged() throws Exception {
         start(true); JsonObject body = new JsonObject(); body.addProperty("songId", 101);
@@ -125,6 +133,7 @@ class RequestFeeTest {
     @Test void freeModeStillSupportsConfirmationWithoutAnEconomy() throws Exception {
         start(false); String quote = quote(101); assertEquals("0", last("requestQuote").get("amount").getAsString());
         send("confirmRequest", confirmation(quote)); await(() -> !of("audio").isEmpty()); assertTrue(payments.isEmpty());
+        assertEquals(1, announcements.size());
     }
     @Test void clickingChatSearchStillWaitsForClientConfirmation() throws Exception {
         start(true); server.command(player, new String[]{"search", "synthetic"});
@@ -135,8 +144,10 @@ class RequestFeeTest {
                 .findFirst().orElseThrow().clickEvent().payload()).value();
         server.command(player, click.substring("/minekumusic ".length()).split(" "));
         await(() -> !of("requestQuote").isEmpty()); assertTrue(payments.isEmpty());
+        assertTrue(announcements.isEmpty());
         send("confirmRequest", confirmation(last("requestQuote").get("quoteId").getAsString()));
         await(() -> !of("audio").isEmpty()); assertEquals(1, payments.size());
+        assertEquals(1, announcements.size());
     }
     private static java.util.stream.Stream<Component> parts(Component component) {
         return java.util.stream.Stream.concat(java.util.stream.Stream.of(component), component.children().stream().flatMap(RequestFeeTest::parts));
@@ -144,14 +155,17 @@ class RequestFeeTest {
     @Test void paidRequestSurvivesLeavingAndKeepsItsOriginalBackend() throws Exception {
         delayed = new CompletableFuture<>(); start(true);
         send("confirmRequest", confirmation(quote(101))); await(() -> !payments.isEmpty());
+        assertTrue(announcements.isEmpty());
         server.disconnect(player.id()); route = "fixture-backend-b"; delayed.complete(EconomyService.Result.paid());
         send("hello", new JsonObject()); send("subscribe", new JsonObject());
         await(() -> !of("audio").isEmpty());
         assertEquals("fixture-backend-a", payments.getFirst().backend()); assertEquals(1, withdrawals.size());
+        assertEquals(1, announcements.size());
     }
     @Test void restartRechecksTheSamePaymentAndRestoresTheAcceptedSong() throws Exception {
         receipt = EconomyService.Result.pending(); start(true);
         String rid = send("confirmRequest", confirmation(quote(101))); awaitResult(rid);
+        assertTrue(announcements.isEmpty());
         String transaction = payments.getFirst().id();
         server.close(); server.termination().toCompletableFuture().get(5, TimeUnit.SECONDS); messages.clear();
         receipt = EconomyService.Result.paid(); route = "fixture-backend-b"; start(true);
@@ -159,6 +173,7 @@ class RequestFeeTest {
         assertEquals(1, withdrawals.size()); assertEquals(2, payments.size());
         assertEquals(transaction, payments.getLast().id()); assertEquals("fixture-backend-a", payments.getLast().backend());
         assertEquals(transaction, last("audio").getAsJsonObject("current").get("entryId").getAsString());
+        assertEquals(1, announcements.size());
     }
     @Test void reloadKeepsAnAcceptedPaymentAtItsQuotedPriceAndUpdatesNewQuotes() throws Exception {
         delayed = new CompletableFuture<>(); start(true);

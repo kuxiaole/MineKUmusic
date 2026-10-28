@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.7", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.9", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -91,6 +91,9 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
     @Override public void chat(UUID id, List<Component> lines) {
         if (id.equals(MusicServer.console().id())) lines.forEach(line -> logger.info(MusicChat.plain(line)));
         else proxy.getPlayer(id).ifPresent(player -> lines.forEach(player::sendMessage));
+    }
+    @Override public void announce(Component content) {
+        if (music != null) proxy.getAllPlayers().forEach(player -> player.sendMessage(content));
     }
     @Override public void votePrompt(UUID id, String text, String command) {
         if (music == null) return;

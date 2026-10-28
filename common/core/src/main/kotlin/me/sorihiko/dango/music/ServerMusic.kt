@@ -85,7 +85,7 @@ object ServerMusic {
             try { if (settingsFile.exists()) settingsFile.reader(Charsets.UTF_8).use { settings.load(it) } }
             catch (e: Exception) { DangoLogger.warn("Could not read channel preferences: {}", e.toString()) }
         }
-        send("hello")
+        hello()
     }
     fun configurationPhase() { transport = null; assembler.clear() }
     fun disconnected() {
@@ -127,6 +127,10 @@ object ServerMusic {
                     status = if (joined) "Listening to server music" else "Not joined"
                     if (desired) send("subscribe")
                     requestQueue(queuePage)
+                }
+                "joinChannel" -> {
+                    if (available && transport != null && MusicProtocol.string(body, "epoch", "") == epoch &&
+                        !joined && pending.values.none { it.first == "subscribe" }) join()
                 }
                 "snapshot" -> {
                     val sent = MusicProtocol.number(body, "sentNanos", 0)
@@ -235,7 +239,7 @@ object ServerMusic {
                 restorePersonal(); available = false; status = "Server music is not available"
             }
         }
-        if (!available && transport != null && now - lastPing > 5_000_000_000L) { lastPing = now; send("hello") }
+        if (!available && transport != null && now - lastPing > 5_000_000_000L) { lastPing = now; hello() }
         if (!joined || playingInstance.isEmpty() || playingInstance != instance) return
         if (MusicPlayer.state == MusicPlayer.State.ERROR && retriedInstance != instance) {
             retriedInstance = instance
@@ -280,6 +284,7 @@ object ServerMusic {
             catch (e: Exception) { DangoLogger.warn("Could not save channel preference: {}", e.toString()) }
         }
     }
+    private fun hello() { send("hello", JsonObject().apply { addProperty("chatJoin", true) }) }
     private fun send(type: String, body: JsonObject = JsonObject()): String {
         val sender = transport ?: return ""
         val id = UUID.randomUUID().toString()

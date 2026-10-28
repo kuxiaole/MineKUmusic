@@ -59,6 +59,43 @@ class ServerMusicTest {
         deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Joined server music") }, rid)
     }
     @Test fun firstVisitDoesNotAutoJoin() { welcome(); assertTrue(ServerMusic.available); assertFalse(ServerMusic.joined); assertFalse(sent.any { it.get("type").asString == "subscribe" }) }
+    @Test fun helloAdvertisesChatJoinOnConnectionAndBackendTransfer() {
+        welcome(); ServerMusic.configurationPhase(); ServerMusic.playReady(transport)
+        val hellos = sent.filter { it.get("type").asString == "hello" }
+        assertEquals(2, hellos.size); assertTrue(hellos.all { it.getAsJsonObject("body").get("chatJoin").asBoolean })
+    }
+    @Test fun chatJoinUsesNormalSubscriptionAndRestoresPersonalPlaybackOnLeave() {
+        val track = NeteaseTrack(101, "Synthetic personal track", listOf("Fixture artist"), 180000, "")
+        MusicPlayer.restoreQueue(listOf(track), 0, 0, false, false)
+        welcome(); sent.clear()
+        repeat(2) { deliver("joinChannel", JsonObject().apply { addProperty("epoch", "first") }) }
+        assertEquals("subscribe", sent.single().get("type").asString)
+        assertFalse(ServerMusic.joined)
+        deliver("result", JsonObject().apply { addProperty("ok", true) }, sent.single().get("requestId").asString)
+        assertTrue(ServerMusic.joined); assertTrue(MusicPlayer.followMode)
+        ServerMusic.togglePause(); sent.clear()
+        deliver("joinChannel", JsonObject().apply { addProperty("epoch", "first") })
+        assertTrue(sent.isEmpty()); assertTrue(ServerMusic.locallyPaused)
+        ServerMusic.leave()
+        assertFalse(ServerMusic.joined); assertFalse(MusicPlayer.followMode)
+        assertEquals(101, MusicPlayer.queue.single().id); assertFalse(MusicPlayer.active)
+    }
+    @Test fun chatJoinIgnoresOldServerEpochAndConfigurationPhase() {
+        welcome("restarted"); sent.clear()
+        deliver("joinChannel", JsonObject().apply { addProperty("epoch", "first") })
+        deliver("joinChannel", JsonObject())
+        assertTrue(sent.isEmpty()); assertFalse(ServerMusic.joined)
+        ServerMusic.configurationPhase()
+        deliver("joinChannel", JsonObject().apply { addProperty("epoch", "restarted") })
+        assertTrue(sent.isEmpty()); assertFalse(ServerMusic.joined)
+    }
+    @Test fun chatJoinRemembersTheChoiceAfterSuccessfulSubscription() {
+        welcome(); sent.clear()
+        deliver("joinChannel", JsonObject().apply { addProperty("epoch", "first") })
+        deliver("result", JsonObject().apply { addProperty("ok", true) }, sent.single().get("requestId").asString)
+        ServerMusic.disconnected(); sent.clear(); welcome()
+        assertTrue(sent.any { it.get("type").asString == "subscribe" })
+    }
     @Test fun leavingRestoresAnInactivePersonalQueue() {
         val track = NeteaseTrack(101, "Synthetic personal track", listOf("Fixture artist"), 180000, "")
         MusicPlayer.restoreQueue(listOf(track), 0, 0, false, false)

@@ -18,6 +18,7 @@ public final class MusicServer implements AutoCloseable {
         void tell(UUID player, String text);
         default void notice(UUID player, Component content) { tell(player, MusicChat.plain(content)); }
         default void chat(UUID player, List<Component> lines) { lines.forEach(line -> tell(player, MusicChat.plain(line))); }
+        void announce(Component content);
         void votePrompt(UUID player, String text, String command);
         default void votePrompt(UUID player, Component text, String command) { votePrompt(player, MusicChat.plain(text), command); }
         void log(String message, Throwable error);
@@ -58,6 +59,7 @@ public final class MusicServer implements AutoCloseable {
         final Set<String> pending = new HashSet<>();
         long window; int messages;
         Quote quote;
+        boolean chatJoin;
         Peer peer;
         Session(Peer peer) { this.peer = peer; }
     }
@@ -121,7 +123,9 @@ public final class MusicServer implements AutoCloseable {
         JsonObject body = message.has("body") && message.get("body").isJsonObject() ? message.getAsJsonObject("body") : new JsonObject();
         if (rid.length() > 80) return;
         if (type.equals("hello")) {
-            sessions.computeIfAbsent(peer.id(), id -> new Session(peer)).peer = peer;
+            Session session = sessions.computeIfAbsent(peer.id(), id -> new Session(peer));
+            session.peer = peer;
+            session.chatJoin = bool(body, "chatJoin", false);
             welcome(peer, rid); snapshot(peer.id(), rid, 0); return;
         }
         Session session = sessions.get(peer.id());
@@ -191,6 +195,19 @@ public final class MusicServer implements AutoCloseable {
                 "votes", engine.votes(), "required", engine.votesRequired(), "listeners", engine.listeners()), "/minekumusic vote " + engine.instance());
     }
     private void tell(UUID id, String key, Object... args) { endpoint.notice(id, messages.render(key, args)); }
+    private void announceRequest(Entry entry) {
+        try { endpoint.announce(MusicChat.requestAnnouncement(messages, config.channelName(), entry.requesterName, entry.track)); }
+        catch (Exception e) { endpoint.log("Could not announce the song request", e); }
+    }
+    private void joinFromChat(Peer peer) {
+        Session session = sessions.get(peer.id());
+        if (session == null) { tell(peer.id(), "join.client-missing"); return; }
+        if (engine.subscribed(peer.id().toString())) { tell(peer.id(), "join.already"); return; }
+        if (!session.chatJoin) { tell(peer.id(), "join.client-update"); return; }
+        JsonObject body = new JsonObject(); body.addProperty("epoch", epoch);
+        send(peer.id(), "joinChannel", "", body);
+        tell(peer.id(), "join.connecting", "channel", config.channelName());
+    }
     private void tellListeners(String key, Object... args) {
         Component content = messages.render(key, args);
         sessions.keySet().stream().filter(id -> engine.subscribed(id.toString())).forEach(id -> endpoint.notice(id, content));
@@ -248,7 +265,8 @@ public final class MusicServer implements AutoCloseable {
                 if (failure != null) throw new IllegalStateException(reason(failure));
                 engine.validateRequest(request.peer.id().toString(), request.songId);
                 if (request.quote.amount.signum() == 0) {
-                    engine.add(request.peer.id().toString(), request.peer.name(), resolved.track());
+                    Entry added = engine.add(request.peer.id().toString(), request.peer.name(), resolved.track());
+                    announceRequest(added);
                     result(request.peer, request.requestId, true, "Song added to the queue"); changed();
                 } else {
                     String backend = economy.route(request.peer.id());
@@ -295,7 +313,9 @@ public final class MusicServer implements AutoCloseable {
             }
             purchase = null; paymentNotice = "";
             if (outcome.status() == EconomyService.Status.PAID) {
-                engine.addAccepted(accepted.payment.id(), player.id().toString(), player.name(), accepted.track);
+                long before = engine.revision();
+                Entry added = engine.addAccepted(accepted.payment.id(), player.id().toString(), player.name(), accepted.track);
+                if (engine.revision() != before) announceRequest(added);
                 String text = "Song added to the queue; paid " + accepted.payment.amount().toPlainString() + " " + accepted.currency;
                 Component paid = messages.render("payment.paid", "amount", accepted.payment.amount().toPlainString(), "currency", accepted.currency);
                 result(player, accepted.requestId, true, text, paid);
@@ -448,6 +468,10 @@ public final class MusicServer implements AutoCloseable {
                 if (!MusicCommands.known(cmd, mode)) throw messages.failure("command.unknown");
                 if (!MusicCommands.allowed(peer, cmd, mode)) throw messages.failure("command.denied");
                 switch (cmd) {
+                    case "join" -> {
+                        if (args.length != 1) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
+                        joinFromChat(peer);
+                    }
                     case "help" -> {
                         if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         endpoint.chat(peer.id(), MusicCommands.help(messages, peer, mode, args.length == 2 ? args[1] : ""));

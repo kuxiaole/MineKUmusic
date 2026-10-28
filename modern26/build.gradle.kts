@@ -51,6 +51,7 @@ subprojects {
     extensions.configure<KotlinJvmProjectExtension> {
         sourceSets.getByName("main").kotlin.srcDir(shared.resolve("main/kotlin"))
         sourceSets.getByName("main").kotlin.srcDir(shared.resolve("mc$compat/kotlin"))
+        sourceSets.getByName("test").kotlin.srcDir(shared.resolve("test/kotlin"))
         compilerOptions { jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString())) }
     }
     extensions.configure<SourceSetContainer> {
@@ -88,6 +89,20 @@ subprojects {
         "shade"(kotlin("stdlib"))
         "shade"("javazoom:jlayer:1.0.1")
         "shade"("com.google.zxing:core:3.3.3")
+        "testImplementation"("junit:junit:4.13.2")
+    }
+
+    // 在实际的中文、空格工作目录和系统临时目录中验证 HotSpot 兼容规则加载。
+    tasks.withType<Test>().configureEach {
+        // 当前测试只验证 JDK 诊断接口，使用编译类路径即可，无需加载游戏原生库。
+        val testSources = project.extensions.getByType<SourceSetContainer>().getByName("test")
+        classpath = testSources.output + testSources.compileClasspath
+        val jitWorkingDir = layout.buildDirectory.dir("jit-tests/中文 空格").get().asFile
+        val jitTempDir = jitWorkingDir.resolve("临时目录 with spaces")
+        workingDir(jitWorkingDir)
+        systemProperty("java.io.tmpdir", jitTempDir.absolutePath)
+        systemProperty("file.encoding", "COMPAT")
+        doFirst { check(jitTempDir.mkdirs() || jitTempDir.isDirectory) }
     }
 
     tasks.named<ProcessResources>("processResources") {

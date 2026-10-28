@@ -6,6 +6,8 @@
 
 源码仓库：[kuxiaole / MineKUmusic](https://github.com/kuxiaole/MineKUmusic)。问题反馈：[Issues](https://github.com/kuxiaole/MineKUmusic/issues)。
 
+玩家安装、点歌、收费、投票和常见问题见 [玩家使用说明](全服音乐玩家使用说明.md)。
+
 ## 来源与署名
 
 | 项目 | 作者 | 在 MineKUmusic 中的作用 |
@@ -19,12 +21,16 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.7+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.7+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.7-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.7-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| Fabric 客户端 | `MineKUmusic-1.6.9+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.9+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.9-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.9-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
+
+1.6.9 新增点歌成功后的全服聊天公告，显示点歌人、歌曲和可点击的“加入全服音乐”按钮。支持独立 Folia 与 Velocity 群组服；点击加入免费，并沿用个人播放保存与退出恢复流程。聊天按钮加入需要客户端和管理频道的插件同时更新至 1.6.9，旧客户端仍可从“全服音乐”页面手动加入。
+
+1.6.8 修复 Java 25 的界面 C2 编译兼容规则加载：改用游戏工作目录中的 ASCII 临时文件名，避免 Windows 绝对路径的编码和空格问题；确认 JVM 接受全部规则后才记录成功，并在加载完成后清理临时文件。仅需更新客户端，已部署的 1.6.6 / 1.6.7 插件可继续使用。
 
 1.6.7 修复中文界面的按钮翻译遗漏：点歌确认与切回个人播放弹窗统一显示“取消”，全服点歌页显示“搜索”，同时统一设置和登录提示的中文用语。此次界面修复只需更新客户端，已部署的 1.6.6 插件可继续使用。
 
@@ -32,6 +38,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
 - 在“全服音乐”中自行加入频道，搜索点歌、查看队列、撤回自己的待播歌曲和投票切歌。
+- 有人成功点歌时，所有在线玩家都会收到聊天公告，可点击“加入全服音乐”或输入 `/music join` 免费收听；收到公告不会自动加入。群组服由 Velocity 统一公告。
 - 聊天中输入 `/music search <关键词>` 可查看彩色搜索结果，每页 10 首，支持点击点歌、上一页、下一页与悬停查看完整歌曲信息。搜索和翻页免费，点击点歌后仍在客户端确认费用。
 - 全服点歌先弹窗确认费用；可通过 Vault 对接经济插件，仅点歌收费，搜索、收听、投票均免费。收费默认关闭，启用后默认每首 10 KU币，金额和币名可以修改。
 - 切歌需要当前频道成员人数的 15%，向上取整且至少 1 票；聊天支持点击投票，旧投票消息绑定原歌曲。
@@ -43,7 +50,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 ## 聊天语言与配色
 
-插件首次启动生成带中文注释的 `messages.properties`，可修改帮助、搜索、翻页按钮、悬浮说明、投票、交易及错误提示。`color.*` 统一调整主题色，支持英文颜色名和 `#RRGGBB`；也可在单条文案中使用颜色标签。修改后执行 `/minekumusic reload`，错误配置会保留原运行设置。
+插件首次启动生成带中文注释的 `messages.properties`，可修改帮助、搜索、翻页按钮、悬浮说明、投票、点歌公告、加入按钮、交易及错误提示。`request.announcement` 和 `join.*` 控制点歌公告与加入提示；`color.*` 统一调整主题色，支持英文颜色名和 `#RRGGBB`；也可在单条文案中使用颜色标签。修改后执行 `/minekumusic reload`，错误配置会保留原运行设置。
 
 群组服的全服消息在 Velocity 端配置，Folia 桥接后端的本地提示分别配置。示例见 [messages.properties.example](messages.properties.example)，完整说明见 [语言与配色客制化](SERVER-MUSIC.md#聊天语言与配色客制化)。客户端播放器继续保留自身语言切换。
 

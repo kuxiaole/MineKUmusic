@@ -87,7 +87,31 @@ help.reload-restart=<muted>server-id、economy-bridge-only、economy-bridge-secr
 help.bridge=<muted>当前为经济桥接后端，音乐队列由 Velocity 管理；请在代理端执行音乐指令。</muted>
 
 # 普通帮助页末尾说明。
-help.footer=<muted>加入或退出收听请在客户端“全服音乐”页面操作。Tab 可补全子命令、页码和待播条目 ID。</muted>
+help.footer=<muted>使用 /music join 或聊天公告按钮加入收听，也可在客户端“全服音乐”页面加入或退出。Tab 可补全子命令、页码和待播条目 ID。</muted>
+
+# 点歌成功后向所有在线玩家广播；{player} 为点歌人，{song} 为缩略歌名，{artists} 为缩略歌手，{channel} 为频道名称。
+request.announcement=<heading>{player}</heading><primary> 点了《{song}》</primary><muted> · {artists}，已加入「{channel}」播放队列。</muted>
+
+# 点歌公告中加入频道的按钮文字；点击动作固定为 /minekumusic join，仅加入收听，不点歌或扣款。
+join.button=点击加入全服音乐
+
+# 加入频道按钮的悬浮说明。
+join.hover=<primary>免费加入全服音乐频道，退出后恢复个人播放。需要安装支持聊天加入的 MineKU Music 客户端。</primary>
+
+# 点击加入后通知客户端切换频道；{channel} 为频道名称。
+join.connecting=<success>正在加入「{channel}」，收听免费。</success>
+
+# 已在收听时再次点击，不改变个人播放快照或暂停状态。
+join.already=<muted>你已经加入全服音乐频道。</muted>
+
+# 玩家没有与插件完成客户端握手。
+join.client-missing=<error>尚未连接 MineKU Music 客户端，请安装或启用模组，进入服务器后稍候重试。</error>
+
+# 旧客户端不支持聊天按钮加入，仍可使用原有界面加入。
+join.client-update=<primary>请将 MineKU Music 客户端更新至 1.6.9 或更高版本以使用聊天加入，也可在音乐界面的“全服音乐”页面手动加入。</primary>
+
+# join 子命令说明。
+command.join.description=免费加入全服音乐频道，需要支持聊天加入的客户端。
 
 # 搜索列表标题。
 search.title=搜索结果 · 免费

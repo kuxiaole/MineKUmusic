@@ -3,6 +3,7 @@ package me.sorihiko.dango.server;
 import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
 import me.sorihiko.dango.protocol.MusicProtocol.Track;
+import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,6 +28,8 @@ class MusicServerTest {
         final List<Throwable> errors = new CopyOnWriteArrayList<>();
         final List<Chat> chat = new CopyOnWriteArrayList<>();
         final List<Prompt> prompts = new CopyOnWriteArrayList<>();
+        final List<Component> announcements = new CopyOnWriteArrayList<>();
+        boolean failAnnouncements;
         @Override public void send(UUID id, List<byte[]> frames) {
             try {
                 for (byte[] frame : frames) {
@@ -36,6 +39,10 @@ class MusicServerTest {
             } catch (Exception e) { errors.add(e); }
         }
         @Override public void tell(UUID id, String text) { chat.add(new Chat(id, text)); }
+        @Override public void announce(Component content) {
+            if (failAnnouncements) throw new IllegalStateException("Synthetic announcement delivery failure");
+            announcements.add(content);
+        }
         @Override public void votePrompt(UUID id, String text, String command) { prompts.add(new Prompt(id, text, command)); }
         @Override public void log(String text, Throwable error) { errors.add(error); }
         List<JsonObject> of(UUID id, String type) { return messages.getOrDefault(id, List.of()).stream().filter(m -> m.get("type").getAsString().equals(type)).toList(); }
@@ -58,6 +65,68 @@ class MusicServerTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(10);
         assertTrue(condition.getAsBoolean(), "Expected music event was not received");
+    }
+    @Test void successfulRequestsAnnounceOnceWithoutSubscribingObservers() throws Exception {
+        Wire wire = new Wire(); var requester = peer("Synthetic requester"); var observer = peer("Synthetic observer");
+        try (MusicServer server = server(wire)) {
+            send(server, requester, "hello"); send(server, requester, "subscribe"); send(server, observer, "hello");
+            JsonObject body = new JsonObject(); body.addProperty("songId", 101);
+            send(server, requester, "request", "first-request", body);
+            await(() -> !wire.announcements.isEmpty());
+            send(server, requester, "request", "first-request", body);
+            send(server, requester, "request", "duplicate-song", body);
+            await(() -> wire.of(requester.id(), "result").stream().anyMatch(m -> m.get("requestId").getAsString().equals("duplicate-song")));
+            assertEquals(1, wire.announcements.size());
+            String text = MusicChat.plain(wire.announcements.getFirst());
+            assertTrue(text.contains(requester.name())); assertTrue(text.contains("Synthetic test song"));
+            assertTrue(text.contains("Fixture channel")); assertTrue(text.contains("点击加入全服音乐"));
+            assertFalse(wire.last(observer.id(), "snapshot").get("subscribed").getAsBoolean());
+            assertTrue(wire.of(observer.id(), "audio").isEmpty()); assertTrue(wire.errors.isEmpty());
+        }
+    }
+    @Test void chatJoinChecksClientSupportAndWaitsForTheClientToSubscribe() throws Exception {
+        Wire wire = new Wire(); var player = peer("Synthetic chat user");
+        try (MusicServer server = server(wire)) {
+            server.command(player, new String[]{"join"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("尚未连接")));
+            send(server, player, "hello"); server.command(player, new String[]{"join"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("更新至 1.6.9")));
+            assertTrue(wire.of(player.id(), "joinChannel").isEmpty());
+            JsonObject hello = new JsonObject(); hello.addProperty("chatJoin", true);
+            send(server, player, "hello", "capable-client", hello);
+            server.command(player, new String[]{"join"});
+            await(() -> !wire.of(player.id(), "joinChannel").isEmpty());
+            assertEquals(wire.last(player.id(), "welcome").get("epoch"), wire.last(player.id(), "joinChannel").get("epoch"));
+            assertEquals("test-network", wire.last(player.id(), "joinChannel").get("serverId").getAsString());
+            send(server, player, "ping", "before-subscribe", new JsonObject());
+            await(() -> wire.of(player.id(), "snapshot").stream().anyMatch(m -> m.get("requestId").getAsString().equals("before-subscribe")));
+            assertFalse(wire.last(player.id(), "snapshot").get("subscribed").getAsBoolean());
+            send(server, player, "subscribe"); server.command(player, new String[]{"join"});
+            await(() -> wire.chat.stream().anyMatch(c -> c.text.contains("你已经加入")));
+            assertEquals(1, wire.of(player.id(), "joinChannel").size());
+            assertTrue(wire.last(player.id(), "snapshot").get("subscribed").getAsBoolean());
+            assertTrue(wire.announcements.isEmpty()); assertTrue(wire.errors.isEmpty());
+        }
+    }
+    @Test void announcementFailureDoesNotRejectAnAcceptedSongOrStopTheQueue() throws Exception {
+        Wire wire = new Wire(); wire.failAnnouncements = true; var player = peer("Synthetic requester");
+        MusicServer server = server(wire);
+        try (server) {
+            send(server, player, "hello"); send(server, player, "subscribe");
+            for (int i = 1; i <= 2; i++) {
+                String rid = "delivery-failure-" + i;
+                JsonObject body = new JsonObject(); body.addProperty("songId", 100 + i);
+                send(server, player, "request", rid, body);
+                await(() -> wire.of(player.id(), "result").stream().anyMatch(m -> m.get("requestId").getAsString().equals(rid)));
+                assertTrue(wire.last(player.id(), "result").get("ok").getAsBoolean());
+            }
+        }
+        server.termination().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        QueueEngine restored = new QueueEngine(System::nanoTime, 3, 100, 0);
+        restored.restore(JsonParser.parseString(Files.readString(directory.resolve("queue.json"))).getAsJsonObject());
+        assertEquals(2, restored.queue().size() + (restored.current() == null ? 0 : 1));
+        assertEquals(2, wire.errors.size());
+        assertTrue(wire.errors.stream().allMatch(e -> e.getMessage().equals("Synthetic announcement delivery failure")));
     }
     @Test void rootHelpAndInvalidArgumentsProduceUsefulChatResponses() throws Exception {
         Wire wire = new Wire(); var a = peer("Synthetic command user");
@@ -261,6 +330,7 @@ class MusicServerTest {
             send(server, a, "hello"); send(server, a, "subscribe");
             await(() -> !restarted.of(a.id(), "audio").isEmpty());
             assertEquals(101, restarted.last(a.id(), "audio").getAsJsonObject("current").getAsJsonObject("track").get("id").getAsLong());
+            assertTrue(restarted.announcements.isEmpty());
         }
         second.termination().toCompletableFuture().get(5, TimeUnit.SECONDS);
         assertTrue(wire.errors.isEmpty(), wire.errors.toString()); assertTrue(restarted.errors.isEmpty(), restarted.errors.toString());

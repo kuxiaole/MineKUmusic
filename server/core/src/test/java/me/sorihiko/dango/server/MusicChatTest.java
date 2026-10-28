@@ -6,6 +6,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,6 +54,7 @@ class MusicChatTest {
             @Override public void send(UUID id, List<byte[]> frames) {}
             @Override public void tell(UUID id, String text) { notices.add(text); }
             @Override public void chat(UUID id, List<Component> lines) { messages.add(new Message(id, List.copyOf(lines))); }
+            @Override public void announce(Component content) { fail("Searching must not announce a song request"); }
             @Override public void votePrompt(UUID id, String text, String command) {}
             @Override public void log(String message, Throwable error) { errors.add(error); }
         };
@@ -87,10 +89,26 @@ class MusicChatTest {
         assertTrue(help.stream().flatMap(MusicChatTest::parts).anyMatch(c -> AQUA.equals(c.color()) && c.hoverEvent() != null));
         assertTrue(clicks(help).contains(ClickEvent.suggestCommand("/minekumusic search ")));
         assertTrue(clicks(help).contains(ClickEvent.runCommand("/minekumusic queue")));
+        assertTrue(clicks(help).contains(ClickEvent.runCommand("/minekumusic join")));
         assertTrue(clicks(help).stream().noneMatch(c -> command(c).contains("<") || command(c).contains("clear")));
         var admin = new MusicServer.Peer(player.id(), player.name(), true, true, true, true);
         assertTrue(clicks(MusicCommands.help(admin, MusicCommands.Mode.FOLIA, "clear")).contains(ClickEvent.suggestCommand("/minekumusic clear")));
         assertTrue(clicks(MusicCommands.help(MusicServer.console(), MusicCommands.Mode.FOLIA, "")).isEmpty());
+    }
+    @Test void requestAnnouncementHasAFreeJoinButtonAndUsesCustomizedLanguageAndColors() throws Exception {
+        Track track = new Track(101, "Synthetic announcement song", List.of("Fixture artist"), 180000, "");
+        Component original = MusicChat.requestAnnouncement(MusicMessages.defaults(), "Fixture channel", "Synthetic player", track);
+        assertTrue(MusicChat.plain(original).contains("Synthetic player"));
+        assertTrue(MusicChat.plain(original).contains("Synthetic announcement song"));
+        Component join = button(List.of(original), "点击加入全服音乐");
+        assertEquals(ClickEvent.runCommand("/minekumusic join"), join.clickEvent());
+        assertEquals(AQUA, join.color());
+        assertTrue(MusicChat.plain((Component) join.hoverEvent().value()).contains("免费"));
+        Files.writeString(directory.resolve("messages.properties"), "join.button=一起听\ncolor.action=green\nrequest.announcement=<primary>{player} 选择了 {song}，频道 {channel}，歌手 {artists}</primary>\n");
+        Component customized = MusicChat.requestAnnouncement(MusicMessages.load(directory), "Fixture channel", "Synthetic player", track);
+        Component customJoin = button(List.of(customized), "一起听");
+        assertEquals(GREEN, customJoin.color()); assertEquals(join.clickEvent(), customJoin.clickEvent());
+        assertTrue(MusicChat.plain(customized).contains("选择了"));
     }
     @Test void searchButtonsPageThroughTenResultsAndUseStableSongIds() throws Exception {
         start(); List<Component> first = search("first query");

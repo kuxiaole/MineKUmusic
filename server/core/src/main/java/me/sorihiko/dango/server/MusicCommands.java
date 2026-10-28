@@ -16,6 +16,7 @@ public final class MusicCommands {
     private record Definition(String name, boolean arguments) {}
     private static final List<Definition> COMMANDS = List.of(
             new Definition("help", true),
+            new Definition("join", false),
             new Definition("queue", true),
             new Definition("search", true),
             new Definition("searchpage", true),
@@ -43,7 +44,7 @@ public final class MusicCommands {
         if (command.equals("help")) return true;
         if (ADMIN.contains(command)) return peer.admin();
         if (!peer.use()) return false;
-        if (Set.of("request", "withdraw", "vote").contains(command) && peer.id().equals(MusicServer.console().id())) return false;
+        if (Set.of("join", "request", "withdraw", "vote").contains(command) && peer.id().equals(MusicServer.console().id())) return false;
         return switch (command) { case "request" -> peer.request(); case "vote" -> peer.vote(); default -> true; };
     }
     public static String usage(String name) { return usage(MusicMessages.defaults(), name); }
@@ -65,7 +66,7 @@ public final class MusicCommands {
             Component description = m.render("command." + command.name + ".description");
             Component line = m.render("help.row", "usage", usage(m, command.name), "description", description);
             if (!console) {
-                boolean run = Set.of("help", "queue", "vote").contains(command.name);
+                boolean run = Set.of("help", "join", "queue", "vote").contains(command.name);
                 String click = "/minekumusic " + command.name + (!run && command.arguments ? " " : "");
                 line = line.append(Component.space()).append(MusicChat.action(m, m.render(run ? "help.run" : "help.suggest"), click,
                         m.render(run ? "help.run-hover" : "help.suggest-hover", "description", description, "command", click), !run));

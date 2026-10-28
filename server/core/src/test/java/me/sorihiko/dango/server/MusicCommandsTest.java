@@ -11,6 +11,8 @@ class MusicCommandsTest {
     private final MusicServer.Peer admin = MusicServer.console();
 
     @Test void completionUsesPermissionsPrefixesAndArgumentPosition() {
+        assertEquals(List.of("join"), suggest(listener, Mode.FOLIA, new String[]{"jo"}, Snapshot.EMPTY));
+        assertEquals(List.of("join"), suggest(listener, Mode.VELOCITY, new String[]{"help", "jo"}, Snapshot.EMPTY));
         assertEquals(List.of("request"), suggest(listener, Mode.FOLIA, new String[]{"RE"}, Snapshot.EMPTY));
         assertEquals(List.of("request", "resume", "remove", "reload"), suggest(
                 new MusicServer.Peer(UUID.randomUUID(), "Synthetic admin", true, true, true, true), Mode.FOLIA, new String[]{"re"}, Snapshot.EMPTY));
@@ -28,6 +30,10 @@ class MusicCommandsTest {
         assertEquals(List.of("synthetic-playing-instance"), suggest(listener, Mode.FOLIA, new String[]{"vote", ""}, state));
     }
     @Test void bridgeAndProxyExposeTheirRespectiveCommands() {
+        assertFalse(allowed(admin, "join", Mode.FOLIA));
+        assertFalse(allowed(listener, "join", Mode.BRIDGE));
+        assertFalse(allowed(new MusicServer.Peer(UUID.randomUUID(), "Synthetic denied listener", false, false, false, false), "join", Mode.VELOCITY));
+        assertTrue(allowed(new MusicServer.Peer(UUID.randomUUID(), "Synthetic listen-only user", true, false, false, false), "join", Mode.VELOCITY));
         assertEquals(List.of("help", "reload", "payment"), suggest(admin, Mode.BRIDGE, new String[]{""}, Snapshot.EMPTY));
         assertEquals(List.of("paid"), suggest(admin, Mode.BRIDGE, new String[]{"payment", "synthetic-id", "p"}, Snapshot.EMPTY));
         assertFalse(suggest(admin, Mode.VELOCITY, new String[]{""}, Snapshot.EMPTY).contains("payment"));

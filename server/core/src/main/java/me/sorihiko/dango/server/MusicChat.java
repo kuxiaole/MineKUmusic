@@ -24,6 +24,13 @@ public final class MusicChat {
     public static Component vote(MusicMessages m, Component text, String command) {
         return notice(m, text).append(Component.space()).append(action(m, m.render("vote.button"), command, m.render("vote.hover"), false));
     }
+    public static Component requestAnnouncement(MusicMessages m, String channel, String player, Track track) {
+        Component detail = m.render("search.detail", "name", track.name, "artists", String.join(" / ", track.artists), "id", track.id);
+        Component text = m.render("request.announcement", "channel", channel, "player", player,
+                "song", shorten(track.name, 30), "artists", shorten(String.join(" / ", track.artists), 20));
+        return notice(m, text.hoverEvent(HoverEvent.showText(detail))).append(Component.space())
+                .append(action(m, m.render("join.button"), "/minekumusic join", m.render("join.hover"), false));
+    }
     public static List<Component> search(MusicServer.Peer peer, String query, String searchId, int page, List<Track> tracks, boolean hasNext) {
         return search(MusicMessages.defaults(), peer, query, searchId, page, tracks, hasNext);
     }

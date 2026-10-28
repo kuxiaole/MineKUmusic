@@ -164,6 +164,11 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
         Player player = players.get(id);
         if (player != null) atPlayer(player, () -> { if (player.isOnline()) copy.forEach(player::sendMessage); });
     }
+    @Override public void announce(Component content) {
+        if (!isEnabled() || music == null) return;
+        List<Component> lines = List.of(content);
+        players.keySet().forEach(id -> chat(id, lines));
+    }
     @Override public void votePrompt(UUID id, String text, String command) {
         votePrompt(id, messages().render("notice.text", "text", text), command);
     }
