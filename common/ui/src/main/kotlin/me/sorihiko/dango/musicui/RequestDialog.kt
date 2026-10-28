@@ -22,7 +22,8 @@ internal class RequestDialog(private val screen: MusicScreen) {
         val fade = ui.easeOut(progress)
         val width = min(480f, ui.lw - 48f)
         val contentWidth = width - 48f
-        val song = request.songName.ifEmpty { I18n.format("Song ID: %s", request.songId) }
+        val song = I18n.text(if (request.source == "qq") "QQ Music" else "NetEase") + " · " +
+            request.songName.ifEmpty { I18n.format("Song ID: %s", request.nativeId) }
         val price = I18n.format("This request costs %s %s.", request.amount, request.currency)
         val priceLines = ui.wrap2(price, contentWidth, 16f)
         val note = if (request.amount.toBigDecimalOrNull()?.signum() == 0) I18n.text("This song request is free.")

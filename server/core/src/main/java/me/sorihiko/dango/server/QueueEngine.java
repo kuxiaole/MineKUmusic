@@ -39,17 +39,20 @@ public final class QueueEngine {
         return voteThresholdReached();
     }
     public void validateRequest(String id, long songId) {
+        validateRequest(id, new MusicProtocol.SongRef("netease", Long.toString(songId)));
+    }
+    public void validateRequest(String id, MusicProtocol.SongRef song) {
         if (!subscribed(id)) throw new RuleException("Join the channel before requesting a song");
         if (queue.size() >= queueLimit) throw new RuleException("The queue is full");
         if (queue.stream().filter(e -> e.requesterId.equals(id)).count() >= playerLimit)
             throw new RuleException("Your pending-song limit has been reached");
         Long last = lastRequest.get(id);
         if (last != null && clock.getAsLong() - last < cooldownNanos) throw new RuleException("Please wait before requesting another song");
-        if (current != null && current.track.id == songId || queue.stream().anyMatch(e -> e.track.id == songId))
+        if (current != null && current.track.ref().equals(song) || queue.stream().anyMatch(e -> e.track.ref().equals(song)))
             throw new RuleException("This song is already playing or queued");
     }
     public Entry add(String id, String name, Track track) {
-        validateRequest(id, track.id);
+        validateRequest(id, track.ref());
         return addAccepted(UUID.randomUUID().toString(), id, name, track);
     }
     /** A paid request was validated and reserved before withdrawal, so disconnecting cannot discard it. */
@@ -127,7 +130,7 @@ public final class QueueEngine {
         instance = current == null ? "" : UUID.randomUUID().toString(); revision++;
     }
     private boolean valid(Entry entry) {
-        return entry != null && entry.track != null && entry.track.id > 0 && entry.track.durationMs > 0
-                && entry.entryId != null && entry.requesterId != null;
+        if (entry == null || entry.track == null || entry.track.durationMs <= 0 || entry.entryId == null || entry.requesterId == null) return false;
+        try { entry.track.ref(); return true; } catch (IllegalArgumentException e) { return false; }
     }
 }

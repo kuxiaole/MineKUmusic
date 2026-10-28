@@ -59,6 +59,45 @@ class ServerMusicTest {
         deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Joined server music") }, rid)
     }
     @Test fun firstVisitDoesNotAutoJoin() { welcome(); assertTrue(ServerMusic.available); assertFalse(ServerMusic.joined); assertFalse(sent.any { it.get("type").asString == "subscribe" }) }
+    private fun multiSourceWelcome() {
+        deliver("welcome", JsonObject().apply {
+            addProperty("epoch", "first"); addProperty("canRequest", true); addProperty("admin", true)
+            addProperty("requestConfirmation", true)
+            add("sources", com.google.gson.JsonArray().apply { add(com.google.gson.JsonPrimitive("netease")); add(com.google.gson.JsonPrimitive("qq")) })
+        })
+    }
+    @Test fun channelSourcePreferenceSurvivesTransferAndIsSeparateFromPersonalSource() {
+        welcome(); multiSourceWelcome()
+        MusicSources.selected = MusicSource.KUGOU
+        ServerMusic.selectSearchSource(MusicSource.QQ); ServerMusic.search("Synthetic song")
+        assertEquals("qq", sent.last().getAsJsonObject("body").get("source").asString)
+        ServerMusic.configurationPhase(); ServerMusic.playReady(transport); multiSourceWelcome()
+        assertEquals(MusicSource.QQ, ServerMusic.searchSource)
+        assertEquals(MusicSource.KUGOU, MusicSources.selected)
+        ServerMusic.disconnected(); network = UUID.randomUUID().toString(); welcome(); multiSourceWelcome()
+        assertEquals(MusicSource.NETEASE, ServerMusic.searchSource)
+        MusicSources.selected = MusicSource.NETEASE
+    }
+    @Test fun qqRequestUsesNativeMidWhileKugouRemainsPersonalOnly() {
+        welcome(); multiSourceWelcome(); join(); sent.clear()
+        val qq = NeteaseTrack(-123, "Synthetic QQ", listOf("Fixture"), 180000, "", MusicSource.QQ, "001FixtureMID")
+        val kugou = NeteaseTrack(-456, "Synthetic Kugou", listOf("Fixture"), 180000, "", MusicSource.KUGOU, "SyntheticHash")
+        assertFalse(ServerMusic.canRequestTrack(kugou)); assertTrue(ServerMusic.canRequestTrack(qq))
+        ServerMusic.requestSong(qq)
+        val request = sent.single().getAsJsonObject("body")
+        assertEquals("qq", request.get("source").asString); assertEquals("001FixtureMID", request.get("nativeId").asString)
+    }
+    @Test fun serverQrSurvivesConfigurationAndClosesOnRealDisconnect() {
+        welcome(); multiSourceWelcome()
+        deliver("serverLogin", JsonObject().apply {
+            addProperty("sessionId", "fixture-qr"); addProperty("source", "qq"); addProperty("state", "waiting")
+            addProperty("image", ""); addProperty("expiresInMs", 180000)
+        })
+        val login = ServerMusic.serverLogin; assertNotNull(login)
+        ServerMusic.configurationPhase(); ServerMusic.playReady(transport); multiSourceWelcome()
+        assertSame(login, ServerMusic.serverLogin)
+        ServerMusic.disconnected(); assertNull(ServerMusic.serverLogin)
+    }
     @Test fun helloAdvertisesChatJoinOnConnectionAndBackendTransfer() {
         welcome(); ServerMusic.configurationPhase(); ServerMusic.playReady(transport)
         val hellos = sent.filter { it.get("type").asString == "hello" }

@@ -5,6 +5,7 @@ import me.sorihiko.dango.i18n.I18n
 import me.sorihiko.dango.music.CoverCache
 import me.sorihiko.dango.music.MusicScreen
 import me.sorihiko.dango.music.ServerMusic
+import me.sorihiko.dango.music.MusicSource
 import me.sorihiko.dango.platform.Keys
 import me.sorihiko.dango.ui.LayoutBounds
 import me.sorihiko.dango.ui.Theme
@@ -20,6 +21,7 @@ internal class PartyPage(private val screen: MusicScreen) {
     private var searchTab = false
     private var tabBlend = 0f
     private val tabHover = FloatArray(2)
+    private val sourcePosition = Spring(320f, 26f)
     private val scrollOffsets = IntArray(2)
     private var scrollOffset: Int
         get() = scrollOffsets[if (searchTab) 1 else 0]
@@ -94,16 +96,33 @@ internal class PartyPage(private val screen: MusicScreen) {
         val channel = ServerMusic
         val active = search == searchTab
         val toolbarY = tabs.y
+        var statusY = toolbarY + 42f
         if (search) {
-            val searchRect = LayoutBounds(tabs.right + 18f, toolbarY, max(120f, bounds.right - tabs.right - 100f), 30f)
+            val sourceY = toolbarY + 42f
+            val sourceWidth = 88f
+            val sourceBar = LayoutBounds(bounds.x, sourceY, sourceWidth * channel.sources.size, 30f)
+            ui.card(sourceBar, Theme.CARD, 8f)
+            val selected = channel.sources.indexOf(channel.searchSource).coerceAtLeast(0).toFloat()
+            val position = sourcePosition.tick(selected)
+            ui.ctx.drawGlass(LayoutBounds(sourceBar.x + sourceWidth * (if (screen.reducedChannelMotion) selected else position), sourceY, sourceWidth, 30f), Theme.GLASS_SELECTION)
+            channel.sources.forEachIndexed { index, source ->
+                val button = LayoutBounds(sourceBar.x + index * sourceWidth, sourceY, sourceWidth, 30f)
+                val label = I18n.text(source.label)
+                ui.text(label, button.x + (button.width - ui.width(label, 11f)) / 2f, button.y + 10f, 11f, Theme.TEXT_PRIMARY)
+                ui.hits += button to { channel.selectSearchSource(source); scrollOffset = 0 }
+            }
+            val compact = bounds.width < 460f
+            val inputY = sourceY + if (compact) 40f else 0f
+            val inputX = if (compact) bounds.x else sourceBar.right + 12f
+            val searchRect = LayoutBounds(inputX, inputY, max(40f, bounds.right - inputX - 82f), 30f)
             if (active) codeRect = searchRect
             ui.card(searchRect, if (codeFocused) Theme.CARD_HOVER else Theme.CARD, 8f)
             val text = if (query.isEmpty() && !codeFocused) I18n.text("Search songs...") else query + if (codeFocused && caretVisible()) "|" else ""
             ui.text(ui.trim(text, searchRect.width - 20f, 11f), searchRect.x + 10f, searchRect.y + 10f, 11f, Theme.TEXT_PRIMARY)
             ui.hits += searchRect to { codeFocused = true; screen.sidebar.searchFocused = false; screen.tracks.filterFocused = false }
-            ui.pill(LayoutBounds(searchRect.right + 10f, toolbarY, 72f, 30f), RED, I18n.text("Search")) { submitSearch() }
+            ui.pill(LayoutBounds(searchRect.right + 10f, inputY, 72f, 30f), RED, I18n.text("Search")) { submitSearch() }
+            statusY = inputY + 42f
         }
-        val statusY = toolbarY + 42f
         val status = if (search && channel.searching) I18n.text("Searching...") else I18n.message(channel.status)
         ui.text(ui.trim(status, bounds.width, 11f), bounds.x, statusY, 11f, Theme.TEXT_SECONDARY)
         val area = LayoutBounds(bounds.x, statusY + 24f, bounds.width, max(0f, bounds.bottom - statusY - 68f))
@@ -121,7 +140,8 @@ internal class PartyPage(private val screen: MusicScreen) {
             if (active && ui.hover(row)) ui.card(row, Theme.CARD_HOVER, 8f)
             val image = LayoutBounds(row.x + 6f, row.y + 4f, 34f, 34f)
             ui.drawCover(image, CoverCache.track(channel.toTrack(track)), 6f)
-            val suffix = if (search) track.artists.joinToString(" / ") else channel.queue[index].requesterName
+            val sourceName = I18n.text(if (track.ref().source == "qq") "QQ Music" else "NetEase")
+            val suffix = sourceName + " · " + if (search) track.artists.joinToString(" / ") else channel.queue[index].requesterName
             ui.text(ui.trim(track.name, row.width - 180f, 12f), image.right + 12f, row.y + 6f, 12f, Theme.TEXT_PRIMARY)
             ui.text(ui.trim(suffix, row.width - 180f, 10f), image.right + 12f, row.y + 25f, 10f, Theme.TEXT_SECONDARY)
             ui.text(fmtTime(track.durationMs), row.right - 100f, row.y + 14f, 11f, Theme.TEXT_TERTIARY)
@@ -131,7 +151,7 @@ internal class PartyPage(private val screen: MusicScreen) {
                 val selectedEntry = if (search) null else channel.queue[index].entryId
                 ui.icon(if (search) "+" else "×", action.x + 15f, action.y + 15f, 18f, RED)
                 if (active) ui.tooltip(action, I18n.text(if (search) "Add to server queue" else "Withdraw song"))
-                ui.hits += action to { if (selectedEntry == null) channel.requestSong(track.id, track.name) else channel.withdraw(selectedEntry) }
+                ui.hits += action to { if (selectedEntry == null) channel.requestSong(track) else channel.withdraw(selectedEntry) }
             }
         }
         ui.endClip()

@@ -17,7 +17,7 @@ internal class AboutPage(screen: MusicScreen) {
             "Source code and issue tracker for MineKUmusic. Use the button to copy the repository link.",
             "https://github.com/kuxiaole/MineKUmusic"),
         Credit("DangoMusic", "Sorihiko | GPL-3.0",
-            "Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.",
+            "Client foundation: multi-source personal music, account login, playlists, lyrics, HUD and interface. MineKU Music is a modified version of this project.",
             "https://github.com/Sorihiko/DangoMusic"),
         Credit("AllMusic", "Coloryr | GPL-3.0",
             "Server design reference: shared queue, song requests, client playback and Velocity integration. Uses a separate music protocol.",

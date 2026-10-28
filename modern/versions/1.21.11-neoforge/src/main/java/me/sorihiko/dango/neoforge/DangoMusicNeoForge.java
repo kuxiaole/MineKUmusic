@@ -24,6 +24,11 @@ public class DangoMusicNeoForge {
         // 读配置文件夹等都要用到它，所以等第一个游戏 tick 再启动
         NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onClientTick);
         NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onMenuDraw);
+    }
+
+    private static void onMenuDraw(net.neoforged.neoforge.client.event.ScreenEvent.Render.Post event) {
+        ModernDango.mainMenuRender(event.getGuiGraphics());
     }
 
     /** 每个游戏 tick 开头 */

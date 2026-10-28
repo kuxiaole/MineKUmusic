@@ -22,8 +22,40 @@ public final class MusicProtocol {
 
     private MusicProtocol() {}
 
+    public static final class SongRef {
+        public final String source, nativeId;
+        public SongRef(String source, String nativeId) {
+            this.source = source == null || source.isEmpty() ? "netease" : source;
+            if ("netease".equals(this.source)) {
+                long value;
+                try { value = Long.parseLong(nativeId); } catch (RuntimeException e) { throw new IllegalArgumentException("Invalid song ID"); }
+                if (value <= 0) throw new IllegalArgumentException("Invalid song ID");
+                this.nativeId = Long.toString(value);
+            } else if ("qq".equals(this.source) && nativeId != null && nativeId.matches("[A-Za-z0-9]{1,64}")) {
+                this.nativeId = nativeId;
+            } else throw new IllegalArgumentException("Unsupported music source or song ID");
+        }
+        public String key() { return source + ":" + nativeId; }
+        public long legacyId() {
+            if ("netease".equals(source)) return Long.parseLong(nativeId);
+            try { return java.nio.ByteBuffer.wrap(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(key().getBytes(StandardCharsets.UTF_8))).getLong() | Long.MIN_VALUE; }
+            catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+        }
+        @Override public boolean equals(Object value) { return value instanceof SongRef && key().equals(((SongRef) value).key()); }
+        @Override public int hashCode() { return key().hashCode(); }
+    }
+    public static SongRef songRef(JsonObject body) {
+        return new SongRef(string(body, "source", "netease"), string(body, "nativeId", Long.toString(number(body, "songId", 0))));
+    }
+    public static void songFields(JsonObject body, SongRef song) {
+        body.addProperty("source", song.source); body.addProperty("nativeId", song.nativeId); body.addProperty("songId", song.legacyId());
+    }
+
     public static final class Track {
         public long id;
+        public String source = "netease";
+        public String nativeId = "";
         public String name = "";
         public List<String> artists = new ArrayList<>();
         public long durationMs;
@@ -33,6 +65,12 @@ public final class MusicProtocol {
             this.id = id; this.name = name; this.artists = new ArrayList<>(artists);
             this.durationMs = durationMs; this.coverUrl = coverUrl;
         }
+        public Track(SongRef song, String name, List<String> artists, long durationMs, String coverUrl) {
+            this(song.legacyId(), name, artists, durationMs, coverUrl);
+            this.source = song.source; this.nativeId = song.nativeId;
+        }
+        public SongRef ref() { return new SongRef(source, nativeId == null || nativeId.isEmpty() ? Long.toString(id) : nativeId); }
+        public String key() { return ref().key(); }
     }
 
     public static final class Entry {

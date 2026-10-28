@@ -17,7 +17,7 @@ class MusicCommandsTest {
         assertEquals(List.of("request", "resume", "remove", "reload"), suggest(
                 new MusicServer.Peer(UUID.randomUUID(), "Synthetic admin", true, true, true, true), Mode.FOLIA, new String[]{"re"}, Snapshot.EMPTY));
         assertEquals(List.of("reload"), suggest(admin, Mode.VELOCITY, new String[]{"help", "rel"}, Snapshot.EMPTY));
-        assertTrue(suggest(listener, Mode.FOLIA, new String[]{"search", ""}, Snapshot.EMPTY).isEmpty());
+        assertEquals(List.of("netease", "qq"), suggest(listener, Mode.FOLIA, new String[]{"search", ""}, Snapshot.EMPTY));
         assertTrue(suggest(listener, Mode.FOLIA, new String[]{"queue", "1", ""}, Snapshot.EMPTY).isEmpty());
     }
     @Test void queueSuggestionsUseOwnEntriesAndActualPageCount() {

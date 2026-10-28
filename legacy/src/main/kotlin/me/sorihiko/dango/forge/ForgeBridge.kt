@@ -18,6 +18,13 @@ import net.minecraftforge.fml.common.gameevent.TickEvent as ForgeTickEvent
 class ForgeBridge {
 
     @SubscribeEvent
+    fun onMenuDraw(e: net.minecraftforge.client.event.GuiScreenEvent.DrawScreenEvent.Post) {
+        if (me.sorihiko.dango.legacy.LegacyPlatform.inMainMenu) {
+            me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying()
+        }
+    }
+
+    @SubscribeEvent
     fun onClientTick(e: ForgeTickEvent.ClientTickEvent) {
         if (e.phase != ForgeTickEvent.Phase.START) return
         try {

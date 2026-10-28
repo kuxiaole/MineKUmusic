@@ -123,7 +123,7 @@ class LyricsModule : Module() {
 
     /** 正在播放的歌（来自内置播放器） */
     private class NowPlaying(val track: NeteaseTrack, val playing: Boolean) {
-        val key: String get() = "netease:${track.id}"
+        val key: String get() = track.key
         val title: String get() = track.name
         val artist: String get() = track.artists.joinToString(" / ")
     }
@@ -202,10 +202,10 @@ class LyricsModule : Module() {
         if (ServerMusic.joined) return
         val key = s.key
         if (cache.containsKey(key) || !pending.add(key)) return
-        val id = s.track.id
+        val track = s.track
         fetcher.execute {
             try {
-                cache[key] = LyricsProvider.neteaseLyricById(id) ?: NotFound
+                cache[key] = me.sorihiko.dango.music.MusicSources.api(track.source).lyrics(track) ?: NotFound
             } catch (_: Exception) {
                 cache[key] = NotFound
             } finally {
@@ -246,6 +246,17 @@ class LyricsModule : Module() {
     }
 
     // ---------------------------------------------------------------- 渲染
+
+    /** 主菜单复用简洁的 Now playing，不启动世界歌词或修改 HUD 开关。 */
+    fun renderMainMenu() {
+        if (!DangoClient.platform.inMainMenu) return
+        val s = nowPlaying() ?: return
+        s.track.coverUrl.takeIf { it.isNotEmpty() }?.let { cover.requestUrl(s.key, it) }
+        DangoClient.gfx.guarded {
+            cover.upload()
+            drawNowPlaying(s, null)
+        }
+    }
 
     @EventHandler
     fun render(e: WorldRenderEndEvent) {

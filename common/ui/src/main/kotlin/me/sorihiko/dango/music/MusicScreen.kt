@@ -12,6 +12,7 @@ import me.sorihiko.dango.musicui.Page
 import me.sorihiko.dango.musicui.PartyPage
 import me.sorihiko.dango.musicui.PlayerBar
 import me.sorihiko.dango.musicui.RequestDialog
+import me.sorihiko.dango.musicui.ServerLoginDialog
 import me.sorihiko.dango.musicui.RED
 import me.sorihiko.dango.musicui.ScreenState
 import me.sorihiko.dango.musicui.SettingsPage
@@ -55,7 +56,8 @@ class MusicScreen(
     private val settings = SettingsPage(this, module)
     private val bar = PlayerBar(this, module)
     private val requestDialog = RequestDialog(this)
-    private val confirmationVisible get() = ServerMusic.pendingPersonal != null || ServerMusic.pendingRequest != null
+    private val serverLoginDialog = ServerLoginDialog(this)
+    private val confirmationVisible get() = ServerMusic.pendingPersonal != null || ServerMusic.pendingRequest != null || ServerMusic.serverLogin != null
 
     private var openedAt = 0L
     private var closingAt = 0L
@@ -73,6 +75,8 @@ class MusicScreen(
         openKeyHeld = platform.isKeyDown(module.openKey.value)
         if (ScreenState.context == null) ScreenState.context = DangoClient.gfx.newCanvas()
         openedAt = System.currentTimeMillis()
+        Library.ensureSource()
+        NativeAccounts.refreshProfile(MusicSources.selected)
         if (Library.playlists.isEmpty()) Library.reloadPlaylists()
         else if (Library.stale) Library.softRefresh()
         Library.loadRecommend()
@@ -87,6 +91,11 @@ class MusicScreen(
         settings.stopDrag()
         tracks.scrollbarUp()
         ServerMusic.cancelSongRequest()
+        ServerMusic.closeServerLogin()
+    }
+
+    fun removed() {
+        serverLoginDialog.release()
     }
 
     private fun opacity(now: Long): Float = if (closingAt == 0L) {
@@ -96,6 +105,18 @@ class MusicScreen(
     }
 
     // ---------------------------------------------------------------- 导航
+
+    internal fun selectSource(source: MusicSource) {
+        if (source == MusicSources.selected) return
+        module.selectSource(source)
+        NativeAccounts.refreshProfile(source)
+        sidebar.searchText = ""
+        sidebar.searchFocused = false
+        ScreenState.lastQuery = ""
+        ScreenState.opened = null
+        Library.ensureSource()
+        go(Page.HOME)
+    }
 
     internal fun go(p: Page) {
         tracks.clearFilter()
@@ -176,11 +197,13 @@ class MusicScreen(
     // ---------------------------------------------------------------- 绘制
 
     /** 每帧调用 */
-    fun render() {
+    @JvmOverloads
+    fun render(menuBackdropReady: Boolean = false) {
         if (closed) return
         val alpha = opacity(System.currentTimeMillis())
         if (closingAt != 0L && alpha <= 0f) {
             closed = true
+            serverLoginDialog.release()
             if (platform.isKeyDown(module.openKey.value)) module.consumeOpenKey()
             closeScreen()
             return
@@ -192,6 +215,19 @@ class MusicScreen(
         ui.mx = (platform.mouseX / scale).toInt()
         ui.my = (platform.mouseY / scale).toInt()
         val ctx = ui.ctx
+        // 没有世界时原版不会在播放器下面重画背景。先覆盖上一帧，
+        // 否则玻璃会反复采样自身，饱和度不断累积，最终变成亮粉色。
+        if (platform.player == null && !menuBackdropReady) {
+            ctx.begin(false, ui.mx, ui.my)
+            try {
+                ctx.drawShape(
+                    LayoutBounds(0f, 0f, platform.windowWidth.toFloat(), platform.windowHeight.toFloat()),
+                    ShapeStyle(Color(0.075f, 0.085f, 0.11f, 1f)),
+                )
+            } finally {
+                ctx.end()
+            }
+        }
         ctx.begin(true, ui.mx, ui.my)
         try {
             val now = System.nanoTime()
@@ -208,6 +244,7 @@ class MusicScreen(
             tracks.beginFrame()
             CoverCache.upload()
             login.uploadQr()
+            serverLoginDialog.upload()
 
             ctx.pushScale(scale, scale, 1f)
             ctx.pushOpacity(alpha)
@@ -222,7 +259,8 @@ class MusicScreen(
                 ui.mt.clear()
                 ctx.pushScale(scale, scale, 1f)
                 ctx.pushOpacity(alpha)
-                if (ServerMusic.pendingRequest != null) requestDialog.draw() else drawPersonalConfirmation()
+                if (ServerMusic.serverLogin != null) serverLoginDialog.draw()
+                else if (ServerMusic.pendingRequest != null) requestDialog.draw() else drawPersonalConfirmation()
                 ctx.popOpacity()
                 ctx.popTransform()
                 ui.mt.flush(scale)
@@ -284,7 +322,8 @@ class MusicScreen(
         settings.area = LayoutBounds()
 
         val s = ScreenState
-        val key = "${s.page}|${s.opened?.id}|${s.settingsTab}|${s.coverView}|${s.lastQuery}"
+        // 设置页的标签切换有自己的过渡动画，不算换页（否则整页会从透明重新淡入，看起来闪一下）
+        val key = "${s.page}|${s.opened?.id}|${s.coverView}|${s.lastQuery}"
         if (key != pageKey) {
             pageKey = key
             ui.pageAt = System.currentTimeMillis()
@@ -315,7 +354,7 @@ class MusicScreen(
         val mx = ui.mx
         val my = ui.my
         if (confirmationVisible) {
-            if (ServerMusic.pendingRequest != null && !requestDialog.canConfirm()) return
+            if (ServerMusic.serverLogin == null && ServerMusic.pendingRequest != null && !requestDialog.canConfirm()) return
             if (mouseButton == 0) ui.hits.firstOrNull { it.first.contains(mx, my) }?.second?.invoke()
             return
         }
@@ -346,6 +385,7 @@ class MusicScreen(
         val hit = ui.hits.firstOrNull { it.first.contains(mx, my) }
         settings.onClickElsewhere(hit)
         if (hit == null || hit.first !== sidebar.searchRect) sidebar.searchFocused = false
+        if (hit == null || !sidebar.isMenuHit(hit.first)) sidebar.menuOpen = false
         if (hit == null || hit.first !== tracks.filterRect) tracks.filterFocused = false
         if (hit == null || hit.first !== party.codeRect) party.codeFocused = false
         hit?.second?.invoke()
@@ -389,6 +429,10 @@ class MusicScreen(
 
     /** 按键：[keyCode] 是 [Keys] 键码 */
     fun keyTyped(typedChar: Char, keyCode: Int) {
+        if (ServerMusic.serverLogin != null) {
+            if (keyCode == Keys.ESCAPE) ServerMusic.closeServerLogin()
+            return
+        }
         if (ServerMusic.pendingRequest != null) {
             if (keyCode == Keys.ESCAPE) ServerMusic.cancelSongRequest()
             if (keyCode == Keys.RETURN && requestDialog.canConfirm()) ServerMusic.confirmSongRequest()

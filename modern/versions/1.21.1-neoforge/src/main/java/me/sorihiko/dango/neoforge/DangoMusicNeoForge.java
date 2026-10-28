@@ -23,6 +23,11 @@ public class DangoMusicNeoForge {
         ModernDango.start();
         NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onClientTick);
         NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener(DangoMusicNeoForge::onMenuDraw);
+    }
+
+    private static void onMenuDraw(net.neoforged.neoforge.client.event.ScreenEvent.Render.Post event) {
+        ModernDango.mainMenuRender(event.getGuiGraphics());
     }
 
     /** 每个游戏 tick 开头 */

@@ -111,7 +111,7 @@ Home	首页
 Charts	排行榜
 Now Playing	正在播放
 Listen Together	一起听歌
-Listen Together · 	一起听歌 · 
+Listen Together · 	一起听歌 ·
 DISCOVER	发现音乐
 MY PLAYLISTS	我的歌单
 Search songs...	搜索歌曲…
@@ -163,7 +163,7 @@ License	许可证
 Bundled components	内置开源组件
 Copy project link	复制项目地址
 Project link copied	项目地址已复制
-Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.	MineKU Music 基于 DangoMusic 修改，继承其客户端播放器、音频播放、歌词、悬浮显示和界面。
+Client foundation: multi-source personal music, account login, playlists, lyrics, HUD and interface. MineKU Music is a modified version of this project.	MineKU Music 基于 DangoMusic 修改，继承其个人多音源、账号登录、歌单、歌词、悬浮显示和界面。
 Server design reference: shared queue, song requests, client playback and Velocity integration. Uses a separate music protocol.	全服队列、点歌、客户端播放与 Velocity 群组服接入参考 AllMusic；MineKU Music 使用独立通信协议。
 DangoMusic's original interface comments credit MuoniumPlayer as a layout reference.	DangoMusic 原有界面代码注明排版参考 MuoniumPlayer，在此保留这项上游设计署名。
 Original author credits and license notices are retained. Full license texts and CREDITS.md are included in the distribution.	保留原作者署名与许可证声明。完整许可证和 CREDITS.md 随发行包提供。
@@ -186,7 +186,7 @@ TITLE	歌曲
 TIME	时长
 Play the same song in sync with friends who also have this mod	和同样安装本模组的朋友同步听歌
 You are the host · everyone in the room follows your music	你是房主，房间内的成员将同步你的音乐
-Following 	正在跟随 
+Following 	正在跟随
 Listen Together is not set up (missing firebase.properties)	一起听歌尚未配置（缺少 firebase.properties）
 Working...	处理中…
 Create a room	创建房间
@@ -195,7 +195,7 @@ ROOM CODE	房间码
 Join	加入
 Copied	已复制
 Copy	复制
-IN THIS ROOM · 	房间成员 · 
+IN THIS ROOM · 	房间成员 ·
   (you)	  （你）
 HOST	房主
 Close room	关闭房间
@@ -292,11 +292,109 @@ Server NetEase login expired or was rejected; update the server Cookie	服务端
 No complete playback URL; VIP songs require a server NetEase Cookie with playback rights	未取得完整播放地址；会员歌曲需要配置有播放权限的服务端网易云 Cookie
 Server NetEase account cannot play this song; check login, membership and song availability	服务端网易云账号无法播放此歌曲，请检查登录、会员权限及歌曲可用性
 NetEase returned only a preview; check the server account's playback rights	网易云仅返回试听片段，请检查服务端账号的播放权限
-Invalid server cookie.json; expected an array of cookie objects	服务端 cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组
-Invalid server cookie.json; cookie names or values contain unsupported characters	服务端 cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件
+Invalid server netease-cookie.json; expected an array of cookie objects	服务端 netease-cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组
+Invalid server netease-cookie.json; cookie names or values contain unsupported characters	服务端 netease-cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件
 Server NetEase Cookie file is too large	服务端网易云 Cookie 文件过大
 Server NetEase Cookie header is too large	服务端网易云 Cookie 请求头过大
 The economy bridge is unavailable; check the server configuration	经济桥接不可用，请检查服务端配置；未决扣款仍需核对
 The payment backend did not return a receipt; check its economy bridge configuration	扣款后端未返回回执，请检查后端桥接模式、插件状态和密钥；请勿重复点歌
 The payment backend has no plugin-message connection; waiting to check the transaction	原扣款后端没有可用的插件消息连接，请让玩家连接原后端以继续核对；请勿重复点歌
 Lyrics and the music screen require OpenGL. Switch the graphics API to OpenGL in Video Settings; audio playback is unaffected.	歌词和播放器界面需要 OpenGL，请在视频设置中将图形接口切换为 OpenGL；音频播放不受影响。
+NetEase	网易云
+QQ Music	QQ 音乐
+Kugou	酷狗
+Music source	音乐来源
+Select a music provider	选择音乐平台
+Guest beta	游客模式 · Beta
+Search this platform using the search box.	在左侧搜索框输入歌名或歌手，即可搜索当前平台。
+Guest mode: accounts, playlists and charts are coming later.	游客测试版：登录、歌单和排行榜暂未开放。
+Some songs require login or payment and cannot play in this beta.	部分歌曲受登录、付费或地区限制，本测试版可能无法播放。
+Lyrics use line timing. NetEase word timing is unchanged.	新音源暂用逐行歌词；网易云逐字歌词仍然可用。
+Guest beta: search and play. Accounts and playlists are not available yet.	游客测试版：支持搜索和播放，登录及个人歌单暂未开放。
+Source unavailable. Please retry.	音乐来源暂时不可用，请重试。
+No guest MP3 available. Login, payment or regional restrictions may apply.	未取得游客可播放的 MP3，可能受登录、付费或地区限制。
+Unable to download this guest MP3. Try another song.	音频下载失败，请尝试其他歌曲。
+QQ / Kugou listening parties are not available in this beta. Leave the room first.	测试版暂不支持 QQ／酷狗一起听歌，请先退出房间。
+QQ / Kugou listening parties are not available in this beta. Play a NetEase song first.	测试版暂不支持 QQ／酷狗一起听歌，请先播放网易云歌曲。
+Log in	登录
+Log in to QQ Music	登录 QQ 音乐
+Log in to Kugou	登录酷狗
+Scan with the mobile QQ app	使用手机 QQ 扫码
+Scan with the Kugou Music app	使用酷狗音乐 App 扫码
+Playlists coming later	个人歌单暂未开放
+Scan the QR code to use your account.	扫码登录后，使用自己的账号权限播放。
+Playback uses your account permissions.	当前播放使用你自己的账号权限。
+Personal playlists and charts are coming later.	个人歌单和排行榜暂未开放。
+Membership and regional restrictions still apply.	会员权限和平台地区限制仍然适用。
+Beta: search and play. Personal playlists and charts are not available yet.	测试版支持登录、搜索和播放，个人歌单及排行榜暂未开放。
+Login request failed. Refresh the QR code and try again.	登录请求失败，请刷新二维码重试。
+The platform requires additional verification. Please refresh and try again.	平台要求额外验证，请刷新二维码重试。
+Unable to clear the saved login. Please try again.	未能清除本地登录状态，请重试。
+No playable MP3. Your login may have expired, or this song is restricted by membership or region.	未取得可播放的 MP3，登录可能过期，或歌曲受会员、地区限制。
+Playback request failed. Check your connection or log in again.	播放请求失败，请检查网络或重新登录。
+Kugou requires additional security verification. Please try again later.	酷狗要求额外安全验证，请稍后重试。
+Scan with the QQ Music app	使用 QQ 音乐 App 扫码
+Login was cancelled on your phone. Refresh to retry.	你已在手机上取消登录，请刷新重试。
+QQ Music rejected the login. Please check your account and try again.	QQ 音乐未接受登录，请检查账号状态后重试。
+QQ Music device limit reached. Remove an unused device in the app and retry.	QQ 音乐登录设备已达上限，请在 App 中移除闲置设备后重试。
+Too many login attempts. Please try again later.	登录尝试过于频繁，请稍后重试。
+Login expired. Refresh the QR code.	登录已过期，请刷新二维码。
+Login failed	登录失败
+Phone confirmed. Verifying desktop login...	手机已确认，正在校验游戏端登录状态…
+Phone confirmed. The desktop login could not be verified. Please retry.	手机已确认，但游戏端登录状态校验未通过，请重试。
+The phone confirmation did not include login credentials. Please retry.	手机授权结果缺少有效登录凭据，请重试。
+QQ Music request failed. Please retry or log in again.	QQ 音乐请求失败，请重试或重新登录。
+QQ Music returned an incomplete response. Please retry.	QQ 音乐返回的数据不完整，请重试。
+QQ Music profile is unavailable. Please retry or log in again.	暂时无法读取 QQ 音乐资料，请重试或重新登录。
+Your playlists loaded, but QQ Music favorites could not be read. Please retry or log in again.	已载入自建歌单，但收藏歌单读取失败，请重试或重新登录。
+QQ Music returned too many playlists. Please retry.	QQ 音乐歌单返回异常，请重试。
+QQ Music returned too many songs. Please retry.	QQ 音乐歌曲返回异常，请重试。
+QQ Music repeated a playlist page. Please retry.	QQ 音乐重复返回同一页歌曲，请重试。
+Please reopen the playlist and try again.	请重新打开歌单后重试。
+Log in to QQ Music to read your playlists.	请登录 QQ 音乐以读取你的歌单。
+This source is unavailable in this room. Create a new room with the updated mod.	此房间不支持该音源，请使用新版模组重新创建房间。
+This room requires a newer DangoMusic version.	此房间需要更新版本的 DangoMusic。
+Kugou listening parties are not available yet. Play a NetEase or QQ Music song first.	暂未支持酷狗一起听歌，请先播放网易云或 QQ 音乐歌曲。
+Everyone streams from their own music account. VIP and region permissions apply to each member.	每个人使用自己的音乐账号播放，会员和地区权限分别生效。
+QQ Music playback request failed. Please retry.	QQ 音乐播放请求失败，请重试。
+QQ Music login is no longer valid. Please log in again.	QQ 音乐登录已失效，请重新登录。
+QQ Music did not return a playable MP3 for this song. Try another version.	QQ 音乐未返回这首歌的可播放 MP3，请尝试其他版本。
+Kugou library request failed. Please retry or log in again.	酷狗歌单请求失败，请重试或重新登录。
+Kugou login is no longer valid. Please log in again.	酷狗登录已失效，请重新登录。
+Kugou returned incomplete library data. Please retry.	酷狗返回的歌单数据不完整，请重试。
+Kugou recommendations are unavailable. Please retry.	暂时无法读取酷狗新歌首发，请重试。
+Kugou repeated a library page. Please retry.	酷狗重复返回同一页内容，请重试。
+Kugou returned too many library pages. Please retry.	酷狗返回的歌单页数异常，请重试。
+Log in to Kugou to read your playlists.	请登录酷狗以读取你的歌单。
+Check for updates	检查更新
+Look for a newer release on GitHub once per launch and remind you	每次启动查一次 GitHub 上有没有新版本，有就提醒
+Updates	更新
+GitHub releases	GitHub 发布
+New version available: 	发现新版本：
+You have 	当前版本
+Copy download link	复制下载链接
+MineKU Music update: 	MineKU Music 有新版本：
+Copy the download link in the player's settings	可在播放器设置里复制下载链接
+Loaded %d of %d songs	已加载 %d / %d 首
+Unsupported music source or song ID	该音源或歌曲 ID 不受全服频道支持。
+Update MineKU Music to request this source	请更新 MineKU Music 客户端后点播此音源。
+Server QQ Music Cookie is incomplete; log in again	服务端 QQ 音乐 Cookie 不完整，请管理员重新扫码登录。
+QQ Music search failed. Please retry.	QQ 音乐搜索失败，请稍后重试。
+QQ Music song not found	未找到这首 QQ 音乐歌曲。
+Invalid server netease-cookie.json; expected a browser Cookie JSON array	服务端 netease-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。
+Invalid server qq-cookie.json; expected a browser Cookie JSON array	服务端 qq-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。
+A login for this source is already in progress	此音源已有管理员正在扫码，请等待完成或取消。
+Close your current server login before starting another	请先关闭当前的全服账号扫码弹窗，再登录其他音源。
+You do not have permission to manage server music accounts	你没有管理全服音乐账号的权限。
+This source is not supported by the server channel	全服频道不支持此音源
+Server account login	全服账号登录
+Scanned. Confirm on your phone.	已扫码，请在手机上确认
+Verifying server login...	正在验证全服账号登录…
+Server account saved	全服账号已验证并保存
+Server login cancelled	全服账号登录已取消
+Server login failed. Check the server and retry.	全服账号登录失败，请检查服务端网络后重试
+Loading QR code...	正在获取二维码…
+Expires in %s seconds	二维码将在 %s 秒后失效
+Authentication request failed	音源账号请求失败，请检查网络后重试
+Invalid authentication response	音源账号返回的数据无法识别，请稍后重试
+Source request failed	音源请求失败，请检查网络后重试

@@ -249,6 +249,8 @@ object LyricsProvider {
         RegexOption.IGNORE_CASE,
     )
 
+    internal fun isCredit(text: String): Boolean = credit.containsMatchIn(text)
+
     fun parseLrc(text: String): List<LyricLine> {
         val out = mutableListOf<LyricLine>()
         for (raw in text.lines()) {

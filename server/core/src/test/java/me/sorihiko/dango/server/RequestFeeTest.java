@@ -37,6 +37,12 @@ class RequestFeeTest {
         }
     };
     private final MusicProvider provider = new MusicProvider() {
+        @Override public List<String> sources() { return List.of("netease", "qq"); }
+        @Override public Audio resolve(MusicProtocol.SongRef song) {
+            if (song.source.equals("netease")) return resolve(Long.parseLong(song.nativeId));
+            return new Audio(new MusicProtocol.Track(song, "Synthetic QQ paid song", List.of("Fixture artist"), 180000, ""),
+                    "https://example.invalid/synthetic-qq.mp3", "", "");
+        }
         @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(track(101)), false); }
         @Override public Audio resolve(long id) {
             if (id == 404) throw new IllegalArgumentException("Synthetic unavailable song");
@@ -102,6 +108,22 @@ class RequestFeeTest {
         String ping = send("ping", new JsonObject()); await(() -> of("snapshot").stream().anyMatch(m -> m.get("requestId").getAsString().equals(ping)));
         assertEquals(1, payments.size()); assertEquals(new BigDecimal("12.50"), payments.getFirst().amount());
         assertEquals(1, announcements.size());
+    }
+    @Test void qqQuoteKeepsItsSourceThroughChargeAndRestart() throws Exception {
+        start(true);
+        JsonObject hello = new JsonObject(); hello.addProperty("multiSource", true); send("hello", hello);
+        JsonObject song = new JsonObject(); MusicProtocol.songFields(song, new MusicProtocol.SongRef("qq", "001FixtureMID"));
+        send("quoteRequest", song); await(() -> !of("requestQuote").isEmpty());
+        assertEquals("qq", last("requestQuote").get("source").getAsString());
+        assertEquals("001FixtureMID", last("requestQuote").get("nativeId").getAsString());
+        assertTrue(payments.isEmpty());
+        String quote = last("requestQuote").get("quoteId").getAsString();
+        send("confirmRequest", confirmation(quote)); await(() -> !of("audio").isEmpty());
+        assertEquals(1, payments.size()); assertEquals(new BigDecimal("12.50"), payments.getFirst().amount());
+        server.close(); server.termination().toCompletableFuture().get(5, TimeUnit.SECONDS); messages.clear();
+        start(true); await(() -> !of("audio").isEmpty());
+        assertEquals("qq", last("audio").getAsJsonObject("current").getAsJsonObject("track").get("source").getAsString());
+        assertEquals(1, payments.size());
     }
     @Test void rejectedPaymentDoesNotQueueOrStartACooldown() throws Exception {
         start(true); receipt = EconomyService.Result.rejected("Synthetic insufficient balance");

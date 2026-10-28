@@ -33,8 +33,12 @@ public class DangoMusicForge {
             ModernDango.start();
             MinecraftForge.EVENT_BUS.addListener(Client::onClientTick);
             MinecraftForge.EVENT_BUS.addListener(Client::onRenderLevel);
+            MinecraftForge.EVENT_BUS.addListener(Client::onMenuDraw);
         }
 
+        private static void onMenuDraw(net.minecraftforge.client.event.ScreenEvent.Render.Post event) {
+            ModernDango.mainMenuRender(event.getGuiGraphics());
+        }
         static void onRegisterKeys(RegisterKeyMappingsEvent event) {
             ModernKeyBindings.register(event::register);
         }

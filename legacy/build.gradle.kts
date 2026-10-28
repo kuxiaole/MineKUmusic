@@ -72,8 +72,8 @@ tasks.processResources {
     val forgeExtension = project.extensions.getByName<ForgeExtension>("minecraft")
     inputs.property("version", project.version)
     inputs.property("mcversion", forgeExtension.version)
-    filesMatching(listOf("mcmod.info", "version.properties")) {
-        expand(mapOf("version" to project.version, "mcversion" to forgeExtension.version))
+    filesMatching(listOf("mcmod.info", "version.properties", "dangomusic-build.properties")) {
+        expand(mapOf("version" to project.version, "mcversion" to forgeExtension.version, "target" to "1.8.9"))
     }
 }
 

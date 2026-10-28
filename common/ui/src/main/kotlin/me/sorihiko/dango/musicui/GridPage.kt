@@ -40,6 +40,7 @@ internal class GridPage(private val screen: MusicScreen) {
         ui.headerAnim {
             ui.text(title, page.x, page.y, 22f, Theme.TEXT_PRIMARY, Theme.FONT_DISPLAY)
             ui.text(if (loading) I18n.text("Loading...") else sub, page.x, page.y + 30f, 11f, Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
+            if (loading) ui.progressBar(LayoutBounds(page.x, page.y + 48f, 200f, 3f), null)
         }
         area = LayoutBounds(page.x, page.y + 54f, page.width, page.bottom - (page.y + 54f))
         drawGrid(area, items)

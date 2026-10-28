@@ -53,7 +53,7 @@ internal class TracksPage(private val screen: MusicScreen) {
     private var sbGrab = 0f
 
     // "定位"后那一行闪一下
-    private var flashId = 0L
+    private var flashId = ""
     private var flashAt = 0L
 
     // 封面墙：目标下标和平滑后的当前位置
@@ -137,31 +137,31 @@ internal class TracksPage(private val screen: MusicScreen) {
         val all = currentTracks().second ?: return
         val cur = MusicPlayer.current ?: return
         var list = shown(all)
-        var idx = list.indexOfFirst { it.second.id == cur.id }
+        var idx = list.indexOfFirst { it.second.key == cur.key }
         if (idx < 0 && filterText.isNotEmpty()) {
             // 被筛选掉了：清掉筛选再找
             clearFilter()
             list = shown(all)
-            idx = list.indexOfFirst { it.second.id == cur.id }
+            idx = list.indexOfFirst { it.second.key == cur.key }
         }
         if (idx < 0) return
         scroll = (idx - listRows / 2).coerceAtLeast(0)
         cfTarget = idx
         cfPos = idx.toFloat()
-        flashId = cur.id
+        flashId = cur.key
         flashAt = System.currentTimeMillis()
     }
 
     private fun currentInList(): Boolean {
         val cur = MusicPlayer.current ?: return false
-        return currentTracks().second?.any { it.id == cur.id } == true
+        return currentTracks().second?.any { it.key == cur.key } == true
     }
 
     /** 封面墙转到正在播放的那首（没有就第一首） */
     fun focusCurrentInCoverflow() {
         val tracks = currentTracks().second?.let { shown(it) } ?: return
         val cur = MusicPlayer.current
-        val idx = if (cur != null) tracks.indexOfFirst { it.second.id == cur.id } else -1
+        val idx = if (cur != null) tracks.indexOfFirst { it.second.key == cur.key } else -1
         cfTarget = if (idx >= 0) idx else 0
         cfPos = cfTarget.toFloat()
     }
@@ -182,6 +182,13 @@ internal class TracksPage(private val screen: MusicScreen) {
         }
         if (ScreenState.coverView) ui.itemAnim(0) { drawCoverflow(area, tracks, list) } else drawTrackList(area, tracks, list)
     }
+
+    /** 当前打开的歌单的加载进度（[已拿到, 总数]） */
+    private fun loadingProgress(): IntArray? = ScreenState.opened?.id?.let { Library.trackProgress(it) }
+
+    // 加载进度条的平滑动画（换了歌单就重新开始）
+    private var loadKey = -1L
+    private var loadBar = Spring(160f, 24f)
 
     /** 标题区，返回它的高度 */
     private fun drawHeader(page: LayoutBounds, title: String, tracks: List<NeteaseTrack>?): Float {
@@ -219,13 +226,25 @@ internal class TracksPage(private val screen: MusicScreen) {
         val sub = when {
             state.page == Page.SEARCH && Library.searching -> I18n.text("Searching...")
             state.page == Page.SEARCH && tracks.isNullOrEmpty() ->
-                if (NeteaseApi.lastSearchError.isNotEmpty()) I18n.text("Search failed: ") + NeteaseApi.lastSearchError else I18n.text("No results")
+                if (Library.searchError.isNotEmpty()) I18n.text("Search failed: ") + I18n.message(Library.searchError) else I18n.text("No results")
             state.page == Page.QUEUE && tracks.isNullOrEmpty() -> I18n.text("Nothing in the queue yet")
-            tracks == null -> I18n.text("Loading...")
+            tracks == null -> loadingProgress()?.takeIf { it[1] > 0 }?.let { I18n.format("Loaded %d of %d songs", it[0], it[1]) } ?: I18n.text("Loading...")
             filterText.isNotEmpty() -> I18n.format("%d of %d songs", shown(tracks).size, tracks.size)
             else -> I18n.format("%d songs", tracks.size)
         }
         ui.text(sub, x, y + 34f, 11f, Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
+        // 歌单还在加载：知道总数就按比例走（平滑地追上去），不知道就来回滑，表示没卡住
+        if (tracks == null && state.page != Page.SEARCH && state.page != Page.QUEUE) {
+            val pr = loadingProgress()
+            val key = state.opened?.id ?: 0L
+            if (key != loadKey) {
+                loadKey = key
+                loadBar = Spring(160f, 24f)
+            }
+            val target = pr?.takeIf { it[1] > 0 }?.let { (it[0].toFloat() / it[1]).coerceIn(0f, 1f) }
+            val shownFraction = target?.let { loadBar.tick(it) }
+            ui.progressBar(LayoutBounds(x, y + 54f, 220f, 4f), shownFraction)
+        }
 
         // 播放全部
         if (!tracks.isNullOrEmpty() && state.page != Page.QUEUE) {
@@ -387,12 +406,12 @@ internal class TracksPage(private val screen: MusicScreen) {
             val (i, t) = tracks[vi]
             ui.itemAnim(r) {
                 val row = LayoutBounds(body.x, body.y + (r - frac) * rowH, body.width, rowH - 4f)
-                val isCur = playing != null && playing.id == t.id
+                val isCur = playing != null && playing.key == t.key
                 when {
                     isCur -> ctx.drawGlass(row, Theme.GLASS_SELECTION)
                     ui.hover(row) -> ui.card(row, Theme.CARD_HOVER, 10f)
                 }
-                if (flash > 0f && t.id == flashId) {
+                if (flash > 0f && t.key == flashId) {
                     ctx.drawShape(row, ShapeStyle(Color(0f, 0f, 0f, 0f), 10f, 1.5f, RED.copy(a = flash)))
                 }
                 if (isCur && MusicPlayer.state == MusicPlayer.State.PLAYING) {
@@ -409,11 +428,11 @@ internal class TracksPage(private val screen: MusicScreen) {
                 ui.text(ui.trim(t.artists.joinToString(" / "), avail, 11f), tx, row.y + 23f, 11f, Theme.TEXT_SECONDARY)
                 val d = fmtTime(t.durationMs)
                 ui.text(d, row.right - (if (ServerMusic.available) 48f else 12f) - ui.width(d, 11f), row.y + 15f, 11f, Theme.TEXT_TERTIARY)
-                if (ServerMusic.available) {
+                if (ServerMusic.available && ServerMusic.canRequestTrack(t)) {
                     val add = LayoutBounds(row.right - 36f, row.y + 6f, 28f, 28f)
                     ui.icon("+", add.x + 14f, add.y + 14f, 18f, RED)
                     ui.tooltip(add, I18n.text("Add to server queue"))
-                    ui.hits += add.intersect(clipArea) to { ServerMusic.requestSong(t.id, t.name); if (!ServerMusic.joined) screen.go(Page.PARTY) }
+                    ui.hits += add.intersect(clipArea) to { ServerMusic.requestSong(t); if (!ServerMusic.joined) screen.go(Page.PARTY) }
                 }
                 ui.hits += row.intersect(clipArea) to { playFrom(all, i) }
             }
@@ -479,7 +498,7 @@ internal class TracksPage(private val screen: MusicScreen) {
         }
 
         val t = tracks[cfTarget]
-        val isCur = MusicPlayer.current?.id == t.id
+        val isCur = MusicPlayer.current?.key == t.key
         val ty = cy + size / 2f + 14f
         val name = ui.trim(t.name, area.width - 40f, 16f, Theme.FONT_SEMIBOLD)
         ui.text(name, cx - ui.width(name, 16f, Theme.FONT_SEMIBOLD) / 2f, ty, 16f, if (isCur) RED else Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
@@ -487,11 +506,11 @@ internal class TracksPage(private val screen: MusicScreen) {
         ui.text(artist, cx - ui.width(artist, 12f) / 2f, ty + 21f, 12f, Theme.TEXT_SECONDARY)
         val idx = "${cfTarget + 1} / ${tracks.size}"
         ui.text(idx, cx - ui.width(idx, 11f) / 2f, ty + 38f, 11f, Theme.TEXT_TERTIARY)
-        if (ServerMusic.available) {
+        if (ServerMusic.available && ServerMusic.canRequestTrack(t)) {
             val add = LayoutBounds(cx + size / 2f + 12f, cy - 15f, 30f, 30f)
             ui.icon("+", add.x + 15f, add.y + 15f, 20f, RED)
             ui.tooltip(add, I18n.text("Add to server queue"))
-            ui.hits.add(0, add to { ServerMusic.requestSong(t.id, t.name); if (!ServerMusic.joined) screen.go(Page.PARTY) })
+            ui.hits.add(0, add to { ServerMusic.requestSong(t); if (!ServerMusic.joined) screen.go(Page.PARTY) })
         }
     }
 

@@ -53,6 +53,9 @@ class GlassBackdrop {
         try {
             if (w != width || h != height || captureTexture == -1) resize(w, h)
 
+            // resize 创建模糊目标时会改变绑定，恢复后再截取原画面。
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFbo)
+
             GL13.glActiveTexture(GL13.GL_TEXTURE0)
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, captureTexture)
             GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h)

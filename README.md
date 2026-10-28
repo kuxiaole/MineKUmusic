@@ -8,6 +8,18 @@
 
 玩家安装、点歌、收费、投票和常见问题见 [玩家使用说明](全服音乐玩家使用说明.md)。
 
+## 1.7.0 多音源更新
+
+同步 DangoMusic 提交 `42397a1c8b78138175cfba4781d35cc9ff8aca94` 的个人音乐改进：网易云、QQ 音乐、酷狗音源，扫码登录、歌单、推荐、逐字歌词，以及界面动画、主菜单播放器和渲染调整。保留 MineKU Music 品牌、小乐署名、中文界面和本项目的全服音乐流程。
+
+- 个人音乐可选择网易云、QQ 音乐或酷狗；全服音乐支持网易云和 QQ 音乐，搜索音源按服务器或群组记忆。
+- 管理员在游戏中执行 `/music login netease` 或 `/music login qq`，客户端弹出对应音源的二维码，用对应手机应用扫码并确认。
+- 全服账号分别保存在 `netease-cookie.json` 和 `qq-cookie.json`，均使用浏览器 Cookie JSON 数组；旧 `cookie.json` 仅在网易云新文件不存在时复制迁移，保留旧文件。
+- 群组服账号和队列由 Velocity 管理，Folia 经济桥接后端只负责支付；搜索和扫码不会扣点歌费用。
+- 保留更新提醒，只查询 MineKUmusic 自己的 GitHub 正式发布，不自动下载或安装。
+
+扫码、QQ 全服点歌和音源选择需要客户端与管理频道的插件同时升级至 1.7.0。保留配置、队列、交易记录和 `server-id`，替换 JAR 后完整重启。
+
 ## 来源与署名
 
 | 项目 | 作者 | 在 MineKUmusic 中的作用 |
@@ -21,12 +33,12 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.6.10+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.6.10+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.6.10+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.6.10+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.10-folia.jar` | Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.10-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.0+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.0+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.0+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.0+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.0-folia.jar` | Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.0-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -50,7 +62,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
 - `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置、聊天语言和配色，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
-26.2 / 26.3 的歌词与播放器界面需要 OpenGL。音源仅使用账号正常授权返回的完整播放地址；服务器账号 Cookie 与客户端个人登录分开配置。1.6.5 起仅读取 AllMusic / 浏览器导出的 `cookie.json` 数组文件，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
+26.2 / 26.3 的歌词与播放器界面需要 OpenGL。全服频道仅使用音源正常授权返回的完整 MP3；服务器账号与客户端个人登录分开配置。1.7.0 分别读取 `netease-cookie.json` 和 `qq-cookie.json`，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
 
 ## 聊天语言与配色
 
@@ -79,7 +91,7 @@ currency-name=KU币
 ```powershell
 .\gradlew.bat :26.2-fabric:build :26.2-neoforge:build
 .\gradlew.bat :26.3-fabric:build :26.3-neoforge:build
-.\gradlew.bat -p ..\common :core:test
+.\gradlew.bat -p ..\common :sources:test :core:test
 .\gradlew.bat -p ..\server build
 ```
 
@@ -88,7 +100,7 @@ Linux / macOS 在同一目录使用：
 ```sh
 ./gradlew :26.2-fabric:build :26.2-neoforge:build
 ./gradlew :26.3-fabric:build :26.3-neoforge:build
-./gradlew -p ../common :core:test
+./gradlew -p ../common :sources:test :core:test
 ./gradlew -p ../server build
 ```
 

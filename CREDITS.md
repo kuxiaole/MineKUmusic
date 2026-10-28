@@ -23,6 +23,8 @@
 - 1.6.4 将插件聊天文案、帮助、搜索按钮、悬浮说明、投票和业务提示整理为带中文注释的可自定义语言文件，加入统一主题色与配置、语言同时热重载。客户端通信和收费确认流程保持兼容。
 
 - 1.6.5 将服务端账号配置统一为 AllMusic / 浏览器导出的 `cookie.json` 数组，移除 TXT 读取路径，修复导出值含逗号时被错误拒绝的问题，保留账号播放权限检查。
+- 1.7.0 同步上游提交 `42397a1c8b78138175cfba4781d35cc9ff8aca94`（本次合并基点为 `da696d0871fa348323782d7d299ba10df46e07db`）：个人网易云、QQ 音乐、酷狗音源与登录、歌单、推荐、逐字歌词、界面动画、主菜单播放器及渲染调整。QQ 请求、播放、歌词和扫码模块抽取到 `common/sources`，供个人音乐及服务端在各自账号上下文中复用。
+- 本版本在上述基础上实现网易云 / QQ 全服搜索、音源歌曲身份、管理员客户端二维码弹窗、服务端账号文件隔离、旧 Cookie 迁移和双音源交易恢复。上游 Firebase 房间流程未接入全服频道；更新提醒改为读取 MineKUmusic 自身发布。
 
 ## AllMusic：服务端实现参考
 
@@ -44,7 +46,7 @@ DangoMusic 原有 `MusicScreen.kt` 注释注明播放器排版参考 MuoniumPlay
 | Inter | 客户端字体 | SIL Open Font License 1.1 |
 | JLayer | MP3 解码 | LGPL-2.1 |
 | ZXing | 登录二维码 | Apache-2.0 |
-| Kotlin 标准库 | 客户端运行时 | Apache-2.0 |
+| Kotlin 标准库 | 客户端及共享音源运行时 | Apache-2.0 |
 | Gson | JSON 数据处理 | Apache-2.0 |
 
 保留已有第三方声明。客户端 JAR 中的 `META-INF/licenses/` 保存上游已附带的许可证文本；所有客户端和插件 JAR 均包含本文件及项目 `LICENSE`。Fabric、NeoForge、Folia 和 Velocity 是运行平台，各自项目与许可证归其维护者。

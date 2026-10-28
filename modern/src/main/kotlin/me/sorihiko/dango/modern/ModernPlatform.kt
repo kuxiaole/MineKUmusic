@@ -7,6 +7,7 @@ import me.sorihiko.dango.platform.PlayerKeyBinding
 
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.ChatScreen
+import net.minecraft.client.gui.screens.TitleScreen
 
 import java.nio.file.Path
 
@@ -58,6 +59,8 @@ object ModernPlatform : Platform {
 
     override val inGame: Boolean get() = McCompat.currentScreen() == null && mc.level != null
 
+    override val inMainMenu: Boolean get() = McCompat.currentScreen() is TitleScreen
+
     override val chatOpen: Boolean get() = McCompat.currentScreen() is ChatScreen
 
     override val guiScale: Int get() = mc.window.guiScale.toInt()
@@ -80,6 +83,6 @@ object ModernPlatform : Platform {
         }
 
     override fun openMusicScreen() {
-        if (McCompat.glAvailable) McCompat.setScreen(ModernMusicScreen(null)) else McCompat.notifyNoGl(again = true)
+        if (McCompat.glAvailable) McCompat.setScreen(ModernMusicScreen(McCompat.currentScreen())) else McCompat.notifyNoGl(again = true)
     }
 }

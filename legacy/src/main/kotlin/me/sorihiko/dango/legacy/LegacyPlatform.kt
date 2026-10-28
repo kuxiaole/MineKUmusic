@@ -7,6 +7,7 @@ import me.sorihiko.dango.platform.PlayerKeyBinding
 
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiChat
+import net.minecraft.client.gui.GuiMainMenu
 import net.minecraft.client.gui.GuiScreen
 import net.minecraft.client.gui.ScaledResolution
 import org.lwjgl.input.Keyboard
@@ -47,6 +48,8 @@ object LegacyPlatform : Platform {
 
     override val inGame: Boolean get() = mc.currentScreen == null && mc.theWorld != null
 
+    override val inMainMenu: Boolean get() = mc.currentScreen is GuiMainMenu
+
     override val chatOpen: Boolean get() = mc.currentScreen is GuiChat
 
     override val guiScale: Int get() = ScaledResolution(mc).scaleFactor
@@ -69,6 +72,6 @@ object LegacyPlatform : Platform {
         }
 
     override fun openMusicScreen() {
-        mc.displayGuiScreen(LegacyMusicScreen())
+        mc.displayGuiScreen(LegacyMusicScreen(mc.currentScreen))
     }
 }

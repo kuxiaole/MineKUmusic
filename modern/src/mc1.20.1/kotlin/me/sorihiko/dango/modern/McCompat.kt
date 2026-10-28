@@ -42,6 +42,46 @@ internal object GlCache {
  * 每个版本在 src/mc<版本>/ 里放一份，构建时按版本选用，对外的样子完全一样。
  */
 internal object McCompat {
+    fun mainMenuNowPlaying(graphics: Any) {
+        (graphics as GuiGraphics).flush()
+        me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying()
+    }
+
+    // 原版全景资源由游戏管理，资源包也会生效；不提交主菜单按钮/文字。
+    private val titlePanoramaField by lazy {
+        net.minecraft.client.gui.screens.TitleScreen::class.java.declaredFields.single {
+            it.type == net.minecraft.client.renderer.PanoramaRenderer::class.java
+        }.apply { isAccessible = true }
+    }
+    private val menuOverlay = net.minecraft.resources.ResourceLocation("minecraft", "textures/gui/title/background/panorama_overlay.png")
+
+    fun renderMenuBackdrop(parent: Screen?): Boolean {
+        val mc = Minecraft.getInstance()
+        if (mc.level != null || parent !is net.minecraft.client.gui.screens.TitleScreen) return false
+        val state = GlState()
+
+        try {
+            mc.mainRenderTarget.bindWrite(true)
+            Gl.viewport(0, 0, mc.window.width, mc.window.height)
+            Gl.scissor(false)
+            Gl.colorMask(true, true, true, true)
+            // CubeMap 依赖调用者关深度测试；其 BufferUploader 缓存不能跨自绘 VAO 使用。
+            Gl.depthTest(false)
+            com.mojang.blaze3d.vertex.BufferUploader.invalidate()
+            val panorama = titlePanoramaField.get(parent) as net.minecraft.client.renderer.PanoramaRenderer
+            panorama.render(mc.deltaFrameTime, 1f)
+            // 与主菜单一致的覆盖层，避免切换时亮度突变。
+            val graphics = GuiGraphics(mc, mc.renderBuffers().bufferSource())
+            graphics.blit(menuOverlay, 0, 0, mc.window.guiScaledWidth, mc.window.guiScaledHeight, 0f, 0f, 16, 128, 16, 128)
+            graphics.flush()
+        } finally {
+            state.restore()
+            // 恢复实际 VAO 后也让原版下次重新绑定，不能保留全景的缓存。
+            com.mojang.blaze3d.vertex.BufferUploader.invalidate()
+        }
+        return true
+    }
+
     fun createPlayerKey(action: PlayerAction): KeyMapping =
         KeyMapping(action.translationKey, gameBindingKey(action.defaultKey).value, "key.categories.dangomusic")
 

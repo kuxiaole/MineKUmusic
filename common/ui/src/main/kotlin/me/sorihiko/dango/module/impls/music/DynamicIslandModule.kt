@@ -3,6 +3,7 @@ package me.sorihiko.dango.module.impls.music
 import me.sorihiko.dango.i18n.I18n
 
 import me.sorihiko.dango.DangoClient
+import me.sorihiko.dango.DangoMusic
 import me.sorihiko.dango.event.EventHandler
 import me.sorihiko.dango.events.WorldRenderEndEvent
 import me.sorihiko.dango.font.MixedText
@@ -21,6 +22,7 @@ import me.sorihiko.dango.ui.ShadowStyle
 import me.sorihiko.dango.ui.ShapeStyle
 import me.sorihiko.dango.ui.Theme
 import me.sorihiko.dango.ui.Vec2
+import me.sorihiko.dango.update.UpdateChecker
 import me.sorihiko.dango.utils.Color
 
 import java.text.SimpleDateFormat
@@ -34,6 +36,7 @@ import kotlin.math.sin
  *  - 平时：用户名 · FPS · 延迟 · 时间；内置播放器在放歌时显示 封面 + 歌名 + 跳动的音浪
  *  - 切歌 / 暂停 / 继续：展开成大卡片（封面、歌名、歌手、进度条）
  *  - 开关模块、攻击玩家：短暂显示对应信息
+ *  - 有新版本时在游戏里提醒一次（每个版本只提醒一次）
  * 尺寸用弹簧动画过渡，内容淡入淡出；背景可选液态玻璃或纯黑。
  */
 @ModuleMeta(Category.MUSIC, "DynamicIsland")
@@ -54,7 +57,7 @@ class DynamicIslandModule : Module() {
     @ModuleValue("Notify time", "How long song notifications stay (seconds)")
     private val notifyTime = FloatValue(1f, 8f, 3.5f, 1)
 
-    private enum class Kind { IDLE, SONG }
+    private enum class Kind { IDLE, SONG, UPDATE }
 
     private var context: GuiCanvas? = null
 
@@ -72,8 +75,10 @@ class DynamicIslandModule : Module() {
     private var lastNanos = 0L
     private var enabledAt = 0L
 
-    private var lastTrackId = 0L
+    private var lastTrackId = ""
     private var lastState: MusicPlayer.State? = null
+    /** 这次启动是否已经处理过新版本提醒 */
+    private var updateHandled = false
 
     private val clock = SimpleDateFormat("HH:mm")
 
@@ -86,7 +91,7 @@ class DynamicIslandModule : Module() {
         temp = null
         contentAlpha = 0f
         lastNanos = 0L
-        lastTrackId = MusicPlayer.current?.id ?: 0L
+        lastTrackId = MusicPlayer.current?.key ?: ""
         lastState = MusicPlayer.state
     }
 
@@ -99,9 +104,9 @@ class DynamicIslandModule : Module() {
         val cur = MusicPlayer.current
         val st = MusicPlayer.state
         if (cur == null) {
-            lastTrackId = 0L
-        } else if (cur.id != lastTrackId) {
-            lastTrackId = cur.id
+            lastTrackId = ""
+        } else if (cur.key != lastTrackId) {
+            lastTrackId = cur.key
             if (songNotify.get()) show(Kind.SONG, (notifyTime.value * 1000).toLong())
         } else if (lastState != null && st != lastState && songNotify.get() &&
             (st == MusicPlayer.State.PAUSED || (st == MusicPlayer.State.PLAYING && lastState == MusicPlayer.State.PAUSED))
@@ -111,12 +116,26 @@ class DynamicIslandModule : Module() {
         lastState = st
     }
 
+    /** 有新版本、设置里开着检查更新、这个版本还没提醒过：等没有别的通知时展开提醒一次 */
+    private fun watchUpdate() {
+        if (updateHandled || temp != null || UpdateChecker.available == null || !DangoClient.platform.inGame) return
+        updateHandled = true
+        val on = try {
+            DangoMusic.instance.moduleManager.get(NeteaseMusicModule::class.java).checkUpdates.get()
+        } catch (_: Exception) {
+            false
+        }
+        if (!on || !UpdateChecker.shouldNotify()) return
+        show(Kind.UPDATE, 7000L)
+        UpdateChecker.markNotified()
+    }
+
     private fun desired(): Kind {
         val t = temp
         if (t != null && System.currentTimeMillis() < tempUntil) {
             val ok = when (t) {
                 Kind.SONG -> MusicPlayer.current != null
-                Kind.IDLE -> true
+                Kind.UPDATE, Kind.IDLE -> true
             }
             if (ok) return t
         }
@@ -136,6 +155,10 @@ class DynamicIslandModule : Module() {
                 width(t.artists.joinToString(" / "), 11f).coerceAtMost(260f),
             )
             (76f + max(tw, 150f) + 44f) to 76f
+        }
+        Kind.UPDATE -> {
+            val tw = max(width(updateTitle(), 13f, Theme.FONT_SEMIBOLD), width(I18n.text("Copy the download link in the player's settings"), 11f))
+            (16f + 8f + 10f + tw.coerceAtMost(320f) + 18f) to 52f
         }
         Kind.IDLE -> if (musicIdle()) {
             val t = MusicPlayer.current!!
@@ -176,6 +199,7 @@ class DynamicIslandModule : Module() {
         lastNanos = now
 
         watchMusic()
+        watchUpdate()
         val want = desired()
 
         // 内容切换：先淡出旧内容，再换成新内容淡入
@@ -237,6 +261,7 @@ class DynamicIslandModule : Module() {
             when (shown) {
                 Kind.IDLE -> if (musicIdle()) drawMusicIdle(ctx, cb) else drawIdle(ctx, cb)
                 Kind.SONG -> drawSong(ctx, cb)
+                Kind.UPDATE -> drawUpdate(ctx, cb)
             }
             ctx.popOpacity()
             ctx.popTransform()
@@ -273,6 +298,16 @@ class DynamicIslandModule : Module() {
         val title = trim(t.name, 170f, 12f, Theme.FONT_SEMIBOLD)
         text(ctx, title, tx, b.y + 16f - 12f * 0.39f, 12f, if (playing) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
         bars(ctx, b.right - 12f - 14f, b.y + 22f, playing, 11f)
+    }
+
+    private fun updateTitle() = I18n.text("MineKU Music update: ") + (UpdateChecker.available?.version ?: "")
+
+    private fun drawUpdate(ctx: GuiCanvas, b: LayoutBounds) {
+        ctx.drawShape(LayoutBounds(b.x + 16f, b.y + 22f, 8f, 8f), ShapeStyle(Theme.ACCENT, 4f))
+        val tx = b.x + 34f
+        val tw = b.right - 18f - tx
+        text(ctx, trim(updateTitle(), tw, 13f, Theme.FONT_SEMIBOLD), tx, b.y + 12f, 13f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+        text(ctx, trim(I18n.text("Copy the download link in the player's settings"), tw, 11f), tx, b.y + 30f, 11f, Theme.TEXT_SECONDARY)
     }
 
     private fun drawSong(ctx: GuiCanvas, b: LayoutBounds) {

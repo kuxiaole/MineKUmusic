@@ -25,7 +25,7 @@ public final class MusicChat {
         return notice(m, text).append(Component.space()).append(action(m, m.render("vote.button"), command, m.render("vote.hover"), false));
     }
     public static Component requestAnnouncement(MusicMessages m, String channel, String player, Track track) {
-        Component detail = m.render("search.detail", "name", track.name, "artists", String.join(" / ", track.artists), "id", track.id);
+        Component detail = detail(m, track);
         Component text = m.render("request.announcement", "channel", channel, "player", player,
                 "song", shorten(track.name, 30), "artists", shorten(String.join(" / ", track.artists), 20));
         return notice(m, text.hoverEvent(HoverEvent.showText(detail))).append(Component.space())
@@ -41,11 +41,13 @@ public final class MusicChat {
         for (int i = 0; i < tracks.size(); i++) {
             Track track = tracks.get(i);
             String artists = String.join(" / ", track.artists);
-            Component detail = m.render("search.detail", "name", track.name, "artists", artists, "id", track.id);
+            Component detail = detail(m, track);
             Component row = m.render("search.row", "index", page * SEARCH_PAGE_SIZE + i + 1,
-                    "name", shorten(track.name, 30), "artists", shorten(artists, 20), "id", track.id);
+                    "name", shorten(track.name, 30), "artists", shorten(artists, 20), "id", track.ref().nativeId,
+                    "source", source(m, track));
             if (peer.use() && peer.request() && !peer.id().equals(MusicServer.console().id())) {
-                row = row.append(Component.space()).append(action(m, m.render("search.request"), "/minekumusic request " + track.id,
+                String request = track.ref().source.equals("netease") ? track.ref().nativeId : track.ref().source + " " + track.ref().nativeId;
+                row = row.append(Component.space()).append(action(m, m.render("search.request"), "/minekumusic request " + request,
                         m.render("search.request-hover", "detail", detail), false));
             }
             lines.add(row.hoverEvent(HoverEvent.showText(detail)));
@@ -59,6 +61,13 @@ public final class MusicChat {
                 .append(m.render("button.separator")).append(action(m, m.render("search.again"), "/minekumusic search ", m.render("search.again-hover"), true)));
         lines.add(m.render("search.footer"));
         return List.copyOf(lines);
+    }
+    private static Component source(MusicMessages m, Track track) {
+        return m.render("source." + track.ref().source);
+    }
+    private static Component detail(MusicMessages m, Track track) {
+        return m.render("search.detail", "name", track.name, "artists", String.join(" / ", track.artists),
+                "id", track.ref().nativeId, "source", source(m, track));
     }
     private static String shorten(String text, int length) {
         String line = text.replaceAll("\s+", " ").strip();

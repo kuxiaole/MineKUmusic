@@ -3,6 +3,7 @@ package me.sorihiko.dango.legacy
 import me.sorihiko.dango.DangoClient
 
 import net.minecraft.client.gui.GuiScreen
+import net.minecraft.client.gui.GuiMainMenu
 import org.lwjgl.input.Keyboard
 import org.lwjgl.input.Mouse
 
@@ -14,8 +15,19 @@ class LegacyMusicScreen(
 
     private val screen = DangoClient.newMusicScreen { mc.displayGuiScreen(parent) }
 
+    // 复用已初始化的主菜单，仅调用它的全景绘制，不画按钮、标题或 Realms。
+    private val panoramaMethod by lazy {
+        GuiMainMenu::class.java.declaredMethods.first {
+            it.name == "renderSkybox" || it.name == "func_73971_c"
+        }.apply { isAccessible = true }
+    }
+
     override fun initGui() {
         Keyboard.enableRepeatEvents(true)
+        if (parent is GuiMainMenu) {
+            parent.width = width
+            parent.height = height
+        }
         screen.opened()
     }
 
@@ -25,8 +37,21 @@ class LegacyMusicScreen(
 
     override fun doesGuiPauseGame() = false
 
+    override fun updateScreen() {
+        if (mc.theWorld == null && parent is GuiMainMenu) parent.updateScreen()
+    }
+
     override fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
-        screen.render()
+        val menuBackdrop = mc.theWorld == null && parent is GuiMainMenu
+        if (menuBackdrop) {
+            net.minecraft.client.renderer.GlStateManager.disableAlpha()
+            panoramaMethod.invoke(parent, mouseX, mouseY, partialTicks)
+            net.minecraft.client.renderer.GlStateManager.enableAlpha()
+            // 与 GuiMainMenu 的两层渐变一致，避免开关时背景亮度变化。
+            drawGradientRect(0, 0, width, height, -2130706433, 16777215)
+            drawGradientRect(0, 0, width, height, 0, Int.MIN_VALUE)
+        }
+        screen.render(menuBackdrop)
     }
 
     override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int) {

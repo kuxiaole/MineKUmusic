@@ -27,12 +27,6 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
     }
     public static ServerConfig load(Path directory, ServerConfig running) throws IOException {
         Files.createDirectories(directory);
-        Path cookie = directory.resolve("cookie.json");
-        if (!Files.exists(cookie)) {
-            try (InputStream template = ServerConfig.class.getResourceAsStream("/cookie.json.example")) {
-                Files.copy(Objects.requireNonNull(template), cookie);
-            }
-        }
         Path path = directory.resolve("config.properties");
         Properties p = new Properties();
         if (Files.exists(path)) try (Reader r = Files.newBufferedReader(path)) { p.load(r); }
@@ -60,6 +54,17 @@ public record ServerConfig(String serverId, String channelName, int playerLimit,
             if (config.economyBridgeOnly != running.economyBridgeOnly) restart.add("economy-bridge-only");
             if (!config.economyBridgeSecret.equals(running.economyBridgeSecret)) restart.add("economy-bridge-secret");
             if (!restart.isEmpty()) throw new IllegalArgumentException("以下配置变更需要完整重启，本次未应用：" + String.join("、", restart));
+        }
+        if (!config.economyBridgeOnly) {
+            ServerCookies.migrate(directory);
+            for (String source : List.of("netease", "qq")) {
+                Path cookie = ServerCookies.path(directory, source);
+                if (!Files.exists(cookie)) {
+                    try (InputStream example = ServerConfig.class.getResourceAsStream("/" + source + "-cookie.json.example")) {
+                        Files.copy(Objects.requireNonNull(example), cookie);
+                    }
+                }
+            }
         }
         writeAnnotated(path, p, template);
         return config;

@@ -30,6 +30,12 @@ object ServerMusic {
     var playerId = ""; private set
     var canRequest = false; private set
     var canVote = false; private set
+    var admin = false; private set
+    var sources: List<MusicSource> = listOf(MusicSource.NETEASE); private set
+    var searchSource = MusicSource.NETEASE; private set
+    data class ServerLogin(val sessionId: String, val source: String, val state: String, val image: String, val expiresAt: Long)
+    var serverLogin: ServerLogin? = null; private set
+    private val dismissedLogins = LinkedHashSet<String>()
     var status = "Not connected to a server"; private set
     var current: MusicProtocol.Entry? = null; private set
     var listeners = 0; private set
@@ -46,7 +52,7 @@ object ServerMusic {
     var lyrics: Lyrics? = null; private set
     var pendingPersonal: (() -> Unit)? = null; private set
     data class RequestConfirmation(val quoteId: String, val songId: Long, val songName: String, val amount: String,
-                                   val currency: String, val expiresAt: Long, val remote: Boolean)
+                                   val currency: String, val expiresAt: Long, val remote: Boolean, val source: String = "netease", val nativeId: String = songId.toString())
     var pendingRequest: RequestConfirmation? = null; private set
     var requestingSong = false; private set
     var requestFeedback = ""; private set
@@ -54,6 +60,7 @@ object ServerMusic {
     private var remoteConfirmation = false
     private var quoteRequest = ""
     private var quotedSongId = 0L
+    private var quotedSongRef: MusicProtocol.SongRef? = null
     private var quotedSongName = ""
     private var desired = false
     private var epoch = ""
@@ -91,6 +98,7 @@ object ServerMusic {
     fun disconnected() {
         restorePersonal()
         connected = false; available = false; desired = false; transport = null
+        serverLogin = null; dismissedLogins.clear(); admin = false; sources = listOf(MusicSource.NETEASE)
         assembler.clear(); pending.clear(); current = null; queue = emptyList(); searchResults = emptyList()
         searching = false; serverId = ""; revision = -1; queueRevision = -1; instance = ""
         pendingRequest = null; requestingSong = false; quoteRequest = ""; remoteConfirmation = false
@@ -114,6 +122,7 @@ object ServerMusic {
                     if (serverId != nextServer || epoch != nextEpoch) {
                         pendingRequest = null; requestingSong = false; quoteRequest = ""
                         restorePersonal(); revision = -1; queueRevision = -1; instance = ""; queue = emptyList()
+                        serverLogin = null; dismissedLogins.clear(); searchResults = emptyList(); searchRequest = ""; searching = false
                         serverId = nextServer
                         epoch = nextEpoch
                         desired = settings.getProperty(serverId, "false").toBoolean()
@@ -123,10 +132,23 @@ object ServerMusic {
                     playerId = MusicProtocol.string(body, "playerId", "")
                     canRequest = MusicProtocol.bool(body, "canRequest", false)
                     canVote = MusicProtocol.bool(body, "canVote", false)
+                    admin = MusicProtocol.bool(body, "admin", false)
+                    sources = body.getAsJsonArray("sources")?.mapNotNull { item -> MusicSource.values().firstOrNull { it.key == item.asString && it != MusicSource.KUGOU } }
+                        ?.takeIf { it.isNotEmpty() } ?: listOf(MusicSource.NETEASE)
+                    searchSource = sources.firstOrNull { it.key == settings.getProperty("source.$serverId", "netease") } ?: sources.first()
                     remoteConfirmation = MusicProtocol.bool(body, "requestConfirmation", false)
                     status = if (joined) "Listening to server music" else "Not joined"
                     if (desired) send("subscribe")
                     requestQueue(queuePage)
+                }
+                "serverLogin" -> if (admin) {
+                    val id = MusicProtocol.string(body, "sessionId", "")
+                    val source = MusicProtocol.string(body, "source", "")
+                    val state = MusicProtocol.string(body, "state", "")
+                    val image = MusicProtocol.string(body, "image", "")
+                    if (id.isNotEmpty() && id !in dismissedLogins && source in listOf("netease", "qq") && image.length <= 512 * 1024)
+                        serverLogin = ServerLogin(id, source, state, image,
+                            System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 0).coerceIn(0, 180000) * 1_000_000L)
                 }
                 "joinChannel" -> {
                     if (available && transport != null && MusicProtocol.string(body, "epoch", "") == epoch &&
@@ -169,11 +191,12 @@ object ServerMusic {
                 }
                 "requestQuote" -> if (joined && (rid == quoteRequest || rid.startsWith("cmd:"))) {
                     val songId = MusicProtocol.number(body, "songId", 0)
+                    val song = MusicProtocol.songRef(body)
                     pendingRequest = RequestConfirmation(
                         MusicProtocol.string(body, "quoteId", ""), songId,
-                        if (songId == quotedSongId && rid == quoteRequest) quotedSongName else "",
+                        if (song == quotedSongRef && rid == quoteRequest) quotedSongName else "",
                         MusicProtocol.string(body, "amount", "0"), MusicProtocol.string(body, "currencyName", "KU\u5e01"),
-                        System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 60000).coerceIn(0, 60000) * 1_000_000L, true)
+                        System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 60000).coerceIn(0, 60000) * 1_000_000L, true, song.source, song.nativeId)
                     quoteRequest = ""; requestingSong = false
                     requestFeedback = ""
                     pendingPersonal = null
@@ -278,13 +301,16 @@ object ServerMusic {
     private fun remember(value: Boolean) {
         if (serverId.isEmpty()) return
         settings.setProperty(serverId, value.toString())
+        saveSettings()
+    }
+    private fun saveSettings() {
         val copy = Properties().apply { putAll(settings) }; val file = settingsFile
         settingsWriter.execute {
             try { file.parentFile.mkdirs(); file.writer(Charsets.UTF_8).use { copy.store(it, "Dango Music channel preferences") } }
             catch (e: Exception) { DangoLogger.warn("Could not save channel preference: {}", e.toString()) }
         }
     }
-    private fun hello() { send("hello", JsonObject().apply { addProperty("chatJoin", true) }) }
+    private fun hello() { send("hello", JsonObject().apply { addProperty("chatJoin", true); addProperty("multiSource", true); addProperty("serverLogin", true) }) }
     private fun send(type: String, body: JsonObject = JsonObject()): String {
         val sender = transport ?: return ""
         val id = UUID.randomUUID().toString()
@@ -297,20 +323,33 @@ object ServerMusic {
     fun search(query: String, page: Int = 0) {
         if (!available || query.isBlank()) return
         lastQuery = query.take(120); searching = true
-        searchRequest = send("search", JsonObject().apply { addProperty("query", lastQuery); addProperty("page", page.coerceAtLeast(0)) })
+        searchRequest = send("search", JsonObject().apply { addProperty("query", lastQuery); addProperty("page", page.coerceAtLeast(0)); addProperty("source", searchSource.key) })
     }
     fun searchPage(page: Int) = search(lastQuery, page)
-    fun requestSong(id: Long, name: String = "") {
+    fun selectSearchSource(source: MusicSource) {
+        if (source !in sources || source == searchSource) return
+        searchSource = source; searchResults = emptyList(); searchPage = 0; searchHasNext = false; searchRequest = ""; searching = false
+        settings.setProperty("source.$serverId", source.key); saveSettings()
+    }
+    fun canRequestTrack(track: NeteaseTrack) = track.source != MusicSource.KUGOU && track.source in sources
+    fun requestSong(track: NeteaseTrack) {
+        if (!canRequestTrack(track)) { status = "This source is not supported by the server channel"; return }
+        requestSong(MusicProtocol.SongRef(track.source.key, track.nativeId), track.name)
+    }
+    fun requestSong(track: MusicProtocol.Track) = requestSong(track.ref(), track.name)
+    fun requestSong(id: Long, name: String = "") = requestSong(MusicProtocol.SongRef("netease", id.toString()), name)
+    private fun requestSong(song: MusicProtocol.SongRef, name: String) {
+        val id = song.legacyId()
         if (!joined) { status = "Join the channel before requesting a song"; return }
         if (!canRequest) { status = "You do not have permission to request songs"; return }
         if (requestingSong || pendingRequest != null) { status = "A song request is already being processed"; return }
         if (transport == null) { status = "Wait until you have connected to a backend server before requesting a song"; return }
-        pendingPersonal = null; quotedSongId = id; quotedSongName = name
+        pendingPersonal = null; quotedSongId = id; quotedSongName = name; quotedSongRef = song
         if (remoteConfirmation) {
             status = "Getting the song request price..."; requestingSong = true
-            quoteRequest = send("quoteRequest", JsonObject().apply { addProperty("songId", id) })
+            quoteRequest = send("quoteRequest", JsonObject().apply { MusicProtocol.songFields(this, song) })
             if (quoteRequest.isEmpty()) { requestingSong = false; status = "Server music is not available" }
-        } else pendingRequest = RequestConfirmation("", id, name, "0", "KU\u5e01", System.nanoTime() + 60_000_000_000L, false)
+        } else pendingRequest = RequestConfirmation("", id, name, "0", "KU\u5e01", System.nanoTime() + 60_000_000_000L, false, song.source, song.nativeId)
     }
     fun confirmSongRequest() {
         val quote = pendingRequest ?: return
@@ -320,7 +359,7 @@ object ServerMusic {
         pendingRequest = null; requestingSong = true; status = "Adding song..."
         requestFeedback = status
         val rid = if (quote.remote) send("confirmRequest", JsonObject().apply { addProperty("quoteId", quote.quoteId) })
-            else send("request", JsonObject().apply { addProperty("songId", quote.songId) })
+            else send("request", JsonObject().apply { MusicProtocol.songFields(this, MusicProtocol.SongRef(quote.source, quote.nativeId)) })
         if (rid.isEmpty()) { requestingSong = false; status = "Server music is not available" }
     }
     fun cancelSongRequest() {
@@ -347,5 +386,15 @@ object ServerMusic {
     }
     fun confirmPersonal() { val action = pendingPersonal ?: return; leave(); action() }
     fun cancelPersonal() { pendingPersonal = null }
-    fun toTrack(track: MusicProtocol.Track) = NeteaseTrack(track.id, track.name, track.artists, track.durationMs, track.coverUrl)
+    fun closeServerLogin() {
+        val login = serverLogin ?: return
+        serverLogin = null; dismissedLogins.add(login.sessionId)
+        while (dismissedLogins.size > 8) dismissedLogins.remove(dismissedLogins.first())
+        send("cancelLogin", JsonObject().apply { addProperty("sessionId", login.sessionId); addProperty("source", login.source) })
+    }
+    fun toTrack(track: MusicProtocol.Track): NeteaseTrack {
+        val song = track.ref()
+        val source = MusicSource.values().first { it.key == song.source }
+        return NeteaseTrack(track.id, track.name, track.artists, track.durationMs, track.coverUrl, source, song.nativeId)
+    }
 }

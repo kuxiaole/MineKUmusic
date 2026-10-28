@@ -15,9 +15,12 @@ import me.sorihiko.dango.module.values.ModuleValue
 import me.sorihiko.dango.music.MusicPlayer
 import me.sorihiko.dango.music.ServerMusic
 import me.sorihiko.dango.music.NeteaseApi
+import me.sorihiko.dango.music.MusicSources
+import me.sorihiko.dango.music.MusicSource
 import me.sorihiko.dango.platform.Keys
 import me.sorihiko.dango.platform.PlayerAction
 import me.sorihiko.dango.platform.PlayerKeyBinding
+import me.sorihiko.dango.update.UpdateChecker
 
 /**
  * 内置网易云播放器。按 Open key（默认 M）打开播放器界面，播放自己的网易云歌单。
@@ -27,8 +30,16 @@ import me.sorihiko.dango.platform.PlayerKeyBinding
 @ModuleMeta(Category.MUSIC, "NeteaseMusic")
 class NeteaseMusicModule : Module() {
 
+    @ModuleValue("Music source", "Select a music provider")
+    private val musicSource = IntValue(0, 2, 0)
+
+    fun selectSource(source: MusicSource) {
+        musicSource.setValue(source.ordinal)
+        MusicSources.selected = source
+    }
+
     @ModuleValue("Volume", "Playback volume")
-    private val volume = FloatValue(0f, 1f, 0.5f, 2)
+    private val volume = FloatValue(0f, 1f, 0.2f, 2)
 
     @ModuleValue("Language", "Choose the player interface language")
     // -1：尚未根据游戏语言初始化。早期 Fabric 入口处 Options 可能仍为空。
@@ -72,6 +83,9 @@ class NeteaseMusicModule : Module() {
 
     @ModuleValue("Toggle lyrics", "Hotkey to turn lyrics on or off")
     private val keyLyrics = IntValue(-100, 255, 0)
+
+    @ModuleValue("Check for updates", "Look for a newer release on GitHub once per launch and remind you")
+    val checkUpdates = BooleanValue(true)
 
     private val keyBindings by lazy {
         listOf(
@@ -155,7 +169,9 @@ class NeteaseMusicModule : Module() {
     fun onTick(e: TickEvent) {
         // 即使播放器被关闭，也要初始化并保存界面语言。
         applyLanguage()
+        MusicSources.selected = MusicSource.values()[musicSource.value]
         DangoMusic.instance.platform.syncKeyBindings(keyBindings)
+        UpdateChecker.tick(checkUpdates.get())
         if (!enabled) return
         // 歌词模块一直开着（显示与否由 3D lyrics 控制）；等配置读回之后再检查
         if (++tickCount > 5) lyrics()?.let { if (!it.enabled) it.enabled = true }
@@ -164,13 +180,13 @@ class NeteaseMusicModule : Module() {
 
         MusicPlayer.repeatOne = repeatOne.get()
 
-        // 只在游戏画面里（没有打开任何界面、不在聊天）响应按键
+        // 打开键额外支持主菜单；其他播放快捷键仍只在世界内响应。
         val platform = DangoMusic.instance.platform
         val inGame = platform.inGame
         val down = try { platform.isKeyDown(openKey.value) } catch (_: Exception) { false }
-        val open = down && !wasDown && inGame
+        val open = down && !wasDown && (inGame || platform.inMainMenu)
         wasDown = down
-        if (open || inGame && ServerMusic.pendingRequest != null) platform.openMusicScreen()
+        if (open || inGame && (ServerMusic.pendingRequest != null || ServerMusic.serverLogin != null)) platform.openMusicScreen()
 
         for ((key, action) in hotkeys) {
             val code = key.value

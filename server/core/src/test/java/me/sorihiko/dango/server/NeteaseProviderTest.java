@@ -51,7 +51,7 @@ class NeteaseProviderTest {
     @AfterEach void stop() { if (provider != null) provider.close(); if (fixture != null) fixture.stop(0); }
 
     private void login(String session) throws Exception {
-        Files.writeString(directory.resolve("cookie.json"), MusicProtocol.GSON.toJson(List.of(Map.of("name", "MUSIC_U", "value", session))));
+        Files.writeString(directory.resolve("netease-cookie.json"), MusicProtocol.GSON.toJson(List.of(Map.of("name", "MUSIC_U", "value", session))));
     }
 
     @Test void chatUsesTenResultsAndClientKeepsTwentyWithCorrectOffsets() throws Exception {
@@ -63,7 +63,7 @@ class NeteaseProviderTest {
 
     @Test void serverCookieIsUsedForLookupAndLyricsButNotReturnedToPlayers() throws Exception {
         String login = "MUSIC_U=synthetic-entitled-session; __csrf=synthetic-csrf; fixture_metadata=synthetic,comma,value==";
-        Files.writeString(directory.resolve("cookie.json"), """
+        Files.writeString(directory.resolve("netease-cookie.json"), """
                 [
                   {"name":"MUSIC_U","value":"synthetic-entitled-session"},
                   {"name":"__csrf","value":"synthetic-csrf"},

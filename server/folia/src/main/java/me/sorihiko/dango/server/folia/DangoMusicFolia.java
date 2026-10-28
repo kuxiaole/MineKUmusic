@@ -62,7 +62,7 @@ public final class DangoMusicFolia extends JavaPlugin implements Listener, Music
                 getLogger().info("Economy bridge enabled; the music queue is managed by Velocity.");
                 return;
             }
-            music = new MusicServer(directory, config, new NeteaseProvider(directory), this, economy, language);
+            music = new MusicServer(directory, config, new ChannelMusicProvider(directory), this, economy, language);
             getServer().getMessenger().registerOutgoingPluginChannel(this, MusicProtocol.CHANNEL);
             getServer().getMessenger().registerIncomingPluginChannel(this, MusicProtocol.CHANNEL, (channel, player, bytes) -> {
                 byte[] copy = bytes.clone();

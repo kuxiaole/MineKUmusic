@@ -45,6 +45,9 @@ interface Platform {
     /** 在游戏画面里：世界已加载，并且没有打开任何界面 */
     val inGame: Boolean
 
+    /** 原版主菜单（或其子类）；其他界面不接管播放器打开键。 */
+    val inMainMenu: Boolean get() = false
+
     /** 聊天栏开着 */
     val chatOpen: Boolean
 

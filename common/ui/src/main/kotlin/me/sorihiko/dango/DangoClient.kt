@@ -40,4 +40,11 @@ object DangoClient {
     @JvmStatic
     fun newMusicScreen(close: () -> Unit): MusicScreen =
         MusicScreen(DangoMusic.instance.moduleManager.get(NeteaseMusicModule::class.java), close)
+
+    @JvmStatic
+    fun renderMainMenuNowPlaying() {
+        if (platform.inMainMenu) {
+            DangoMusic.instance.moduleManager.get(LyricsModule::class.java).renderMainMenu()
+        }
+    }
 }

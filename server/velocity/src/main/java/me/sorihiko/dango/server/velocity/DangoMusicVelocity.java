@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.6.10", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.7.0", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;
@@ -39,7 +39,7 @@ public final class DangoMusicVelocity implements MusicServer.Endpoint {
             MusicMessages language = MusicMessages.load(data);
             if (!config.economyBridgeSecret().isEmpty()) economy = new VelocityEconomy(proxy, this, config.economyBridgeSecret());
             else if (config.requestPrice().signum() > 0) logger.warn("Set economy-bridge-secret on Velocity and its economy backends before enabling paid song requests.");
-            music = new MusicServer(data, config, new NeteaseProvider(data), this, economy, language);
+            music = new MusicServer(data, config, new ChannelMusicProvider(data), this, economy, language);
             proxy.getChannelRegistrar().register(channel);
             proxy.getChannelRegistrar().register(VelocityEconomy.CHANNEL);
             proxy.getCommandManager().register(proxy.getCommandManager().metaBuilder("minekumusic").aliases("music", "kum").plugin(this).build(), new SimpleCommand() {

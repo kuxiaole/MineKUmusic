@@ -4,6 +4,11 @@
 # 修改常用设置后，管理员执行 /minekumusic reload 即可生效，也可完整重启服务器。
 # server-id、economy-bridge-only、economy-bridge-secret 变更必须完整重启；/minekumusic help reload 可查看说明。
 # 插件启动时会补齐缺少的选项和中文说明，保留已有配置值。
+# 全服音源账号分别放在本目录的 netease-cookie.json（网易云）和 qq-cookie.json（QQ 音乐）。
+# 两个文件都使用浏览器导出的 JSON 数组，也可由管理员在游戏内执行 /music login netease 或 /music login qq 扫码保存。
+# 旧 cookie.json 只会在 netease-cookie.json 不存在时复制迁移，原文件保留；不会迁移到 QQ 账号。
+# 群组服只在 Velocity 配置音源账号；economy-bridge-only=true 的 Folia 后端不创建账号文件。
+# 保存账号文件后，下一次搜索或解析读取新账号；/music reload 会取消尚未完成的扫码登录。
 
 # 【频道与点歌规则】
 # 服务器或群组频道的固定标识。首次留空会自动生成，请保留生成后的值。

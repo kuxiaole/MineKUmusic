@@ -70,6 +70,38 @@ internal object GlCache {
  * 这里把这些差别补齐，让共用代码照旧直接用 OpenGL 画。
  */
 internal object McCompat {
+    fun mainMenuNowPlaying(graphics: Any) {
+        ScreenLayer.draw(graphics as GuiGraphics) { me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying() }
+    }
+
+    // 原版全景资源由游戏管理，资源包也会生效；不提交主菜单按钮/文字。
+    private val menuCube by lazy { net.minecraft.client.renderer.CubeMap(net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/title/background/panorama")) }
+
+    private val menuOverlay by lazy {
+        val id = Identifier.withDefaultNamespace("textures/gui/title/background/panorama_overlay.png")
+        ModernTexture({ (mc.textureManager.getTexture(id).getTexture() as GlTexture).glId() }, {})
+    }
+
+    fun renderMenuBackdrop(parent: Screen?): Boolean {
+        if (mc.level != null) return false
+        val state = GlState()
+        val savedProjection = RenderSystem.getProjectionMatrixBuffer()
+        val savedProjectionType = RenderSystem.getProjectionType()
+        try {
+            bindFramebuffer(GL30.GL_FRAMEBUFFER, mainFramebuffer())
+            Gl.viewport(0, 0, mc.window.width, mc.window.height)
+            Gl.scissor(false)
+            Gl.colorMask(true, true, true, true)
+            val spin = MenuPanoramaRotation.advance(mc.gameRenderer.panorama, mc.deltaTracker.realtimeDeltaTicks, mc.options.panoramaSpeed().get())
+            menuCube.render(mc, 10f, spin)
+            MenuPanoramaOverlay.draw(menuOverlay, mc.window.width, mc.window.height)
+        } finally {
+            if (savedProjection != null) RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType)
+            state.restore()
+        }
+        return true
+    }
+
     private val playerKeyCategory by lazy { KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("dangomusic", "controls")) }
 
     fun createPlayerKey(action: PlayerAction): KeyMapping =

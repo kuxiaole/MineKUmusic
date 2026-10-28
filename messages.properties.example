@@ -1,4 +1,61 @@
 # MineKUmusic 聊天语言与配色（UTF-8）
+# 网易云音源的显示名称，用于歌曲详情和账号配置状态。
+source.netease=网易云音乐
+# QQ 音源的显示名称，用于歌曲详情和账号配置状态。
+source.qq=QQ 音乐
+# 音源账号接口无法连接或没有正常响应。
+result.auth-network=<error>音源账号请求失败，请检查服务端网络后重试。</error>
+# 音源账号接口返回的数据无法解析。
+result.auth-response=<error>音源账号返回的数据无法识别，请稍后重试。</error>
+# 匿名音源请求失败。
+result.source-network=<error>音源请求失败，请检查服务端网络后重试。</error>
+# 全服多音源提示：该音源或歌曲 ID 不受全服频道支持。
+result.source-unsupported=<error>该音源或歌曲 ID 不受全服频道支持。</error>
+# 全服多音源提示：请更新 MineKU Music 客户端后点播此音源。
+result.source-update=<error>请更新 MineKU Music 客户端后点播此音源。</error>
+# 全服多音源提示：服务端 QQ 音乐 Cookie 不完整，请管理员重新扫码登录。
+result.qq-cookie-incomplete=<error>服务端 QQ 音乐 Cookie 不完整，请管理员重新扫码登录。</error>
+# 全服多音源提示：QQ 音乐搜索失败，请稍后重试。
+result.qq-search=<error>QQ 音乐搜索失败，请稍后重试。</error>
+# 全服多音源提示：未找到这首 QQ 音乐歌曲。
+result.qq-song=<error>未找到这首 QQ 音乐歌曲。</error>
+# 全服多音源提示：QQ 音乐请求失败，请重试或让管理员重新登录。
+result.qq-request=<error>QQ 音乐请求失败，请重试或让管理员重新登录。</error>
+# 全服多音源提示：QQ 音乐返回的数据不完整，请重试。
+result.qq-response=<error>QQ 音乐返回的数据不完整，请重试。</error>
+# 全服多音源提示：QQ 音乐播放地址请求失败，请重试。
+result.qq-playback=<error>QQ 音乐播放地址请求失败，请重试。</error>
+# 全服多音源提示：服务端 QQ 音乐登录已失效，请管理员重新扫码。
+result.qq-expired=<error>服务端 QQ 音乐登录已失效，请管理员重新扫码。</error>
+# 全服多音源提示：QQ 音乐未返回可播放的完整 MP3，请检查账号播放权限或选择其他版本。
+result.qq-no-mp3=<error>QQ 音乐未返回可播放的完整 MP3，请检查账号播放权限或选择其他版本。</error>
+# 全服多音源提示：服务端 netease-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。
+result.cookie-netease=<error>服务端 netease-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。</error>
+# 全服多音源提示：服务端 qq-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。
+result.cookie-qq=<error>服务端 qq-cookie.json 格式错误，请使用浏览器导出的 Cookie JSON 数组。</error>
+# 全服多音源提示：此音源已有管理员正在扫码，请等待完成或取消。
+result.login-busy=<error>此音源已有管理员正在扫码，请等待完成或取消。</error>
+# 全服多音源提示：请先关闭当前的全服账号扫码弹窗，再登录其他音源。
+result.login-close=<error>请先关闭当前的全服账号扫码弹窗，再登录其他音源。</error>
+# 全服多音源提示：你没有管理全服音乐账号的权限。
+result.login-permission=<error>你没有管理全服音乐账号的权限。</error>
+
+# login 子命令说明：只能由游戏内管理员扫码，不接受玩家上传 Cookie。
+command.login.description=为全服音乐登录网易云或 QQ 音乐，或查看、取消扫码状态。
+# login 参数说明；音源值固定为 netease、qq。
+command.login.arguments=<netease|qq|status [音源]|cancel [音源]>
+# 控制台无法显示客户端二维码。
+login.player-only=<error>请由安装 MineKU Music 1.7.0 客户端的管理员在游戏内执行扫码登录。</error>
+# 管理员客户端尚未完成扫码能力握手。
+login.client-required=<error>请安装或更新至 MineKU Music 1.7.0，并进入服务器后重试。</error>
+# 手动取消扫码后的提示。
+login.cancelled=<muted>已取消你尚未确认完成的全服账号扫码登录。</muted>
+# 文件中存在账号配置；{source} 为音源显示名称。此指令不联网验证账号有效性。
+login.configured=<success>{source}：已配置 Cookie 文件；账号是否有效以音源实际返回为准。</success>
+# 文件未配置账号；{source} 为音源显示名称。
+login.missing=<muted>{source}：未配置账号，当前使用匿名模式。</muted>
+# 文件格式不正确；{source} 为音源显示名称。
+login.invalid=<error>{source}：Cookie JSON 文件无效，请检查对应音源文件或重新扫码。</error>
 # 修改后执行 /minekumusic reload；Velocity 和各 Folia 后端分别读取自身数据目录。
 # 支持 <red>文字</red>、<#A78BFA>文字</#A78BFA>、<bold>粗体</bold>、<underlined>下划线</underlined>、<newline>换行。
 # 主题色用 <brand>、<heading>、<primary>、<action>、<muted>、<disabled>、<error>、<success>，非换行标签必须闭合。
@@ -122,8 +179,8 @@ search.heading=<muted>关键词：</muted><primary>{query}</primary><heading>  �
 # 结果行；{index} 为序号，{name} 和 {artists} 为缩略歌名、歌手，{id} 为歌曲 ID。
 search.row=<muted>{index}. </muted><primary>{name}</primary><muted> · {artists}</muted><disabled>  #{id}</disabled>
 
-# 结果悬浮信息；{name} 和 {artists} 保留完整内容，{id} 为歌曲 ID。
-search.detail=<primary>{name}<newline>歌手：{artists}<newline>歌曲 ID：{id}</primary>
+# 结果悬浮信息；{name} 和 {artists} 保留完整内容，{id} 为音源原始歌曲 ID，{source} 为音源名称。
+search.detail=<primary>{name}<newline>音源：{source}<newline>歌手：{artists}<newline>歌曲 ID：{id}</primary>
 
 # 搜索结果点歌按钮。
 search.request=点歌
@@ -284,7 +341,7 @@ command.queue.arguments=[页码]
 command.queue.description=查看当前歌曲和待播队列；页码从 1 开始
 
 # search 指令参数的显示文字，不改变指令实际语法。
-command.search.arguments=<关键词>
+command.search.arguments=[netease|qq] <关键词>
 # search 指令帮助说明。
 command.search.description=免费搜索歌曲，点击结果中的按钮点歌或翻页
 
@@ -294,7 +351,7 @@ command.searchpage.arguments=<页码>
 command.searchpage.description=查看最近一次搜索的指定页，也可点击搜索结果下方的翻页按钮
 
 # request 指令参数的显示文字，不改变指令实际语法。
-command.request.arguments=<歌曲ID>
+command.request.arguments=[netease|qq] <歌曲ID或MID>
 # request 指令帮助说明。
 command.request.description=先加入频道，再在客户端确认点歌费用；确认后才会扣款入队
 
@@ -365,10 +422,10 @@ result.invalid-search=<error>搜索参数不合法。</error>
 result.invalid-search-page=<error>搜索页码不合法。</error>
 
 # 业务提示：JSON 必须为对象数组，每项有字符串类型的 name 和 value；无占位符。
-result.invalid-server-cookie-json-expected-an-array-of-cookie-objects=<error>服务端 cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组</error>
+result.invalid-server-cookie-json-expected-an-array-of-cookie-objects=<error>服务端 netease-cookie.json 格式错误，请使用含 name 和 value 字符串字段的 Cookie 对象数组</error>
 
 # 业务提示：JSON Cookie 字段存在不支持的字符；无占位符，不显示登录值。
-result.invalid-server-cookie-json-cookie-names-or-values-contain-unsupported-characters=<error>服务端 cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件</error>
+result.invalid-server-cookie-json-cookie-names-or-values-contain-unsupported-characters=<error>服务端 netease-cookie.json 中的 Cookie 名称或值含不支持的字符，请重新导出 JSON 文件</error>
 
 # 业务提示：请先加入全服频道再点歌；无占位符。
 result.join-the-channel-before-requesting-a-song=<error>请先加入全服频道再点歌</error>

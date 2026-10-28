@@ -3,14 +3,19 @@ package me.sorihiko.dango.music
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
-/** 网易云里的一首歌（ID、时长、封面都是网易云自己的数据） */
-class NeteaseTrack(
+/** Provider-independent song data; historical name retained for client compatibility. */
+class NeteaseTrack @JvmOverloads constructor(
     val id: Long,
     val name: String,
     val artists: List<String>,
     val durationMs: Long,
-    val coverUrl: String,
+    @Volatile var coverUrl: String,
+    val source: MusicSource = MusicSource.NETEASE,
+    val nativeId: String = id.toString(),
+    val mediaId: String = nativeId,
+    val albumId: String = "",
 ) {
+    val key: String get() = "${source.key}:$nativeId"
     companion object {
         /** 解析网易云接口返回的歌曲 JSON（新旧两种字段名都认：artists/ar、duration/dt、album/al） */
         fun parse(track: JsonObject): NeteaseTrack? {

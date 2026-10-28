@@ -17,6 +17,7 @@ import me.sorihiko.dango.platform.Keys
 import me.sorihiko.dango.ui.LayoutBounds
 import me.sorihiko.dango.ui.ShapeStyle
 import me.sorihiko.dango.ui.Theme
+import me.sorihiko.dango.update.UpdateChecker
 import me.sorihiko.dango.utils.Color
 
 import kotlin.math.max
@@ -75,6 +76,23 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
     private val keyResetButtons = mutableListOf<Hit>()
 
     val editing: Boolean get() = editRow != null
+
+    private var copiedAt = 0L
+
+    // 标签切换：红色选中块的位置（会被拉长一点，像液体）、内容过渡的进度、从哪个标签切过来、旧标签的滚动位置
+    private val tabPill = Spring(300f, 23f, ScreenState.settingsTab.toFloat())
+    private val tabFade = Spring(210f, 24f, 1f)
+    private var tabFrom = -1
+    private var tabFromPos = 0f
+
+    /** 每个设置项的亮度（变暗 / 变亮的渐变） */
+    private val rowFade = HashMap<Row, Spring>()
+    /** 发光颜色：每个色块自己的选中圈（选中时长出来、取消时缩回去） */
+    private val swatchRing = HashMap<Pair<IntValue, Int>, Spring>()
+    /** 发光颜色：每个色块的悬停放大 / 点击弹跳 */
+    private val swatchPop = HashMap<Pair<IntValue, Int>, Pair<Spring, Spring>>()
+    /** 语言：红色选中块的位置 */
+    private val langPill = HashMap<IntValue, Spring>()
 
     // ---------------------------------------------------------------- 每帧
 
@@ -212,14 +230,18 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         val player = Src(module, fmts = mapOf("volume" to ::percent))
         player.left.remove("shuffle")   // 随机播放用播放栏上的按钮就够了，设置页不再显示（状态照样保存）
         player.left.remove("repeatOne") // 单曲循环同样通过播放栏控制
+        player.left.remove("musicSource") // 音源通过侧栏切换。
         val card = Src(mm.get(SongCardModule::class.java), fmts = mapOf("posX" to ::percent, "posY" to ::percent))
         val island = Src(mm.get(DynamicIslandModule::class.java), fmts = mapOf("notifyTime" to { v: Any -> I18n.format("%.1f s", (v as FloatValue).value) }))
+        // 先取走，免得落进下面的 Hotkeys 组
+        val updates = player.take(listOf("checkUpdates"))
         val music = listOf(
             Group("Player", "Playback", player.m, false, player.take(listOf("volume", "language", "reducedChannelMotion"))),
             Group("Hotkeys", "Click, then press a key · Backspace clears", player.m, false, player.take()),
             Group("Song card", "Overlay", card.m, true, card.take()),
             nowPlaying,
             Group("Dynamic Island", "Overlay", island.m, true, island.take()),
+            Group("Updates", "GitHub releases", player.m, false, updates),
         )
         return listOf(lyrics, music)
     }
@@ -237,37 +259,39 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             drawTabs(page, compact)
         }
 
-        val view = LayoutBounds(page.x, contentTop, page.width, max(0f, page.bottom - contentTop))
+        var top = contentTop
+        // 有新版本时在最上面常驻一条（设置里关掉"检查更新"就不显示）
+        val update = UpdateChecker.available?.takeIf { module.checkUpdates.get() }
+        if (update != null) {
+            drawUpdate(LayoutBounds(page.x, top, page.width - 12f, 40f), update)
+            top += 50f
+        }
+        val view = LayoutBounds(page.x, top, page.width, max(0f, page.bottom - top))
         area = view
         if (ScreenState.settingsTab == 2) { about.draw(view); return }
-        val groups = tabs[ScreenState.settingsTab.coerceIn(0, tabs.size - 1)]
-
-        // 两列瀑布流：每组放进当前较矮的一列
-        val gap = 14f
-        val rowH = 40f
-        val headH = 36f
-        val cols = if (view.width >= 560f) 2 else 1
-        val colW = (view.width - 12f - gap * (cols - 1)) / cols
-        val colY = FloatArray(cols)
-        val placed = groups.map { g ->
-            val h = headH + g.rows.size * rowH + 6f
-            var c = 0
-            for (i in 1 until cols) if (colY[i] < colY[c] - 0.5f) c = i
-            val p = Triple(c, colY[c], h)
-            colY[c] += h + gap
-            p
-        }
-        val contentH = max(0f, (colY.maxOrNull() ?: 0f) - gap)
+        val tab = ScreenState.settingsTab.coerceIn(0, tabs.size - 1)
+        val contentH = layoutHeight(tabs[tab], view)
         maxScroll = max(0f, contentH - view.height)
         target = target.coerceIn(0f, maxScroll)
         pos = pos.coerceIn(0f, maxScroll)
 
+        // 切标签：旧内容往一边滑走淡出，新内容从另一边滑进来淡入（弹簧，略带回弹）
+        val t = tabFade.tick(1f)
+        val from = tabFrom
         ui.beginClip(view)
-        groups.forEachIndexed { gi, g ->
-            val (c, gy, gh) = placed[gi]
-            val b = LayoutBounds(view.x + c * (colW + gap), view.y + gy - pos, colW, gh)
-            if (b.bottom < view.y || b.y > view.bottom) return@forEachIndexed
-            ui.itemAnim(gi) { drawGroup(b, g, view, rowH, headH) }
+        if (from in tabs.indices && from != tab && t < 0.999f) {
+            val dir = if (tab > from) 1f else -1f
+            val out = (1f - t * 1.6f).coerceIn(0f, 1f)
+            if (out > 0.01f) {
+                // 旧内容只是画出来，点击区域不保留
+                val keep = ui.hits.size
+                ui.shifted(-dir * 36f * t.coerceIn(0f, 1f), 0f, out) { drawTab(tabs[from], view, tabFromPos, animate = false) }
+                while (ui.hits.size > keep) ui.hits.removeAt(ui.hits.size - 1)
+            }
+            ui.shifted(dir * 36f * (1f - t), 0f, t.coerceIn(0f, 1f)) { drawTab(tabs[tab], view, pos, animate = false) }
+        } else {
+            tabFrom = -1
+            drawTab(tabs[tab], view, pos, animate = true)
         }
         ui.endClip()
 
@@ -279,6 +303,57 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         }
     }
 
+    // 两列瀑布流：每组放进当前较矮的一列
+    private val gap = 14f
+    private val rowH = 40f
+    private val headH = 36f
+
+    /** 每组的位置：列号、在列里的 y、高度 */
+    private fun layout(groups: List<Group>, view: LayoutBounds): List<Triple<Int, Float, Float>> {
+        val cols = if (view.width >= 560f) 2 else 1
+        val colY = FloatArray(cols)
+        return groups.map { g ->
+            val h = headH + g.rows.size * rowH + 6f
+            var c = 0
+            for (i in 1 until cols) if (colY[i] < colY[c] - 0.5f) c = i
+            val p = Triple(c, colY[c], h)
+            colY[c] += h + gap
+            p
+        }
+    }
+
+    private fun layoutHeight(groups: List<Group>, view: LayoutBounds): Float =
+        max(0f, (layout(groups, view).maxOfOrNull { it.second + it.third + gap } ?: 0f) - gap)
+
+    /** 画一个标签的全部分组；[animate] 时每组按进页面的时间依次升起 */
+    private fun drawTab(groups: List<Group>, view: LayoutBounds, scroll: Float, animate: Boolean) {
+        val cols = if (view.width >= 560f) 2 else 1
+        val colW = (view.width - 12f - gap * (cols - 1)) / cols
+        val placed = layout(groups, view)
+        groups.forEachIndexed { gi, g ->
+            val (c, gy, gh) = placed[gi]
+            val b = LayoutBounds(view.x + c * (colW + gap), view.y + gy - scroll, colW, gh)
+            if (b.bottom < view.y || b.y > view.bottom) return@forEachIndexed
+            if (animate) ui.itemAnim(gi) { drawGroup(b, g, view, rowH, headH) } else drawGroup(b, g, view, rowH, headH)
+        }
+    }
+
+    /** 新版本提醒：版本号 + 复制下载链接（只提醒，不下载） */
+    private fun drawUpdate(b: LayoutBounds, info: UpdateChecker.Info) {
+        ui.card(b, RED.copy(a = 0.16f), 12f)
+        val label = I18n.text("New version available: ") + info.version
+        ui.text(label, b.x + 14f, b.y + 9f, 12f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+        val current = UpdateChecker.currentVersion
+        if (current.isNotEmpty()) ui.text(I18n.text("You have ") + current, b.x + 14f, b.y + 25f, 10f, Theme.TEXT_SECONDARY)
+        val copied = System.currentTimeMillis() - copiedAt < 1500
+        val text = if (copied) I18n.text("Copied") else I18n.text("Copy download link")
+        val w = ui.width(text, 12f, Theme.FONT_SEMIBOLD) + 30f
+        ui.pill(LayoutBounds(b.right - w - 8f, b.y + 6f, w, 28f), Color(1f, 1f, 1f, 0.14f), text) {
+            DangoClient.platform.clipboard = info.download
+            copiedAt = System.currentTimeMillis()
+        }
+    }
+
     /** 标签：Lyrics / Music & HUD / About */
     private fun drawTabs(page: LayoutBounds, compact: Boolean) {
         val names = listOf(I18n.text("Lyrics"), I18n.text("Music & HUD"), I18n.text("About"))
@@ -286,19 +361,30 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         val bar = LayoutBounds(if (compact) page.x else page.right - tabW * names.size - 8f,
             page.y + if (compact) 40f else 2f, tabW * names.size + 8f, 32f)
         ui.card(bar, Theme.CARD, 11f)
+        val p = tabPill.tick(ScreenState.settingsTab.toFloat())
+        names.forEachIndexed { i, _ ->
+            val b = LayoutBounds(bar.x + 4f + i * tabW, bar.y + 4f, tabW, 24f)
+            if (i != ScreenState.settingsTab && ui.hover(b)) ui.card(b, Theme.CARD_HOVER, 8f)
+        }
+        val stretch = kotlin.math.min(18f, kotlin.math.abs(tabPill.v) * 6f)
+        val px = bar.x + 4f + p.coerceIn(-0.06f, names.size - 0.94f) * tabW - (if (tabPill.v > 0f) stretch else 0f)
+        ui.ctx.drawShape(LayoutBounds(px, bar.y + 4f, tabW + stretch, 24f), ShapeStyle(RED, 8f))
         names.forEachIndexed { i, n ->
             val b = LayoutBounds(bar.x + 4f + i * tabW, bar.y + 4f, tabW, 24f)
-            val on = i == ScreenState.settingsTab
-            if (on) ui.ctx.drawShape(b, ShapeStyle(RED, 8f)) else if (ui.hover(b)) ui.card(b, Theme.CARD_HOVER, 8f)
+            val on = (1f - kotlin.math.abs(p - i)).coerceIn(0f, 1f)
             val label = ui.trim(n, max(1f, b.width - 10f), 12f, Theme.FONT_SEMIBOLD)
             val w = ui.width(label, 12f, Theme.FONT_SEMIBOLD)
             ui.text(label, b.x + (b.width - w) / 2f, b.y + 12f - 12f * 0.39f - 0.5f, 12f,
-                if (on) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
+                mixColor(Theme.TEXT_SECONDARY, Theme.TEXT_PRIMARY, on), Theme.FONT_SEMIBOLD)
             if (label != n) ui.tooltip(b, n)
             ui.hits += b to {
                 if (ScreenState.settingsTab != i) {
                     commitEdit()
                     stopDrag()
+                    tabFrom = ScreenState.settingsTab
+                    tabFromPos = pos
+                    tabFade.x = 0f
+                    tabFade.v = 0f
                     ScreenState.settingsTab = i
                     resetScroll()
                     bindingKey = null
@@ -317,16 +403,20 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         ui.text(I18n.text(g.sub), x + ui.width(title, 13f, Theme.FONT_SEMIBOLD) + 8f, b.y + 14.5f, 10f, Theme.TEXT_TERTIARY)
         if (g.toggle) {
             val m = g.owner
-            ui.toggleSwitch(LayoutBounds(b.right - 14f - 34f, b.y + 9f, 34f, 20f), m.enabled, clip) { m.enabled = !m.enabled }
+            ui.toggleSwitch(LayoutBounds(b.right - 14f - 34f, b.y + 9f, 34f, 20f), m.enabled, clip, key = m) { m.enabled = !m.enabled }
         }
         var y = b.y + headH
         val moduleOff = !g.owner.enabled
         for (r in g.rows) {
             ctx.drawShape(LayoutBounds(x, y, iw, 1f), ShapeStyle(Color(1f, 1f, 1f, 0.06f)))
+            // 依赖的开关 / 整个模块关掉时变暗：渐变过去，不是一下子变
             val dim = moduleOff || (r.dep != null && !r.dep.get())
-            if (dim) ctx.pushOpacity(0.4f)
+            val target = if (dim) 0.4f else 1f
+            val alpha = rowFade.getOrPut(r) { Spring(170f, 26f, target) }.tick(target).coerceIn(0.4f, 1f)
+            val faded = alpha < 0.999f
+            if (faded) ctx.pushOpacity(alpha)
             drawRow(LayoutBounds(x, y, iw, rowH), r, clip)
-            if (dim) ctx.popOpacity()
+            if (faded) ctx.popOpacity()
             y += rowH
         }
     }
@@ -347,25 +437,44 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         when (r.ctl) {
             Ctl.TOGGLE -> {
                 val v = r.value as BooleanValue
-                ui.toggleSwitch(LayoutBounds(cx, cy - 10f, 34f, 20f), v.get(), clip) { v.toggle() }
+                ui.toggleSwitch(LayoutBounds(cx, cy - 10f, 34f, 20f), v.get(), clip, key = v) { v.toggle() }
             }
             Ctl.SLIDER -> drawSlider(b, r, clip, cx, cy)
             Ctl.SWATCH -> {
+                // 每个色块有自己的选中圈：选中的从色块边上放大长出来（稍微冲过一点再回来），
+                // 原来选中的那个圈缩回色块里消失；色块悬停时放大一点，点一下弹一下
                 val v = r.value as IntValue
                 swatchColors.forEachIndexed { i, col ->
                     if (i > v.maxRange) return@forEachIndexed
                     val sb = LayoutBounds(cx + i * 24f, cy - 8f, 16f, 16f)
-                    if (v.value == i) ui.ctx.drawShape(sb.expand(3f, 3f), ShapeStyle(Color(0f, 0f, 0f, 0f), 11f, 1.5f, Theme.TEXT_PRIMARY))
-                    ui.ctx.drawShape(sb, ShapeStyle(col, 8f))
-                    ui.hits += sb.expand(4f, 4f).intersect(clip) to { v.setValue(i) }
+                    val target = if (v.value == i) 1f else 0f
+                    val ring = swatchRing.getOrPut(v to i) { Spring(300f, 17f, target) }.tick(target)
+                    if (ring > 0.01f) {
+                        val grow = 3f * ring
+                        ui.ctx.drawShape(sb.expand(grow, grow), ShapeStyle(Color(0f, 0f, 0f, 0f), 8f + grow, 1.5f,
+                            Theme.TEXT_PRIMARY.copy(a = Theme.TEXT_PRIMARY.a * ring.coerceIn(0f, 1f))))
+                    }
+                    val (hover, pop) = swatchPop.getOrPut(v to i) { Spring(300f, 24f) to Spring(420f, 13f) }
+                    val k = 1f + hover.tick(if (ui.hover(sb.expand(4f, 4f))) 1f else 0f) * 0.15f + pop.tick(0f) * 0.12f
+                    ui.ctx.drawShape(sb.scaled(k), ShapeStyle(col, 8f * k))
+                    ui.hits += sb.expand(4f, 4f).intersect(clip) to {
+                        pop.v += 6f
+                        v.setValue(i)
+                    }
                 }
             }
             Ctl.KEY -> drawKeyButton(r.value as IntValue, clip, cx, cy)
             Ctl.LANGUAGE -> {
+                // 红色选中块用弹簧滑到另一个语言上
                 val v = r.value as IntValue
+                val sel = langPill.getOrPut(v) { Spring(320f, 24f, v.value.coerceAtLeast(0).toFloat()) }.tick(v.value.coerceAtLeast(0).toFloat())
+                listOf("English", "中文").forEachIndexed { i, _ ->
+                    val button = LayoutBounds(cx + i * 74f, cy - 12f, 68f, 24f)
+                    ui.card(button, if (ui.hover(button) && v.value != i) Theme.CARD_HOVER else Theme.CARD, 7f)
+                }
+                if (v.value >= 0) ui.card(LayoutBounds(cx + sel * 74f, cy - 12f, 68f, 24f), RED, 7f)
                 listOf(I18n.text("English"), I18n.text("Chinese")).forEachIndexed { i, label ->
                     val button = LayoutBounds(cx + i * 74f, cy - 12f, 68f, 24f)
-                    ui.card(button, if (v.value == i) RED else if (ui.hover(button)) Theme.CARD_HOVER else Theme.CARD, 7f)
                     ui.text(label, button.x + (button.width - ui.width(label, 11f, Theme.FONT_MEDIUM)) / 2f,
                         cy - 11f * 0.39f - 0.5f, 11f, Theme.TEXT_PRIMARY, Theme.FONT_MEDIUM)
                     ui.hits += button.intersect(clip) to {

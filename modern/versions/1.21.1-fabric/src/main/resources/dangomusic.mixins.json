@@ -4,7 +4,8 @@
   "package": "me.sorihiko.dango.fabric.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "GameRendererMixin"
+    "GameRendererMixin",
+    "ScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

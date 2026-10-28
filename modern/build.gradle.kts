@@ -97,9 +97,10 @@ subprojects {
             "version" to modVersion,
             "minecraft_range" to mcRange,
             "java_version" to javaVersion.toString(),
+            "target" to "$mcVersion-$loader",
         )
         inputs.properties(props)
-        filesMatching(listOf("fabric.mod.json", "META-INF/mods.toml", "META-INF/neoforge.mods.toml")) {
+        filesMatching(listOf("fabric.mod.json", "META-INF/mods.toml", "META-INF/neoforge.mods.toml", "dangomusic-build.properties")) {
             expand(props)
         }
     }

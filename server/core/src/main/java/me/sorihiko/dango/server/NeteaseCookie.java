@@ -12,7 +12,8 @@ final class NeteaseCookie {
 
     static String load(Path directory) throws IOException {
         if (directory == null) return "";
-        String json = read(directory.resolve("cookie.json"));
+        ServerCookies.migrate(directory);
+        String json = read(directory.resolve("netease-cookie.json"));
         if (json.isBlank()) return "";
         try {
             JsonArray cookies = JsonParser.parseString(json).getAsJsonArray();
@@ -29,7 +30,7 @@ final class NeteaseCookie {
                 // not to a second text-format parser; preserve them exactly as exported.
                 if (!name.matches("[A-Za-z0-9_!#$%&'*+.^|~-]+")
                         || value.chars().anyMatch(c -> c < 0x21 || c > 0x7e || c == ';'))
-                    throw new IOException("Invalid server cookie.json; cookie names or values contain unsupported characters");
+                    throw new IOException("Invalid server netease-cookie.json; cookie names or values contain unsupported characters");
                 pairs.put(name, value);
             }
             String header = String.join("; ", pairs.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList());
@@ -59,6 +60,6 @@ final class NeteaseCookie {
     }
 
     private static IOException invalidJson() {
-        return new IOException("Invalid server cookie.json; expected an array of cookie objects");
+        return new IOException("Invalid server netease-cookie.json; expected an array of cookie objects");
     }
 }

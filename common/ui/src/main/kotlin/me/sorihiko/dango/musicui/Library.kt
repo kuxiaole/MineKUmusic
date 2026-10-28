@@ -1,9 +1,14 @@
 package me.sorihiko.dango.musicui
 
+import me.sorihiko.dango.music.TrackLoadProgress
 import me.sorihiko.dango.gfx.GuiCanvas
 import me.sorihiko.dango.music.NeteaseApi
 import me.sorihiko.dango.music.NeteasePlaylist
 import me.sorihiko.dango.music.NeteaseTrack
+import me.sorihiko.dango.music.MusicSource
+import me.sorihiko.dango.music.MusicSourceApi
+import me.sorihiko.dango.music.MusicSources
+import me.sorihiko.dango.music.SourceAccessException
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -26,23 +31,15 @@ internal object ScreenState {
     var context: GuiCanvas? = null
 }
 
-/**
- * 从网易云读来的数据：我的歌单、歌单里的歌、推荐、排行榜、搜索结果。
- * 都在后台线程读，读完直接替换，界面每帧读最新的。
- */
+/** Requests carry their source and generation so late responses cannot overwrite another source. */
 internal object Library {
     private val worker = Executors.newFixedThreadPool(2) { r -> Thread(r, "Dango-MusicUI").apply { isDaemon = true } }
-
     @Volatile var playlists: List<NeteasePlaylist> = emptyList()
         private set
     @Volatile var playlistsLoading = false
         private set
-    /** 底部提示（读取失败等），空就不显示 */
     @Volatile var status = ""
         private set
-    private val tracksCache = ConcurrentHashMap<Long, List<NeteaseTrack>>()
-    private val tracksLoading = ConcurrentHashMap.newKeySet<Long>()
-
     @Volatile var recommend: List<NeteasePlaylist>? = null
         private set
     @Volatile var recommendLoading = false
@@ -51,115 +48,128 @@ internal object Library {
         private set
     @Volatile var chartsLoading = false
         private set
-
     @Volatile var searchResults: List<NeteaseTrack>? = null
         private set
     @Volatile var searching = false
         private set
-
-    /** 上次从网易云读歌单的时间：打开播放器时超过 [STALE_MS] 就在后台自动刷新 */
+    @Volatile var searchError = ""
+        private set
+    private val tracksCache = ConcurrentHashMap<Long, List<NeteaseTrack>>()
+    private val tracksLoading = ConcurrentHashMap.newKeySet<Long>()
+    private val tracksFailed = ConcurrentHashMap.newKeySet<Long>()
     private var lastLoadAt = 0L
-    private const val STALE_MS = 5 * 60_000L
-
-    val stale: Boolean get() = System.currentTimeMillis() - lastLoadAt > STALE_MS
-
+    private var source = MusicSources.selected
+    private var generation = 0
+    private var searchSerial = 0
+    val stale: Boolean get() = System.currentTimeMillis() - lastLoadAt > 5 * 60_000L
     fun tracks(playlistId: Long): List<NeteaseTrack>? = tracksCache[playlistId]
 
-    fun reloadPlaylists() {
+    /** 正在加载的歌单：[已拿到, 总数]（总数 0 表示不知道），没在加载时为 null */
+    private val trackProgress = ConcurrentHashMap<Long, IntArray>()
+    fun trackProgress(playlistId: Long): IntArray? = trackProgress[playlistId]
+
+    @Synchronized fun ensureSource() {
+        if (source != MusicSources.selected) refreshAll()
+    }
+    private class Request(val generation: Int, val api: MusicSourceApi)
+    private fun request() = Request(generation, MusicSources.api(source))
+    @Synchronized private fun publish(request: Request, apply: () -> Unit) {
+        if (request.generation == generation) apply()
+    }
+    @Synchronized fun reloadPlaylists() {
         if (playlistsLoading) return
+        val request = request()
         playlistsLoading = true
         lastLoadAt = System.currentTimeMillis()
-        status = "正在读取歌单…"
         worker.execute {
-            try {
-                NeteaseApi.ensureCookieFile()
-                val list = NeteaseApi.userPlaylists()
-                playlists = list
-                status = if (list.isEmpty()) "没有读到歌单（检查网络或登录）" else ""
-            } catch (e: Exception) {
-                status = "读取歌单失败"
-            } finally {
+            var error = ""
+            val result = try { request.api.playlists() } catch (e: Exception) { error = publicError(e); emptyList() }
+            publish(request) {
+                playlists = result
                 playlistsLoading = false
+                status = if (error.isNotEmpty()) error else if (request.api.libraryWarning.isNotEmpty()) request.api.libraryWarning
+                    else if (request.api.source != MusicSource.NETEASE) ""
+                    else if (result.isEmpty()) "没有读到歌单（检查网络或登录）" else ""
             }
         }
     }
-
-    fun loadRecommend() {
+    @Synchronized fun loadRecommend() {
         if (recommend != null || recommendLoading) return
+        val request = request()
         recommendLoading = true
         worker.execute {
-            recommend = try { NeteaseApi.recommendPlaylists() } catch (_: Exception) { emptyList() }
-            recommendLoading = false
+            var error = ""
+            val result = try { request.api.recommend() } catch (e: Exception) { error = publicError(e); emptyList() }
+            publish(request) { recommend = if (error.isEmpty()) result else null; recommendLoading = false; if (error.isNotEmpty()) status = error }
         }
     }
-
-    fun loadCharts() {
+    @Synchronized fun loadCharts() {
         if (charts != null || chartsLoading) return
+        val request = request()
         chartsLoading = true
         worker.execute {
-            charts = try { NeteaseApi.toplists() } catch (_: Exception) { emptyList() }
-            chartsLoading = false
+            var error = ""
+            val result = try { request.api.charts() } catch (e: Exception) { error = publicError(e); emptyList() }
+            publish(request) { charts = if (error.isEmpty()) result else null; chartsLoading = false; if (error.isNotEmpty()) status = error }
         }
     }
-
-    /** 读一个歌单里的歌（已经读过或正在读就跳过） */
-    fun loadTracks(playlistId: Long) {
-        if (tracksCache.containsKey(playlistId) || !tracksLoading.add(playlistId)) return
+    @Synchronized fun loadTracks(playlistId: Long) {
+        if ((tracksCache.containsKey(playlistId) && !tracksFailed.remove(playlistId)) || !tracksLoading.add(playlistId)) return
+        val request = request()
         worker.execute {
-            try {
-                tracksCache[playlistId] = NeteaseApi.playlistTracks(playlistId)
-            } catch (_: Exception) {
-                tracksCache[playlistId] = emptyList()
-            } finally {
-                tracksLoading.remove(playlistId)
-            }
+            var error = ""
+            val result = try {
+                TrackLoadProgress.track({ loaded, total -> trackProgress[playlistId] = intArrayOf(loaded, total) }) { request.api.playlistTracks(playlistId) }
+            } catch (e: Exception) { error = publicError(e); emptyList() }
+            trackProgress.remove(playlistId)
+            publish(request) { tracksCache[playlistId] = result; tracksLoading.remove(playlistId); if (error.isNotEmpty()) { tracksFailed.add(playlistId); status = error } }
         }
     }
-
-    fun search(q: String) {
+    @Synchronized fun search(q: String) {
+        val request = request()
+        val serial = ++searchSerial
         searching = true
         searchResults = null
+        searchError = ""
         worker.execute {
-            try {
-                searchResults = NeteaseApi.search(q)
-            } catch (_: Exception) {
-                searchResults = emptyList()
-            } finally {
-                searching = false
-            }
-        }
-    }
-
-    /**
-     * 悄悄刷新：后台重新读歌单列表和已经打开过的歌单里的歌，读到了再替换，
-     * 界面上不会出现"加载中"（游戏开着时在手机上新建歌单 / 加歌，下次打开播放器就能看到）
-     */
-    fun softRefresh() {
-        lastLoadAt = System.currentTimeMillis()
-        worker.execute {
-            try {
-                val list = NeteaseApi.userPlaylists()
-                if (list.isNotEmpty()) playlists = list
-            } catch (_: Exception) {
-            }
-            for (id in tracksCache.keys.toList()) {
-                try {
-                    val tracks = NeteaseApi.playlistTracks(id)
-                    if (tracks.isNotEmpty()) tracksCache[id] = tracks
-                } catch (_: Exception) {
+            var error = ""
+            val result = try {
+                request.api.search(q).also {
+                    if (request.api.source == MusicSource.NETEASE) error = NeteaseApi.lastSearchError
                 }
+            } catch (_: Exception) { error = "Source unavailable. Please retry."; emptyList() }
+            publish(request) {
+                if (serial == searchSerial) { searchResults = result; searchError = error; searching = false }
             }
         }
     }
-
-    /** 登录 / 退出后全部重新读 */
-    fun refreshAll() {
-        playlists = emptyList()
-        tracksCache.clear()
-        recommend = null
-        charts = null
+    @Synchronized fun softRefresh() {
+        lastLoadAt = System.currentTimeMillis()
+        val request = request()
+        val ids = tracksCache.keys.toList()
+        worker.execute {
+            val list = try { request.api.playlists() } catch (_: Exception) { emptyList() }
+            publish(request) { if (list.isNotEmpty()) playlists = list }
+            for (id in ids) {
+                val tracks = try { request.api.playlistTracks(id) } catch (_: Exception) { emptyList() }
+                publish(request) { if (tracks.isNotEmpty()) tracksCache[id] = tracks }
+            }
+        }
+    }
+    @Synchronized fun refreshAll() {
+        generation++
+        searchSerial++
+        source = MusicSources.selected
+        playlists = emptyList(); playlistsLoading = false
+        tracksCache.clear(); tracksLoading.clear(); tracksFailed.clear(); trackProgress.clear()
+        recommend = null; recommendLoading = false
+        charts = null; chartsLoading = false
+        searchResults = null; searching = false; searchError = ""; status = ""
         reloadPlaylists()
         loadRecommend()
         if (ScreenState.page == Page.CHARTS) loadCharts()
     }
+
+    fun showStatus(message: String) { status = message }
+    private fun publicError(error: Exception) = if (error is SourceAccessException) error.message.orEmpty() else "Source unavailable. Please retry."
 }

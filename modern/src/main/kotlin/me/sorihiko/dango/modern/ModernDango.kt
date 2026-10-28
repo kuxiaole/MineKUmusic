@@ -67,4 +67,12 @@ object ModernDango {
         if (!started || !McCompat.glAvailable) return
         McCompat.beforeGui()
     }
+
+    @JvmStatic
+    fun mainMenuRender(graphics: Any) {
+        if (!started || !McCompat.glAvailable || !ModernPlatform.inMainMenu) return
+        if (!me.sorihiko.dango.music.MusicPlayer.active) return
+        ModernGl.init()
+        McCompat.mainMenuNowPlaying(graphics)
+    }
 }

@@ -50,8 +50,12 @@ class GlassBackdrop {
 
         // 高版本没有 glPushAttrib：自己记下状态，最后原样恢复（帧缓冲、视口、混合、贴图……）
         val state = GlState()
+        val sourceFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING)
         try {
             if (w != width || h != height || captureTexture == -1) resize(w, h)
+
+            // resize 创建模糊目标时会改变绑定；采样仍须来自原来的画面。
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, sourceFbo)
 
             Gl.activeTexture(GL13.GL_TEXTURE0)
             Gl.bindTexture(captureTexture)

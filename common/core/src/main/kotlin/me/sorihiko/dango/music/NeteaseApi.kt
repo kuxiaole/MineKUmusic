@@ -158,6 +158,7 @@ object NeteaseApi {
         } ?: known.keys.toList()
 
         val missing = ids.filter { it !in known }
+        TrackLoadProgress.report(ids.size - missing.size, ids.size)
         for (batch in missing.chunked(200)) {
             try {
                 val res = getJson("https://music.163.com/api/song/detail?ids=" + enc(batch.joinToString(",", "[", "]")))
@@ -166,6 +167,7 @@ object NeteaseApi {
                 }
             } catch (_: Exception) {
             }
+            TrackLoadProgress.report(ids.count { it in known }, ids.size)
         }
         return ids.mapNotNull { known[it] }
     }

@@ -4,7 +4,8 @@
   "package": "me.sorihiko.dango.neoforge.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "GameRendererMixin"
+    "GameRendererMixin",
+    "ScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -4,7 +4,7 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-1.6.10 默认编译使用 Folia API `26.3.build.5-alpha`、Velocity API `4.3.0`。Folia 插件最低 API 版本仍为 26.2，同一个 JAR 用于 Folia 26.2 / 26.3；26.3 API 当前采用 alpha 构建，实际部署仍需检查对应服务器及其他插件的兼容性。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+1.7.0 默认编译使用 Folia API `26.3.build.5-alpha`、Velocity API `4.3.0`。Folia 插件最低 API 版本仍为 26.2，同一个 JAR 用于 Folia 26.2 / 26.3；26.3 API 当前采用 alpha 构建，实际部署仍需检查对应服务器及其他插件的兼容性。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
 
 | Minecraft | Fabric Loader | Fabric API | NeoForge |
 | --- | --- | --- | --- |
@@ -17,13 +17,13 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.10-folia.jar` 放入 Folia 26.2 或 26.3 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.0-folia.jar` 放入 Folia 26.2 或 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装与游戏版本一致的 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.10-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.0-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -34,11 +34,13 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 ### 从旧版升级
 
+- 1.7.0 同步上游个人三音源功能，全服频道新增 QQ 音乐和管理员扫码登录。客户端及管理频道的 Folia / Velocity 插件一起升级；群组服后端使用本版经济桥接插件。保留 `queue.json`、`payments.json`、`server-id`、已有费用和权限配置。旧队列中没有音源标记的歌曲按网易云读取；新队列按音源和原始歌曲 ID 保存，升级后不要直接用旧插件读取 QQ 队列。
+- 首次升级时，仅在 `netease-cookie.json` 不存在时，将旧 `cookie.json` 复制到新文件并保留原件。之后只读取新文件，不再跟随旧文件修改；QQ 使用独立的 `qq-cookie.json`。经济桥接后端不创建或迁移音源账号文件。
 - 1.6.10 新增 26.3 Fabric / NeoForge 全服音乐接入，同时保留 26.2 客户端。升级游戏时须选择文件名含 `+26.3` 的客户端 JAR；Folia 26.2 / 26.3 共用本版 Folia 插件。频道协议、配置、语言、队列、交易文件和 `server-id` 均沿用，升级前备份插件数据，替换 JAR 后完整重启。群组服的收费后端继续使用经济桥接模式。
 - 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
-- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.6.10+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.6.10+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.0+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.0+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -58,18 +60,23 @@ MineKU Music: JIT workaround installed (Java 25): 2 compiler directives added
 
 ## 音源
 
-点歌费用由游戏内经济插件提供，与网易云账号是否具备歌曲播放权限相互独立。
+个人音乐支持网易云、QQ 音乐、酷狗；全服频道只支持网易云和 QQ 音乐。点歌费用由游戏内经济插件提供，与音源账号是否具备歌曲播放权限相互独立。
 
-服务端使用网易云的搜索、歌曲详情、歌词和播放地址接口，支持独立的网易云账号 Cookie。配置有会员播放权限的账号后，会携带该账号的 Cookie 请求会员歌曲的完整播放地址；是否可播仍以账号实际权限和音源返回为准。未配置 Cookie 时使用匿名模式。
+服务端分别使用网易云和 QQ 音乐的搜索、歌曲详情、歌词与播放地址接口。两个音源使用各自的账号 Cookie，账号实际权限及音源返回决定能否点播；未配置时使用匿名模式。全服搜索页可选择音源，客户端按服务器或群组的固定标识记住选择，不会更改个人音乐当前音源。
 
-只接受接口正常返回的完整 MP3；无可用地址、仅试听或其他编码格式会明确失败。Cookie 不发送给玩家，不写入队列或协议消息，也不会被加入音频下载请求；客户端直接使用音源返回的播放地址下载音频。玩家自己的网易云登录仍只用于个人音乐。
+只接受接口正常返回的完整 MP3；无可用地址、仅试听或其他编码格式会明确失败。Cookie 不发送给玩家，不写入队列或协议消息，也不会被加入音频下载请求；客户端直接使用音源返回的播放地址下载音频。玩家自己的各音源登录只用于个人音乐。两种音源共用点歌费用、冷却和队列限额，同一音源的同一歌曲不能重复入队。
 
 ### 配置会员账号（仅 JSON）
 
-从 **1.6.5** 开始，服务端只读取 AllMusic / 浏览器导出的 **`cookie.json` 对象数组**，不再读取 `netease-cookie.txt` 或分号分隔的 Cookie 文本。
+服务端只读取浏览器导出的 **Cookie 对象数组**，不接受 `netease-cookie.txt`、分号分隔的 Cookie 文本或键值 JSON 对象。1.7.0 使用两份独立文件：
 
-1. 替换插件 JAR 并完整重启一次。首次启动在实际插件数据目录生成内容为 `[]` 的 `cookie.json`；已有文件不会被覆盖。全新独立 Folia 的路径为 `plugins/MineKUmusic/cookie.json`，Velocity 为 `plugins/minekumusic/cookie.json`。旧版升级可能继续使用旧目录，以启动日志显示的位置为准。
-2. 将导出的 JSON 文件原样保存为上述 `cookie.json`。最外层必须是数组 `[...]`，每项有字符串类型的 `name` 和 `value`；保留 `domain`、`path` 以及浏览器附带的其他字段即可，无需手动拼接为 `name=value`。
+| 音源 | 文件 | 应导出的站点 |
+| --- | --- | --- |
+| 网易云音乐 | `netease-cookie.json` | `music.163.com` |
+| QQ 音乐 | `qq-cookie.json` | `y.qq.com` |
+
+1. 替换插件 JAR 并完整重启一次。首次启动在实际数据目录生成两份内容为 `[]` 的文件；已有文件不会被覆盖。全新独立 Folia 使用 `plugins/MineKUmusic/`，Velocity 使用 `plugins/minekumusic/`；升级安装以启动日志显示的位置为准。
+2. 将对应站点导出的 JSON 原样保存到对应文件。最外层必须是数组 `[...]`，每项有字符串类型的 `name` 和 `value`；保留 `domain`、`path` 以及浏览器附带的其他字段即可，无需拼接为 `name=value`。不要混用两个音源的账号文件。
 3. 群组服把文件放在 **Velocity 插件数据目录**，音乐音源请求由代理处理；Folia 经济桥接后端不需要配置账号。
 4. 保存后下一次搜索、点歌或播放地址刷新会重新读取，无需再重启或执行 reload。已经播放中的歌曲继续使用现有地址。
 
@@ -92,9 +99,26 @@ MineKU Music: JIT workaround installed (Java 25): 2 compiler directives added
 ]
 ```
 
-JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`、`path` 可省略，分别默认网易云域名和 `/`。浏览器导出的 `expirationDate`、`hostOnly`、`httpOnly`、`sameSite`、`secure`、`session`、`storeId` 等附加字段可原样保留。插件保留值里的逗号、等号等原始内容，不再将 JSON 转换后按 TXT 格式重新解析。
+JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`、`path` 可省略，默认对应音源域名和 `/`。浏览器导出的附加字段可原样保留。插件保留值里的逗号、等号等原始内容。QQ 账号通常包含 `qqmusic_uin`、`qqmusic_key` 等字段，应导出登录后的完整数组或使用下方扫码功能，不能拿 QQ 账号 JSON 填入网易云文件。
 
-文件不存在、为空或为 `[]` 时匿名访问。登录失效、账号无播放权限或仅返回试听时仍明确返回失败。旧版 `netease-cookie.txt` 即使存在也不读取、不覆盖 JSON；从 TXT 配置升级时须重新导出 JSON，不能只修改扩展名。发行包里的 `cookie.json.example` 是空数组模板，不包含账号。真实 Cookie 只放在服务器插件数据目录，不放入公开仓库或分发包。
+文件不存在或为 `[]` 时匿名访问。登录失效、账号无播放权限或仅返回试听时仍明确返回失败。旧版 `netease-cookie.txt` 不读取；从 TXT 升级须重新导出 JSON，不能只修改扩展名。发行包中的 `netease-cookie.json.example` 和 `qq-cookie.json.example` 都是空数组模板，不包含账号。真实 Cookie 只放在服务器插件数据目录，不放入公开仓库或分发包。
+
+### 管理员扫码登录
+
+管理员安装 1.7.0 客户端后在游戏内执行：
+
+```text
+/music login netease
+/music login qq
+/music login status
+/music login cancel qq
+```
+
+需要 `dangomusic.admin` 权限；无需加入频道。先关闭聊天栏，播放器会显示对应二维码，用网易云音乐或 QQ 音乐手机应用扫码并确认。服务端校验登录成功后原子保存到对应账号文件；个人客户端账号不参与此流程。二维码及进度只发给发起登录的管理员，普通玩家不会收到账号信息。
+
+每个音源同一时间只允许一个扫码会话，每位管理员同时只能发起一个；会话最长三分钟。关闭弹窗、真正离线、重载或关闭插件会取消尚未提交的登录，失败和取消不覆盖旧账号。已进入验证成功后的保存步骤会完成保存。同一 Velocity 连接内切换后端会重新同步二维码状态。
+
+`status` 可加 `netease` 或 `qq`，只检查对应文件的格式及是否含 Cookie，不联网确认账号仍然有效。`cancel` 只取消自己的未完成会话，不删除现有账号；清除账号可将对应文件改为 `[]`。这些命令要求游戏内执行，控制台不能显示客户端二维码。经济桥接后端不提供登录命令。
 
 ## 使用
 
@@ -200,9 +224,9 @@ request-fee-enabled=false
 | `/minekumusic` / `/minekumusic help [子命令]` | 中文帮助，仅列出当前身份和服务器模式可用的指令 | 所有人可查看帮助 |
 | `/minekumusic join` | 免费加入全服音乐频道，需要 1.6.9 或更高版本客户端 | `dangomusic.use`，仅玩家 |
 | `/minekumusic queue [页码]` | 查看当前歌曲和队列条目 ID | `dangomusic.use` |
-| `/minekumusic search <关键词>` | 免费搜索，每页 10 首，点击结果点歌或翻页 | `dangomusic.use` |
+| `/minekumusic search [netease\|qq] <关键词>` | 免费搜索，默认网易云；每页 10 首，点击点歌或翻页 | `dangomusic.use` |
 | `/minekumusic searchpage <页码>` | 查看最近一次聊天搜索的指定页；也可点击翻页按钮 | `dangomusic.use` |
-| `/minekumusic request <歌曲ID>` | 点歌，需要已加入频道 | `dangomusic.request` |
+| `/minekumusic request [netease\|qq] <歌曲ID或MID>` | 点歌，默认网易云；需要已加入频道 | `dangomusic.request` |
 | `/minekumusic withdraw <条目ID>` | 撤回自己的待播歌曲 | `dangomusic.use` |
 | `/minekumusic vote` | 投票切歌，需要已加入频道 | `dangomusic.vote` |
 | `/minekumusic skip` | 直接切歌 | `dangomusic.admin` |
@@ -210,11 +234,14 @@ request-fee-enabled=false
 | `/minekumusic remove <条目ID>` | 删除任意待播歌曲 | `dangomusic.admin` |
 | `/minekumusic clear` | 停止当前歌曲并清空队列 | `dangomusic.admin` |
 | `/minekumusic reload` | 热重载常用配置，保留队列及交易状态 | `dangomusic.admin` |
+| `/minekumusic login <netease\|qq>` | 在管理员客户端显示全服账号登录二维码 | `dangomusic.admin`，仅玩家 |
+| `/minekumusic login status [netease\|qq]` | 查看账号文件配置情况，不检查在线有效性 | `dangomusic.admin`，仅玩家 |
+| `/minekumusic login cancel [netease\|qq]` | 取消自己的待完成扫码，不删除已有账号 | `dangomusic.admin`，仅玩家 |
 | `/minekumusic payment <交易ID> paid` / `cancel` | 原扣款 Folia 后端核对中断交易 | `dangomusic.admin` |
 
 以上命令也可将 `/minekumusic` 替换为 `/music` 或 `/kum`，两者使用相同的权限、Tab 补全和处理逻辑。`/dgm` 已移除。普通功能默认允许，管理权限在 Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
 
-Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 补全可用子命令，`queue` 补全实际页码，`withdraw` 只补全自己的待播条目 ID，管理员的 `remove` 补全全部待播条目 ID，`vote` 可补全当前播放实例，`payment` 的最后一个参数补全 `paid` / `cancel`。搜索关键词和歌曲 ID 需按搜索结果输入，不会误补成在线玩家姓名。经济桥接后端只显示 `help`、`reload`、`payment`；Velocity 不处理后端的交易核对命令。
+Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 补全可用子命令，`queue` 补全实际页码，`withdraw` 只补全自己的待播条目 ID，管理员的 `remove` 补全全部待播条目 ID，`vote` 可补全当前播放实例，`payment` 的最后一个参数补全 `paid` / `cancel`。`search`、`request` 补全音源，`login` 补全音源及 `status`、`cancel`。关键词和歌曲 ID 需自行填写，不会误补成在线玩家姓名。经济桥接后端只显示 `help`、`reload`、`payment`；Velocity 不处理后端的交易核对命令。
 
 ### 聊天点击界面
 
@@ -263,6 +290,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 | `button.*` | 可用按钮、禁用按钮和分隔符外观 |
 | `help.*` / `command.<子命令>.description` / `.arguments` | 帮助内容、说明、参数显示文字与悬浮提示 |
 | `search.*` | 搜索结果、完整歌曲悬浮信息、点歌和翻页按钮 |
+| `source.*` / `login.*` | 音源名称、全服账号登录命令提示和文件配置状态 |
 | `request.announcement` / `join.*` | 全服点歌公告、免费加入按钮及客户端版本和加入状态提示 |
 | `queue.*` / `vote.*` / `admin.*` | 队列、投票及管理员操作通知 |
 | `reload.*` / `payment.*` / `audio.*` / `result.*` | 重载、交易、播放及常见业务结果 |
@@ -289,7 +317,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 ```powershell
 .\gradlew.bat :26.2-fabric:build :26.2-neoforge:build
 .\gradlew.bat :26.3-fabric:build :26.3-neoforge:build
-.\gradlew.bat -p ..\common :core:test
+.\gradlew.bat -p ..\common :sources:test :core:test
 .\gradlew.bat -p ..\server build
 ```
 
@@ -303,6 +331,9 @@ Folia 旧版 API 的编译与测试可通过 `.\gradlew.bat -p ..\server :folia:
 
 ### 本次验证记录
 
+- 1.7.0 六个发行 JAR 构建成功，146 项自动化测试通过：服务端核心 90 项、Folia 经济适配 7 项、客户端核心 22 项、共享音源 3 项、四个客户端目标各 6 项。新增覆盖旧 Cookie 复制迁移及新文件优先、QQ JSON 读写、经济桥接模式不创建账号文件、双音源队列和付款恢复、QQ 聊天点歌原始 MID、音源偏好、酷狗个人播放与全服隔离、扫码取消和切服状态、QQ 逐字歌词与元数据、MineKUmusic 自身更新匹配。
+- 1.7.0 另以 Folia `26.2.build.7-beta` 完成编译和 7 项经济适配测试，最终插件由 `26.3.build.5-alpha` 构建。六个 JAR 的版本、协议及共享音源类、二维码依赖、项目署名和许可证已核对，账号文件未被打入产物。扫码测试使用合成账号和模拟登录器；尚未用真实手机确认网易云 / QQ 登录，也未完成真实会员播放、Minecraft 界面和 Velocity 跨服音频联调。
+- 2026-10-29 使用成品 Velocity JAR 进行匿名接口检查，网易云和 QQ 搜索各返回 2 首结果，获取到网易云 256×256、QQ 150×150 的登录二维码并立即取消会话，没有扫码确认或保存账号。两个插件 JAR 的共享音源类都通过独立 Java 进程加载检查。
 - 1.6.10 六个发行 JAR 构建成功：26.2 / 26.3 的 Fabric、NeoForge 客户端，以及 Folia / Velocity 插件。130 项自动化检查通过，其中服务端核心 81 项复用 Gradle 已通过结果，Folia 经济适配 7 项、客户端核心 18 项、四个客户端目标各 6 项本轮运行通过。加载器测试新增检查真实数据包编解码不改变插件消息格式、实际游戏字节码中 Mixin 渲染注入点存在；原有 Java 25 兼容测试继续通过。另以 Folia `26.2.build.7-beta` 完成编译与 7 项测试，再使用 `26.3.build.5-alpha` 构建最终插件。未启动实际 26.3 游戏或 Folia / Velocity 服务器，中文输入、音频、歌词、聊天点击与跨服续播仍需实机验收；不包含 Vulkan 界面渲染支持。
 - 1.6.9 四种 JAR 构建成功，114 项自动化测试通过（服务端核心 81 项、Folia 经济适配 7 项、客户端核心 18 项、两种加载器各 4 项）。新增验证成功入队公告、未确认或失败时无公告、重复提交不重复公告、公告发送失败不影响队列、客户端版本提示、点击加入握手、个人队列恢复、选择记忆、重复点击与旧连接消息处理，以及可定制按钮文字和颜色。未在真实 Folia / Velocity 群组服与游戏客户端中验证聊天点击和跨服收听。
 - 1.6.7 四种 JAR 构建成功；客户端 14 项与 Folia 经济适配 7 项测试通过，服务端核心 77 项复用 Gradle 已通过结果，共 98 项检查通过。扫描客户端直接调用的英文翻译键，没有缺失；300 条中文语言资源无重复键，并核对 Fabric / NeoForge 成品内的语言文件与源码完全一致。修复点歌和个人播放确认中的“取消”、全服点歌“搜索”，统一设置与扫码提示的中文文案。未启动实际游戏进行界面截图验证。

@@ -20,4 +20,4 @@ pluginManagement {
 
 rootProject.name = "dango-common"
 
-include("protocol", "core", "ui")
+include("protocol", "sources", "core", "ui")

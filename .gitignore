@@ -15,6 +15,11 @@ common/core/src/main/resources/firebase.properties
 # Server account credentials; only the commented example is distributable.
 netease-cookie.txt
 cookie.json
+netease-cookie.json
+qq-cookie.json
+*-cookie-*.tmp
+qq_session.json
+kugou_session.json
 config.properties
 messages.properties
 payments.json

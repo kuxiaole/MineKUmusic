@@ -22,6 +22,23 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
     private var progRect = LayoutBounds()
     private var volRect = LayoutBounds()
 
+    /** 一个按钮的动画：悬停底圈渐显、点击先缩再弹回、开关类按钮的选中颜色渐变 */
+    private class Anim {
+        val hover = Spring(300f, 26f)
+        val press = Spring(420f, 13f)
+        val on = Spring(240f, 24f)
+    }
+    private val prevA = Anim()
+    private val playA = Anim()
+    private val nextA = Anim()
+    private val queueA = Anim()
+    private val shuffleA = Anim()
+    private val repeatA = Anim()
+    /** 播放 ↔ 暂停图标的过渡 */
+    private val playMorph = Spring(320f, 26f)
+    /** 进度条上的圆钮：鼠标移上去时渐显 */
+    private val progKnob = Spring(300f, 26f)
+
     fun draw(bar: LayoutBounds) {
         val ctx = ui.ctx
         ui.card(bar, Theme.CARD, 16f)
@@ -42,37 +59,51 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         }
         ui.text(ui.trim(sub, infoW, 11f), infoX, coverBox.y + 28f, 11f, Theme.TEXT_SECONDARY)
 
-        // 中：上一首 / 播放 / 下一首 / 队列
+        // 中：上一首 / 播放 / 下一首 / 队列。点击区域固定，动画只改画出来的样子
         val cx = bar.x + bar.width / 2f
         val cy = bar.y + 25f
-        fun btn(b: LayoutBounds) {
-            if (ui.hover(b)) ctx.drawShape(b, ShapeStyle(Theme.CARD_HOVER, b.height / 2f))
-        }
         val playB = LayoutBounds(cx - 17f, cy - 17f, 34f, 34f)
         val prevB = LayoutBounds(cx - 58f - 14f, cy - 14f, 28f, 28f)
         val nextB = LayoutBounds(cx + 58f - 14f, cy - 14f, 28f, 28f)
         val queueB = LayoutBounds(cx + 112f - 14f, cy - 14f, 28f, 28f)
-        btn(prevB); btn(playB); btn(nextB); btn(queueB)
-        if (MusicPlayer.state == MusicPlayer.State.PLAYING) {
-            ui.card(LayoutBounds(cx - 6f, cy - 8f, 4f, 16f), Theme.TEXT_PRIMARY, 1.5f)
-            ui.card(LayoutBounds(cx + 2f, cy - 8f, 4f, 16f), Theme.TEXT_PRIMARY, 1.5f)
-        } else {
-            ui.icon("▶", cx + 1.5f, cy, 18f, Theme.TEXT_PRIMARY)
+        val kPrev = button(prevB, prevA)
+        val kPlay = button(playB, playA)
+        val kNext = button(nextB, nextA)
+        val kQueue = button(queueB, queueA)
+        // 播放 ↔ 暂停：两个图标交叉淡入淡出，暂停的两道竖条从中间长出来，三角形收小淡出
+        val p = playMorph.tick(if (MusicPlayer.state == MusicPlayer.State.PLAYING) 1f else 0f).coerceIn(0f, 1f)
+        if (p > 0.01f) {
+            ctx.pushOpacity(p)
+            val bh = 16f * kPlay * (0.55f + 0.45f * p)
+            ui.card(LayoutBounds(cx - 6f * kPlay, cy - bh / 2f, 4f * kPlay, bh), Theme.TEXT_PRIMARY, 1.5f)
+            ui.card(LayoutBounds(cx + 2f * kPlay, cy - bh / 2f, 4f * kPlay, bh), Theme.TEXT_PRIMARY, 1.5f)
+            ctx.popOpacity()
         }
-        // ⏮ = 竖条 + ◀，⏭ = ▶ + 竖条
+        if (p < 0.99f) {
+            ctx.pushOpacity(1f - p)
+            ui.icon("▶", cx + 1.5f * kPlay, cy, 18f * kPlay * (1f - 0.35f * p), Theme.TEXT_PRIMARY)
+            ctx.popOpacity()
+        }
+        // ⏮ = 竖条 + ◀，⏭ = ▶ + 竖条（围绕按钮中心缩放）
+        val pc = prevB.x + 14f
         val personalControl = if (ServerMusic.joined) Theme.TEXT_TERTIARY else Theme.TEXT_PRIMARY
-        ui.card(LayoutBounds(prevB.x + 8f, cy - 5.5f, 2.2f, 11f), personalControl, 1f)
-        ui.icon("◀", prevB.x + 16.5f, cy, 12f, personalControl)
-        ui.icon("▶", nextB.x + 11.5f, cy, 12f, Theme.TEXT_PRIMARY)
-        ui.card(LayoutBounds(nextB.right - 10.2f, cy - 5.5f, 2.2f, 11f), Theme.TEXT_PRIMARY, 1f)
-        val onQueue = ScreenState.page == (if (ServerMusic.joined) Page.PARTY else Page.QUEUE)
-        ui.icon("≡", queueB.x + 14f, cy, 14f, if (onQueue) RED else Theme.TEXT_PRIMARY)
-        if (!ServerMusic.joined) ui.hits += prevB to { ServerMusic.previous() }
-        ui.hits += playB to { ServerMusic.togglePause() }
-        ui.hits += nextB to { ServerMusic.next() }
+        ui.card(LayoutBounds(pc - 6f * kPrev, cy - 5.5f * kPrev, 2.2f * kPrev, 11f * kPrev), personalControl, 1f)
+        ui.icon("◀", pc + 2.5f * kPrev, cy, 12f * kPrev, personalControl)
+        val nc = nextB.x + 14f
+        ui.icon("▶", nc - 2.5f * kNext, cy, 12f * kNext, Theme.TEXT_PRIMARY)
+        ui.card(LayoutBounds(nc + 3.8f * kNext, cy - 5.5f * kNext, 2.2f * kNext, 11f * kNext), Theme.TEXT_PRIMARY, 1f)
+        val queuePage = if (ServerMusic.joined) Page.PARTY else Page.QUEUE
+        val q = queueA.on.tick(if (ScreenState.page == queuePage) 1f else 0f)
+        ui.icon("≡", queueB.x + 14f, cy, 14f * kQueue, mixColor(Theme.TEXT_PRIMARY, RED, q))
+        if (!ServerMusic.joined) ui.hits += prevB to { prevA.press.v -= 7f; ServerMusic.previous() }
+        ui.hits += playB to { playA.press.v -= 7f; ServerMusic.togglePause() }
+        ui.hits += nextB to { nextA.press.v -= 7f; ServerMusic.next() }
+        ui.hits += queueB to {
+            queueA.press.v -= 7f
+            if (ScreenState.page == queuePage) screen.goBackOrHome() else screen.go(queuePage)
+        }
         ui.tooltip(playB, I18n.text(if (ServerMusic.joined) "Pause your listening" else "Play / Pause"))
         ui.tooltip(nextB, I18n.text(if (ServerMusic.joined) "Vote to skip" else "Next"))
-        ui.hits += queueB to { if (ServerMusic.joined) screen.go(Page.PARTY) else if (ScreenState.page == Page.QUEUE) screen.goBackOrHome() else screen.go(Page.QUEUE) }
 
         // 进度条：时间 | 条 | 时间
         val dur = MusicPlayer.durationMs
@@ -87,9 +118,11 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         if (dur > 0) {
             val f = (pos.toDouble() / dur).coerceIn(0.0, 1.0).toFloat()
             ui.card(LayoutBounds(progRect.x, progRect.y, max(4f, progRect.width * f), progRect.height), RED, 2f)
-            if (progRect.expand(0f, 6f).contains(ui.mx, ui.my)) {
+            val kn = progKnob.tick(if (progRect.expand(0f, 6f).contains(ui.mx, ui.my)) 1f else 0f).coerceIn(0f, 1.2f)
+            if (kn > 0.01f) {
                 val kx = progRect.x + progRect.width * f
-                ctx.drawShape(LayoutBounds(kx - 5f, progRect.y - 3f, 10f, 10f), ShapeStyle(Theme.TEXT_PRIMARY, 5f))
+                val ks = 10f * kn
+                ctx.drawShape(LayoutBounds(kx - ks / 2f, progRect.y + 2f - ks / 2f, ks, ks), ShapeStyle(Theme.TEXT_PRIMARY, ks / 2f))
             }
         }
 
@@ -104,14 +137,34 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         ctx.drawShape(LayoutBounds(knobX - 5f, volRect.y - 3f, 10f, 10f), ShapeStyle(Theme.TEXT_PRIMARY, 5f))
 
         val shB = LayoutBounds(volRect.x - 72f, vy - 14f, 32f, 28f)
-        ui.card(shB, if (!ServerMusic.joined && MusicPlayer.shuffle) RED.copy(a = 0.85f) else if (ui.hover(shB)) Theme.CARD_HOVER else Color(1f, 1f, 1f, 0.07f), 9f)
-        ui.icon("⇄", shB.x + 16f, vy, 14f, personalControl)
-        if (!ServerMusic.joined) ui.hits += shB to { module.toggleShuffle() }
-
+        toggleButton(shB, vy, MusicPlayer.shuffle, shuffleA, "⇄") { module.toggleShuffle() }
         val repeatB = LayoutBounds(shB.x - 40f, vy - 14f, 32f, 28f)
-        ui.card(repeatB, if (!ServerMusic.joined && MusicPlayer.repeatOne) RED.copy(a = 0.85f) else if (ui.hover(repeatB)) Theme.CARD_HOVER else Color(1f, 1f, 1f, 0.07f), 9f)
-        ui.icon("↻", repeatB.x + 16f, vy, 14f, personalControl)
-        if (!ServerMusic.joined) ui.hits += repeatB to { module.toggleRepeatOne() }
+        toggleButton(repeatB, vy, MusicPlayer.repeatOne, repeatA, "↻") { module.toggleRepeatOne() }
+    }
+
+    /** 圆形按钮的底：悬停时渐显、跟着点击回弹；返回当前的缩放，图标按它缩放 */
+    private fun button(b: LayoutBounds, a: Anim): Float {
+        val h = a.hover.tick(if (ui.hover(b)) 1f else 0f).coerceIn(0f, 1f)
+        val k = 1f + a.press.tick(0f) * 0.14f + h * 0.04f
+        if (h > 0.01f) {
+            val d = b.scaled(k)
+            ui.ctx.drawShape(d, ShapeStyle(Theme.CARD_HOVER.copy(a = Theme.CARD_HOVER.a * h), d.height / 2f))
+        }
+        return k
+    }
+
+    /** 随机 / 单曲循环：选中的红底渐入渐出，点击先缩再弹回 */
+    private fun toggleButton(b: LayoutBounds, vy: Float, on: Boolean, a: Anim, glyph: String, action: () -> Unit) {
+        val o = a.on.tick(if (on && !ServerMusic.joined) 1f else 0f).coerceIn(0f, 1f)
+        val h = a.hover.tick(if (ui.hover(b)) 1f else 0f).coerceIn(0f, 1f)
+        val k = 1f + a.press.tick(0f) * 0.14f
+        val base = mixColor(Color(1f, 1f, 1f, 0.07f), Theme.CARD_HOVER, h)
+        ui.card(b.scaled(k), mixColor(base, RED.copy(a = 0.85f), o), 9f * k)
+        ui.icon(glyph, b.x + 16f, vy, 14f * k, if (ServerMusic.joined) Theme.TEXT_TERTIARY else Theme.TEXT_PRIMARY)
+        if (!ServerMusic.joined) ui.hits += b to {
+            a.press.v -= 7f
+            action()
+        }
     }
 
     /** 小喇叭图标：方块 + 喇叭口，loud = 右边再加两道声波 */

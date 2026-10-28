@@ -42,6 +42,43 @@ internal object GlCache {
  * 每个版本在 src/mc<版本>/ 里放一份，构建时按版本选用，对外的样子完全一样。
  */
 internal object McCompat {
+    fun mainMenuNowPlaying(graphics: Any) {
+        (graphics as GuiGraphics).flush()
+        me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying()
+    }
+
+    // 原版全景资源由游戏管理，资源包也会生效；不提交主菜单按钮/文字。
+    private val panoramaField by lazy {
+        Screen::class.java.declaredFields.single {
+            it.type == net.minecraft.client.renderer.PanoramaRenderer::class.java && java.lang.reflect.Modifier.isStatic(it.modifiers)
+        }.apply { isAccessible = true }
+    }
+
+    fun renderMenuBackdrop(parent: Screen?): Boolean {
+        val mc = Minecraft.getInstance()
+        if (mc.level != null) return false
+        val state = GlState()
+
+        try {
+            mc.mainRenderTarget.bindWrite(true)
+            Gl.viewport(0, 0, mc.window.width, mc.window.height)
+            Gl.scissor(false)
+            Gl.colorMask(true, true, true, true)
+            // CubeMap 依赖调用者关深度测试；其 BufferUploader 缓存不能跨自绘 VAO 使用。
+            Gl.depthTest(false)
+            com.mojang.blaze3d.vertex.BufferUploader.invalidate()
+            val panorama = panoramaField.get(null) as net.minecraft.client.renderer.PanoramaRenderer
+            val graphics = GuiGraphics(mc, mc.renderBuffers().bufferSource())
+            panorama.render(graphics, mc.window.guiScaledWidth, mc.window.guiScaledHeight, 1f, mc.timer.realtimeDeltaTicks)
+            graphics.flush()
+        } finally {
+            state.restore()
+            // 恢复实际 VAO 后也让原版下次重新绑定，不能保留全景的缓存。
+            com.mojang.blaze3d.vertex.BufferUploader.invalidate()
+        }
+        return true
+    }
+
     fun createPlayerKey(action: PlayerAction): KeyMapping =
         KeyMapping(action.translationKey, gameBindingKey(action.defaultKey).value, "key.categories.dangomusic")
 

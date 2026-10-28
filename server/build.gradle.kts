@@ -28,8 +28,13 @@ subprojects {
             archiveClassifier.set(project.name)
             destinationDirectory.set(rootProject.layout.buildDirectory.dir("libs"))
             relocate("com.google.gson", "me.sorihiko.dango.server.libs.gson")
+            relocate("kotlin", "me.sorihiko.dango.server.libs.kotlin")
+            relocate("com.google.zxing", "me.sorihiko.dango.server.libs.zxing")
             from(rootDir.resolve("../LICENSE"))
             from(rootDir.resolve("../CREDITS.md"))
+            from(rootDir.resolve("../common/ui/src/main/resources/META-INF/licenses/ZXing-Apache-2.0.txt")) {
+                into("META-INF/licenses")
+            }
         }
         tasks.named("build") { dependsOn("shadowJar") }
     }

@@ -29,9 +29,10 @@ public final class MusicCommands {
             new Definition("remove", true),
             new Definition("clear", false),
             new Definition("reload", false),
+            new Definition("login", true),
             new Definition("payment", true)
     );
-    private static final Set<String> ADMIN = Set.of("skip", "pause", "resume", "remove", "clear", "reload", "payment");
+    private static final Set<String> ADMIN = Set.of("skip", "pause", "resume", "remove", "clear", "reload", "payment", "login");
     private MusicCommands() {}
     public static String name(String[] args) { return args.length == 0 ? "help" : args[0].toLowerCase(Locale.ROOT); }
     public static boolean known(String command, Mode mode) {
@@ -87,11 +88,14 @@ public final class MusicCommands {
             candidates = COMMANDS.stream().map(Definition::name).filter(c -> allowed(peer, c, mode)).toList();
         } else if (!allowed(peer, name(args), mode)) return List.of();
         else if (args.length == 3 && name(args).equals("payment")) candidates = List.of("paid", "cancel");
+        else if (args.length == 3 && name(args).equals("login") && Set.of("status", "cancel").contains(args[1])) candidates = List.of("netease", "qq");
         else if (args.length == 2) candidates = switch (name(args)) {
             case "queue" -> IntStream.rangeClosed(1, Math.max(1, (state.queue.size() + PAGE_SIZE - 1) / PAGE_SIZE)).mapToObj(Integer::toString).toList();
             case "withdraw" -> state.queue.stream().filter(e -> e.requesterId.equals(peer.id().toString())).map(QueueItem::entryId).toList();
             case "remove" -> state.queue.stream().map(QueueItem::entryId).toList();
             case "vote" -> state.instance.isEmpty() ? List.of() : List.of(state.instance);
+            case "login" -> List.of("netease", "qq", "status", "cancel");
+            case "search", "request" -> List.of("netease", "qq");
             default -> List.of();
         };
         else return List.of();

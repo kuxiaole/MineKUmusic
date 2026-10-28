@@ -12,7 +12,7 @@ class NeteaseCookieTest {
 
     @Test void startupCreatesEmptyJsonAndPreservesTheOriginalExport() throws Exception {
         ServerConfig.load(directory);
-        Path file = directory.resolve("cookie.json");
+        Path file = directory.resolve("netease-cookie.json");
         assertEquals("[]", Files.readString(file).strip());
         assertFalse(Files.exists(directory.resolve("netease-cookie.txt")));
         assertEquals("", NeteaseCookie.load(directory));
@@ -24,7 +24,7 @@ class NeteaseCookieTest {
     }
 
     @Test void acceptsBomAndPreservesCommasEqualsSignsAndEmptyValues() throws Exception {
-        Files.writeString(directory.resolve("cookie.json"), "\uFEFF" + """
+        Files.writeString(directory.resolve("netease-cookie.json"), "\uFEFF" + """
                 [
                   {"name":"MUSIC_U","value":"synthetic-session=="},
                   {"name":"fixture_metadata","value":"synthetic,comma,value=="},
@@ -36,7 +36,7 @@ class NeteaseCookieTest {
 
     @Test void importsAllMusicAndBrowserExportFields() throws Exception {
         ServerConfig.load(directory);
-        Files.writeString(directory.resolve("cookie.json"), """
+        Files.writeString(directory.resolve("netease-cookie.json"), """
                 [
                   {"domain":".music.163.com","expirationDate":2000000000,"hostOnly":false,"httpOnly":true,
                    "name":"MUSIC_U","path":"/","sameSite":"no_restriction","secure":true,"session":false,
@@ -51,7 +51,7 @@ class NeteaseCookieTest {
         Path legacy = directory.resolve("netease-cookie.txt");
         Files.writeString(legacy, "MUSIC_U=synthetic-legacy-session");
         assertEquals("", NeteaseCookie.load(directory));
-        Path file = directory.resolve("cookie.json");
+        Path file = directory.resolve("netease-cookie.json");
         Files.writeString(file, "[{\"name\":\"MUSIC_U\",\"value\":\"synthetic-first-session\"}]");
         assertEquals("MUSIC_U=synthetic-first-session", NeteaseCookie.load(directory));
         Files.writeString(file, "[{\"name\":\"MUSIC_U\",\"value\":\"synthetic-second-session\"}]");
@@ -63,18 +63,18 @@ class NeteaseCookieTest {
 
     @Test void otherFormatsReportJsonInstructions() throws Exception {
         for (String value : new String[]{"MUSIC_U=synthetic-text", "{\"MUSIC_U\":\"synthetic-object\"}", "[\"synthetic-string\"]"}) {
-            Files.writeString(directory.resolve("cookie.json"), value);
+            Files.writeString(directory.resolve("netease-cookie.json"), value);
             IOException error = assertThrows(IOException.class, () -> NeteaseCookie.load(directory));
-            assertEquals("Invalid server cookie.json; expected an array of cookie objects", error.getMessage());
+            assertEquals("Invalid server netease-cookie.json; expected an array of cookie objects", error.getMessage());
             assertNull(error.getCause());
         }
     }
 
     @Test void nameAndValueMustBeStrings() throws Exception {
         for (String value : new String[]{"[{\"name\":\"MUSIC_U\"}]", "[{\"name\":\"MUSIC_U\",\"value\":123}]", "[{\"value\":\"synthetic-session\"}]"}) {
-            Files.writeString(directory.resolve("cookie.json"), value);
+            Files.writeString(directory.resolve("netease-cookie.json"), value);
             IOException error = assertThrows(IOException.class, () -> NeteaseCookie.load(directory));
-            assertEquals("Invalid server cookie.json; expected an array of cookie objects", error.getMessage());
+            assertEquals("Invalid server netease-cookie.json; expected an array of cookie objects", error.getMessage());
         }
     }
 }

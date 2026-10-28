@@ -85,6 +85,38 @@ internal object GlCache {
  * - 显卡接口可以选 Vulkan，选了 Vulkan 时我们没法用 OpenGL 画，只放音乐、提示一下。
  */
 internal object McCompat {
+    fun mainMenuNowPlaying(graphics: Any) {
+        ScreenLayer.submit(graphics as GuiGraphicsExtractor)
+    }
+
+    // 原版全景资源由游戏管理，资源包也会生效；不提交主菜单按钮/文字。
+    private val menuCube by lazy { net.minecraft.client.renderer.CubeMap(net.minecraft.resources.Identifier.withDefaultNamespace("textures/gui/title/background/panorama")) }
+
+    private val menuOverlay by lazy {
+        val id = Identifier.withDefaultNamespace("textures/gui/title/background/panorama_overlay.png")
+        ModernTexture({ (mc.textureManager.getTexture(id).getTexture() as GlTexture).glId() }, {})
+    }
+
+    fun renderMenuBackdrop(parent: Screen?, advance: Boolean = true): Boolean {
+        if (mc.level != null) return false
+        val state = GlState()
+        val savedProjection = RenderSystem.getProjectionMatrixBuffer()
+        val savedProjectionType = RenderSystem.getProjectionType()
+        try {
+            bindFramebuffer(GL30.GL_FRAMEBUFFER, mainFramebuffer())
+            Gl.viewport(0, 0, mc.window.width, mc.window.height)
+            Gl.scissor(false)
+            Gl.colorMask(true, true, true, true)
+            val spin = MenuPanoramaRotation.advance(mc.gameRenderer.panorama(), (if (advance) mc.deltaTracker.realtimeDeltaTicks else 0f), mc.options.panoramaSpeed().get())
+            menuCube.render(10f, spin)
+            MenuPanoramaOverlay.draw(menuOverlay, mc.window.width, mc.window.height)
+        } finally {
+            if (savedProjection != null) RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType)
+            state.restore()
+        }
+        return true
+    }
+
     private val playerKeyCategory by lazy { KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("dangomusic", "controls")) }
 
     fun createPlayerKey(action: PlayerAction): KeyMapping =
@@ -384,18 +416,12 @@ internal object McCompat {
         System.arraycopy(Fixed.color, 0, savedColor, 0, 4)
         Fixed.pose.set(pose)
         Gl.activeTexture(GL13_TEXTURE0)
-        val previousTexture = Gl.currentTexture()
+        val borrowedTextures = BorrowedGlyphTextures()
         try {
             for (q in 0 until quads) {
                 val view = GlyphQuads.textures[q] as? GlTextureView ?: continue
                 val texture = view.texture() as? GlTexture ?: continue
-                Gl.bindTexture(texture.glId())
-                // 原版画字靠采样器决定过滤方式；我们解开了采样器，贴图自己要设成"不模糊"
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST)
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST)
-                // 只有一个通道的字形贴图（灰度）：当作白色、灰度当透明度
-                val gray = texture.getFormat() == GpuFormat.R8_UNORM
-                if (gray) GL11.glTexParameteriv(GL11.GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, SWIZZLE_GRAY)
+                borrowedTextures.bind(texture.glId(), texture.getFormat() == GpuFormat.R8_UNORM)
 
                 val c = GlyphQuads.colors[q]
                 Fixed.color((c shr 16 and 255) / 255f, (c shr 8 and 255) / 255f, (c and 255) / 255f, (c ushr 24) / 255f)
@@ -407,19 +433,15 @@ internal object McCompat {
                 }
                 Imm.endFixed()
 
-                if (gray) GL11.glTexParameteriv(GL11.GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, SWIZZLE_NONE)
             }
         } finally {
-            Gl.bindTexture(previousTexture)
+            borrowedTextures.close()
             Fixed.pose.set(savedPose)
             Fixed.color(savedColor[0], savedColor[1], savedColor[2], savedColor[3])
         }
     }
 
     private const val GL13_TEXTURE0 = 0x84C0
-    private const val GL_TEXTURE_SWIZZLE_RGBA = 0x8E46
-    private val SWIZZLE_GRAY = intArrayOf(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_RED)
-    private val SWIZZLE_NONE = intArrayOf(GL11.GL_RED, GL11.GL_GREEN, GL11.GL_BLUE, GL11.GL_ALPHA)
 
     // ------------------------------------------------------------ 镜头 / 窗口 / 界面
 
@@ -446,8 +468,12 @@ internal object McCompat {
 
     /** 原版开始画界面之前：如果开着我们的界面，先把它画到它自己的贴图上 */
     fun beforeGui() {
-        val screen = currentScreen() as? CompatScreen ?: return
-        ScreenLayer.render { screen.onRender() }
+        val screen = currentScreen()
+        if (screen is CompatScreen) {
+            ScreenLayer.render { screen.onRender() }
+        } else if (screen is net.minecraft.client.gui.screens.TitleScreen && me.sorihiko.dango.music.MusicPlayer.active) {
+            ScreenLayer.render { me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying() }
+        }
     }
 
     // ------------------------------------------------------------ 贴图

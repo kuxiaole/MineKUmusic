@@ -150,6 +150,17 @@ class MusicChatTest {
         assertTrue(plain(empty).stream().anyMatch(s -> s.contains("没有找到")));
         assertTrue(clicks(empty).stream().noneMatch(c -> c.action() == ClickEvent.Action.RUN_COMMAND));
     }
+    @Test void qqSearchButtonsKeepNativeSongIdentityAndSource() {
+        Track song = new Track(new me.sorihiko.dango.protocol.MusicProtocol.SongRef("qq", "001FixtureSong"),
+                "Synthetic QQ song", List.of("Fixture artist"), 180000, "");
+        List<Component> results = MusicChat.search(player, "fixture", "fixture-id", 0, List.of(song), false);
+        assertTrue(clicks(results).contains(ClickEvent.runCommand("/minekumusic request qq 001FixtureSong")));
+        assertTrue(plain(results).stream().anyMatch(line -> line.contains("#001FixtureSong")));
+        Component request = button(results, "点歌");
+        String hover = MusicChat.plain((Component) request.hoverEvent().value());
+        assertTrue(hover.contains("QQ 音乐"));
+        assertTrue(hover.contains("001FixtureSong"));
+    }
     @Test void readOnlyRecipientsGetInformationWithoutSongRequestActions() throws Exception {
         Track song = new Track(101, "Synthetic song", List.of("Fixture artist"), 180000, "");
         var readOnly = new MusicServer.Peer(player.id(), player.name(), true, false, true, false);

@@ -107,7 +107,9 @@ object CoverCache {
             var ok = false
             var why = ""
             try {
-                val full = if ("?" in url) url else "$url?param=200y200"
+                // NetEase's resize parameter is not part of QQ/Kugou image URLs.
+                val imageHost = java.net.URI(url).host.orEmpty()
+                val full = if ("?" !in url && (imageHost.endsWith(".126.net") || imageHost.endsWith(".163.com"))) "$url?param=200y200" else url
                 val bytes = NeteaseApi.request(full, "image/jpeg,image/png,image/*;q=0.8")
                 if (bytes == null) {
                     why = "download failed"
@@ -134,7 +136,7 @@ object CoverCache {
         return null
     }
 
-    fun track(t: NeteaseTrack) = get("t:${t.id}", t.coverUrl)
+    fun track(t: NeteaseTrack) = get("t:${t.key}", t.coverUrl)
 
     private const val ROUND_SUFFIX = "#r"
 
@@ -158,7 +160,7 @@ object CoverCache {
         return null
     }
 
-    fun trackRounded(t: NeteaseTrack, ratio: Float = ROUND) = rounded("t:${t.id}", t.coverUrl, ratio)
+    fun trackRounded(t: NeteaseTrack, ratio: Float = ROUND) = rounded("t:${t.key}", t.coverUrl, ratio)
 
     /** 四个角挖成圆角（抗锯齿：边缘按覆盖率给透明度） */
     private fun roundCorners(src: BufferedImage, ratio: Float): BufferedImage {

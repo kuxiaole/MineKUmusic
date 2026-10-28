@@ -31,6 +31,7 @@ public final class MusicServer implements AutoCloseable {
     public MusicMessages messages() { return messages; }
     private final MusicProvider provider;
     private final EconomyService economy;
+    private final ServerLogins logins;
     private final Path stateFile;
     private final QueueEngine engine;
     private final String epoch = UUID.randomUUID().toString();
@@ -59,20 +60,20 @@ public final class MusicServer implements AutoCloseable {
         final Set<String> pending = new HashSet<>();
         long window; int messages;
         Quote quote;
-        boolean chatJoin;
+        boolean chatJoin, multiSource, serverLogin;
         Peer peer;
         Session(Peer peer) { this.peer = peer; }
     }
-    private record Quote(String id, long songId, BigDecimal amount, String currency, long expires) {}
-    private record Request(Peer peer, String requestId, long songId, Session session, Quote quote) {}
+    private record Quote(String id, SongRef song, BigDecimal amount, String currency, long expires) {}
+    private record Request(Peer peer, String requestId, SongRef song, Session session, Quote quote) {}
     private record Purchase(EconomyService.Payment payment, MusicProtocol.Track track, String requestId, String currency) {}
     private static final class ChatSearch {
         final String id = UUID.randomUUID().toString();
-        final String query;
+        final String query, source;
         int page;
         boolean hasNext, loading;
         long expires;
-        ChatSearch(String query) { this.query = query; }
+        ChatSearch(String source, String query) { this.source = source; this.query = query; }
     }
 
     public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint) throws Exception {
@@ -84,6 +85,10 @@ public final class MusicServer implements AutoCloseable {
     public MusicServer(Path directory, ServerConfig config, MusicProvider provider, Endpoint endpoint, EconomyService economy, MusicMessages messages) throws Exception {
         this.messages = messages;
         this.endpoint = endpoint; this.config = config; this.provider = provider; this.economy = economy; stateFile = directory.resolve("queue.json");
+        logins = new ServerLogins(directory, this::submit, (player, body) -> {
+            Session session = sessions.get(player);
+            if (session != null && session.peer.admin() && session.serverLogin) send(player, "serverLogin", "", body);
+        });
         engine = new QueueEngine(System::nanoTime, config.playerLimit(), config.queueLimit(), config.cooldownSeconds());
         if (Files.exists(stateFile)) {
             try {
@@ -96,7 +101,7 @@ public final class MusicServer implements AutoCloseable {
         }
         owner.scheduleAtFixedRate(() -> guarded(() -> {
             if (engine.ended()) { engine.skip(); audio = null; }
-            pump(); engine.pruneCooldowns();
+            pump(); engine.pruneCooldowns(); logins.expire();
             chatSearches.values().removeIf(search -> System.nanoTime() >= search.expires);
             if (purchase != null && !paying && System.nanoTime() >= paymentRetryAt) pay();
             if (++ticks % this.config.syncSeconds() == 0 || lastBroadcastRevision != engine.revision()) broadcast();
@@ -114,6 +119,7 @@ public final class MusicServer implements AutoCloseable {
         decoders.remove(id);
         submit(() -> {
             sessions.remove(id); chatSearches.remove(id);
+            logins.cancel(id, "", "");
             if (engine.unsubscribe(id.toString())) skipByVote();
             requests.removeIf(r -> r.peer.id().equals(id)); changed();
         });
@@ -126,7 +132,9 @@ public final class MusicServer implements AutoCloseable {
             Session session = sessions.computeIfAbsent(peer.id(), id -> new Session(peer));
             session.peer = peer;
             session.chatJoin = bool(body, "chatJoin", false);
-            welcome(peer, rid); snapshot(peer.id(), rid, 0); return;
+            session.multiSource = bool(body, "multiSource", false);
+            session.serverLogin = bool(body, "serverLogin", false);
+            welcome(peer, rid); snapshot(peer.id(), rid, 0); logins.resend(peer.id()); return;
         }
         Session session = sessions.get(peer.id());
         if (session == null) return;
@@ -150,9 +158,9 @@ public final class MusicServer implements AutoCloseable {
                 }
                 case "ping" -> snapshot(peer.id(), rid, number(body, "sentNanos", 0));
                 case "queue" -> queuePage(peer.id(), rid, (int) number(body, "page", 0));
-                case "search" -> search(peer, rid, string(body, "query", ""), (int) number(body, "page", 0));
-                case "request" -> request(peer, rid, number(body, "songId", 0));
-                case "quoteRequest" -> quote(peer, rid, number(body, "songId", 0));
+                case "search" -> search(peer, rid, string(body, "source", "netease"), string(body, "query", ""), (int) number(body, "page", 0));
+                case "request" -> request(peer, rid, songRef(body));
+                case "quoteRequest" -> quote(peer, rid, songRef(body));
                 case "confirmRequest" -> confirmRequest(peer, rid, string(body, "quoteId", ""));
                 case "cancelRequest" -> {
                     if (session.quote != null && session.quote.id.equals(string(body, "quoteId", ""))) session.quote = null;
@@ -161,6 +169,11 @@ public final class MusicServer implements AutoCloseable {
                 case "withdraw" -> { engine.remove(peer.id().toString(), string(body, "entryId", ""), false); result(peer, rid, true, "Song withdrawn"); changed(); }
                 case "vote" -> vote(peer, rid, string(body, "instance", ""));
                 case "refreshAudio" -> refreshAudio(peer, rid, string(body, "instance", ""));
+                case "cancelLogin" -> {
+                    if (!peer.admin()) throw new QueueEngine.RuleException("You do not have permission to manage server music accounts");
+                    logins.cancel(peer.id(), string(body, "source", ""), string(body, "sessionId", ""));
+                    result(peer, rid, true, "");
+                }
                 default -> result(peer, rid, false, "Unknown music operation");
             }
         } catch (Exception e) { result(peer, rid, false, reason(e)); }
@@ -172,6 +185,8 @@ public final class MusicServer implements AutoCloseable {
         welcome.addProperty("channelName", config.channelName()); welcome.addProperty("playerId", peer.id().toString());
         welcome.addProperty("canRequest", peer.request()); welcome.addProperty("canVote", peer.vote()); welcome.addProperty("admin", peer.admin());
         welcome.addProperty("requestConfirmation", true);
+        welcome.add("sources", GSON.toJsonTree(provider.sources()));
+        welcome.addProperty("serverLogin", true);
         welcome.addProperty("requestPrice", config.requestPrice().toPlainString()); welcome.addProperty("currencyName", config.currencyName());
         send(peer.id(), "welcome", rid, welcome);
     }
@@ -218,24 +233,26 @@ public final class MusicServer implements AutoCloseable {
                 "listeners", engine.listeners(), "song", engine.current().track.name);
         engine.skip(); audio = null;
     }
-    private void request(Peer peer, String rid, long id) {
+    private void request(Peer peer, String rid, SongRef id) {
         if (config.requestPrice().signum() > 0) throw new QueueEngine.RuleException("Update MineKU Music and confirm the request price before requesting songs");
         enqueue(peer, rid, id, new Quote("", id, BigDecimal.ZERO, config.currencyName(), 0));
     }
-    private void validateRequest(Peer peer, long id) {
+    private void validateRequest(Peer peer, SongRef id) {
         if (!peer.request()) throw new QueueEngine.RuleException("You do not have permission to request songs");
-        if (id <= 0) throw new QueueEngine.RuleException("Invalid song ID");
+        if (!provider.sources().contains(id.source)) throw new QueueEngine.RuleException("Unsupported music source or song ID");
+        if (!id.source.equals("netease") && (sessions.get(peer.id()) == null || !sessions.get(peer.id()).multiSource))
+            throw new QueueEngine.RuleException("Update MineKU Music to request this source");
         engine.validateRequest(peer.id().toString(), id);
         if (purchase != null) throw new QueueEngine.RuleException("A payment is still being checked; please wait");
         if (requests.size() >= 100 || requests.stream().anyMatch(r -> r.peer.id().equals(peer.id())))
             throw new QueueEngine.RuleException("A song request is already being processed");
         if (!sessions.containsKey(peer.id())) throw new QueueEngine.RuleException("Join the channel using MineKU Music before requesting songs");
     }
-    private void quote(Peer peer, String rid, long id) {
+    private void quote(Peer peer, String rid, SongRef id) {
         validateRequest(peer, id);
         Quote quote = new Quote(UUID.randomUUID().toString(), id, config.requestPrice(), config.currencyName(), System.nanoTime() + TimeUnit.SECONDS.toNanos(60));
         sessions.get(peer.id()).quote = quote;
-        JsonObject body = new JsonObject(); body.addProperty("quoteId", quote.id); body.addProperty("songId", id);
+        JsonObject body = new JsonObject(); body.addProperty("quoteId", quote.id); songFields(body, id);
         body.addProperty("amount", quote.amount.toPlainString()); body.addProperty("currencyName", quote.currency); body.addProperty("expiresInMs", 60000);
         send(peer.id(), "requestQuote", rid, body);
         result(peer, rid, true, "Confirm the song request in the music player");
@@ -246,11 +263,11 @@ public final class MusicServer implements AutoCloseable {
         if (quote == null || !quote.id.equals(quoteId) || System.nanoTime() >= quote.expires)
             throw new QueueEngine.RuleException("The song request confirmation expired; please select the song again");
         session.quote = null;
-        enqueue(peer, rid, quote.songId, quote);
+        enqueue(peer, rid, quote.song, quote);
     }
-    private void enqueue(Peer peer, String rid, long id, Quote quote) {
+    private void enqueue(Peer peer, String rid, SongRef id, Quote quote) {
         validateRequest(peer, id);
-        if (quote.songId != id || quote.amount.compareTo(config.requestPrice()) != 0)
+        if (!quote.song.equals(id) || quote.amount.compareTo(config.requestPrice()) != 0)
             throw new QueueEngine.RuleException("The song request confirmation expired; please select the song again");
         Session session = sessions.get(peer.id());
         session.pending.add(rid); requests.add(new Request(peer, rid, id, session, quote)); nextRequest();
@@ -258,12 +275,12 @@ public final class MusicServer implements AutoCloseable {
     private void nextRequest() {
         if (requesting || purchase != null || requests.isEmpty() || closed.get()) return;
         Request request = requests.remove(); requesting = true;
-        CompletableFuture.supplyAsync(() -> resolve(request.songId), io).whenComplete((resolved, failure) -> submit(() -> {
+        CompletableFuture.supplyAsync(() -> resolve(request.song), io).whenComplete((resolved, failure) -> submit(() -> {
             requesting = false;
             try {
                 if (sessions.get(request.peer.id()) != request.session) return;
                 if (failure != null) throw new IllegalStateException(reason(failure));
-                engine.validateRequest(request.peer.id().toString(), request.songId);
+                engine.validateRequest(request.peer.id().toString(), request.song);
                 if (request.quote.amount.signum() == 0) {
                     Entry added = engine.add(request.peer.id().toString(), request.peer.name(), resolved.track());
                     announceRequest(added);
@@ -324,29 +341,29 @@ public final class MusicServer implements AutoCloseable {
             changed(); nextRequest();
         }));
     }
-    private MusicProvider.Audio resolve(long id) {
+    private MusicProvider.Audio resolve(SongRef id) {
         try { return provider.resolve(id); } catch (Exception e) { throw new CompletionException(e); }
     }
-    private void search(Peer peer, String rid, String query, int page) {
+    private void search(Peer peer, String rid, String source, String query, int page) {
         if (query.isBlank() || query.length() > 120 || page < 0 || page > 100) throw new IllegalArgumentException("Invalid search");
         Session session = sessions.get(peer.id());
         if (session.pending.size() >= 4) throw new IllegalArgumentException("Please wait for the current search");
         session.pending.add(rid);
         CompletableFuture.supplyAsync(() -> {
-            try { return provider.search(query, page); } catch (Exception e) { throw new CompletionException(e); }
+            try { return provider.search(source, query, page, PAGE_SIZE); } catch (Exception e) { throw new CompletionException(e); }
         }, io).whenComplete((found, failure) -> submit(() -> {
             if (sessions.get(peer.id()) != session) return;
             if (failure != null) { result(peer, rid, false, reason(failure)); return; }
-            JsonObject body = new JsonObject(); body.addProperty("query", query); body.addProperty("page", page);
+            JsonObject body = new JsonObject(); body.addProperty("query", query); body.addProperty("page", page); body.addProperty("source", source);
             body.addProperty("hasNext", found.hasNext()); body.add("tracks", GSON.toJsonTree(found.tracks()));
             send(peer.id(), "searchResults", rid, body); result(peer, rid, true, "");
         }));
     }
-    private void startChatSearch(Peer peer, String query) {
+    private void startChatSearch(Peer peer, String source, String query) {
         if (query.isBlank() || query.length() > 120) throw messages.failure("search.invalid");
         ChatSearch previous = chatSearches.get(peer.id());
         if (previous != null && previous.loading) throw messages.failure("search.busy");
-        ChatSearch search = new ChatSearch(query);
+        ChatSearch search = new ChatSearch(source, query);
         chatSearches.put(peer.id(), search);
         loadChatSearch(peer, search, 0);
     }
@@ -364,7 +381,7 @@ public final class MusicServer implements AutoCloseable {
         search.expires = System.nanoTime() + TimeUnit.MINUTES.toNanos(10);
         tell(peer.id(), "search.loading", "query", search.query, "page", page + 1);
         CompletableFuture.supplyAsync(() -> {
-            try { return provider.search(search.query, page, MusicChat.SEARCH_PAGE_SIZE); }
+            try { return provider.search(search.source, search.query, page, MusicChat.SEARCH_PAGE_SIZE); }
             catch (Exception e) { throw new CompletionException(e); }
         }, io).whenComplete((found, error) -> submit(() -> {
             if (chatSearches.get(peer.id()) != search) return;
@@ -387,7 +404,7 @@ public final class MusicServer implements AutoCloseable {
         if (current == null) { audio = null; return; }
         if (engine.isReady() || engine.instance().equals(resolvingInstance)) return;
         String expected = engine.instance(); resolvingInstance = expected;
-        CompletableFuture.supplyAsync(() -> resolve(current.track.id), io).whenComplete((resolved, failure) -> submit(() -> {
+        CompletableFuture.supplyAsync(() -> resolve(current.track.ref()), io).whenComplete((resolved, failure) -> submit(() -> {
             if (!engine.instance().equals(expected)) return;
             resolvingInstance = "";
             if (failure != null) {
@@ -403,7 +420,7 @@ public final class MusicServer implements AutoCloseable {
         String retry = "audio:" + instance;
         if (session.results.containsKey(retry) || session.pending.contains(retry)) return;
         session.pending.add(retry);
-        long id = engine.current().track.id;
+        SongRef id = engine.current().track.ref();
         CompletableFuture.supplyAsync(() -> resolve(id), io).whenComplete((resolved, failure) -> submit(() -> {
             if (sessions.get(peer.id()) != session) return;
             session.pending.remove(retry); remember(session, retry, new JsonObject());
@@ -480,6 +497,7 @@ public final class MusicServer implements AutoCloseable {
                         if (args.length != 1) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         reload(peer);
                     }
+                    case "login" -> loginCommand(peer, args);
                     case "queue" -> {
                         if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
                         int page = args.length == 2 ? Integer.parseInt(args[1]) - 1 : 0;
@@ -489,7 +507,10 @@ public final class MusicServer implements AutoCloseable {
                         tell(peer.id(), "queue.heading", "page", page + 1, "pages", pages, "count", engine.queue().size());
                         engine.queue().stream().skip((long) page * PAGE_SIZE).limit(PAGE_SIZE).forEach(e -> tell(peer.id(), "queue.row", "entry", e.entryId, "song", e.track.name, "player", e.requesterName));
                     }
-                    case "request" -> { if (args.length != 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd)); quote(peer, rid, Long.parseLong(args[1])); }
+                    case "request" -> {
+                        if (args.length != 2 && args.length != 3) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
+                        quote(peer, rid, new SongRef(args.length == 3 ? args[1].toLowerCase(Locale.ROOT) : "netease", args[args.length - 1]));
+                    }
                     case "withdraw" -> { if (args.length != 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd)); engine.remove(peer.id().toString(), args[1], false); changed(); result(peer, rid, true, messages.text("queue.withdrawn"), messages.render("queue.withdrawn")); }
                     case "vote" -> {
                         if (args.length > 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
@@ -497,7 +518,9 @@ public final class MusicServer implements AutoCloseable {
                     }
                     case "search" -> {
                         if (args.length < 2) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
-                        startChatSearch(peer, String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
+                        boolean explicitSource = args.length >= 3 && Set.of("netease", "qq").contains(args[1].toLowerCase(Locale.ROOT));
+                        startChatSearch(peer, explicitSource ? args[1].toLowerCase(Locale.ROOT) : "netease",
+                                String.join(" ", Arrays.copyOfRange(args, explicitSource ? 2 : 1, args.length)));
                     }
                     case "searchpage" -> {
                         if (args.length < 2 || args.length > 3) throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, cmd));
@@ -527,9 +550,39 @@ public final class MusicServer implements AutoCloseable {
         });
     }
     private record Reload(ServerConfig config, MusicMessages messages) {}
+    private void loginCommand(Peer peer, String[] args) {
+        if (!peer.admin()) throw messages.failure("command.denied");
+        if (peer.id().equals(CONSOLE)) throw messages.failure("login.player-only");
+        if (args.length == 2 && Set.of("netease", "qq").contains(args[1])) {
+            Session session = sessions.get(peer.id());
+            if (session == null || !session.serverLogin) throw messages.failure("login.client-required");
+            session.peer = peer;
+            welcome(peer, "");
+            logins.start(peer.id(), args[1]);
+            return;
+        }
+        if ((args.length == 2 || args.length == 3) && args[1].equals("cancel")) {
+            String source = args.length == 3 ? args[2] : "";
+            if (!source.isEmpty()) ServerCookies.path(stateFile.getParent(), source);
+            logins.cancel(peer.id(), source, ""); tell(peer.id(), "login.cancelled"); return;
+        }
+        if ((args.length == 2 || args.length == 3) && args[1].equals("status")) {
+            List<String> sources = args.length == 3 ? List.of(args[2]) : provider.sources();
+            sources.forEach(source -> ServerCookies.path(stateFile.getParent(), source));
+            CompletableFuture.supplyAsync(() -> sources.stream().map(source -> {
+                try {
+                    boolean present = !ServerCookies.load(stateFile.getParent(), source).getCookieStore().getCookies().isEmpty();
+                    return Map.entry(source, present ? "login.configured" : "login.missing");
+                } catch (Exception e) { return Map.entry(source, "login.invalid"); }
+            }).toList(), io).thenAccept(states -> submit(() -> states.forEach(state -> tell(peer.id(), state.getValue(), "source", messages.render("source." + state.getKey())))));
+            return;
+        }
+        throw messages.failure("command.usage", "usage", MusicCommands.usage(messages, "login"));
+    }
     private void reload(Peer peer) {
         if (reloading) { tell(peer.id(), "reload.busy"); return; }
         reloading = true;
+        logins.cancelAll();
         ServerConfig previous = config;
         tell(peer.id(), "reload.loading");
         CompletableFuture.supplyAsync(() -> {
@@ -582,7 +635,7 @@ public final class MusicServer implements AutoCloseable {
             persist(); sessions.clear(); chatSearches.clear(); requests.clear();
             disk.execute(() -> termination.complete(null)); disk.shutdown();
         });
-        owner.shutdown(); provider.close(); io.shutdownNow(); decoders.clear();
+        owner.shutdown(); logins.close(); provider.close(); io.shutdownNow(); decoders.clear();
     }
     public CompletionStage<Void> termination() { return termination; }
 }
