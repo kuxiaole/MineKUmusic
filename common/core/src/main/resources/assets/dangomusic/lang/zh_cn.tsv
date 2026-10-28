@@ -1,10 +1,14 @@
 # English source text<TAB>Simplified Chinese
 Language	语言
+English	英文
+Chinese	中文
+Cancel	取消
+Search	搜索
 Choose the player interface language	选择播放器界面语言
 Settings	设置
 Changes apply instantly and are saved automatically	修改立即生效并自动保存
 Lyrics	歌词
-Music & HUD	音乐与 HUD
+Music & HUD	音乐与悬浮显示
 Player	播放器
 Playback	播放设置
 Hotkeys	快捷键
@@ -44,7 +48,7 @@ Volume down	减小音量
 Hotkey to lower the volume by 5%	每次减小 5% 音量
 Toggle lyrics	开关歌词
 Hotkey to turn lyrics on or off	显示或隐藏歌词的快捷键
-3D lyrics	3D 歌词
+3D lyrics	三维歌词
 Show lyrics floating in the world	在世界中显示漂浮歌词
 Show the current song in the top left	在左上角显示当前歌曲
 Cover	封面
@@ -52,7 +56,7 @@ Show the album cover in the top left	在左上角显示专辑封面
 Scale	大小
 Lyrics size	歌词大小
 Distance	距离
-How far away 3D lyrics appear (blocks)	3D 歌词的显示距离（方块）
+How far away 3D lyrics appear (blocks)	三维歌词的显示距离（方块）
 Deep Glow style: white-hot core, wide soft halo	明亮文字与宽阔柔和的光晕
 Glow color	发光颜色
 Glow tint: text color, pink, blue or gold	跟随字色、粉色、蓝色或金色
@@ -102,6 +106,7 @@ Expand to show the song on track change or pause	切歌或暂停时展开显示�
 Island size	灵动岛大小
 Notify time	通知时长
 How long song notifications stay (seconds)	歌曲通知的显示时间（秒）
+%.1f s	%.1f 秒
 Home	首页
 Charts	排行榜
 Now Playing	正在播放
@@ -123,7 +128,7 @@ Welcome to %s!	欢迎使用 %s！
 About	关于
 Confirm song request	确认全服点歌
 Confirm request	确认点歌
-Song ID: %s	歌曲 ID：%s
+Song ID: %s	歌曲编号：%s
 This request costs %s %s.	本次点歌将扣除 %s %s
 This song request is free.	本次点歌免费。
 Paid requests are not refunded when withdrawn or skipped.	点歌成功后，撤回或切歌不退费。
@@ -158,7 +163,7 @@ License	许可证
 Bundled components	内置开源组件
 Copy project link	复制项目地址
 Project link copied	项目地址已复制
-Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.	MineKU Music 基于 DangoMusic 修改，继承其客户端播放器、音频播放、歌词、HUD 和界面。
+Client foundation: music player, audio playback, lyrics, HUD and interface. MineKU Music is a modified version of this project.	MineKU Music 基于 DangoMusic 修改，继承其客户端播放器、音频播放、歌词、悬浮显示和界面。
 Server design reference: shared queue, song requests, client playback and Velocity integration. Uses a separate music protocol.	全服队列、点歌、客户端播放与 Velocity 群组服接入参考 AllMusic；MineKU Music 使用独立通信协议。
 DangoMusic's original interface comments credit MuoniumPlayer as a layout reference.	DangoMusic 原有界面代码注明排版参考 MuoniumPlayer，在此保留这项上游设计署名。
 Original author credits and license notices are retained. Full license texts and CREDITS.md are included in the distribution.	保留原作者署名与许可证声明。完整许可证和 CREDITS.md 随发行包提供。
@@ -200,7 +205,7 @@ Everyone streams from their own NetEase account, so VIP songs need VIP on each s
 Refresh QR	刷新二维码
 Failed to get QR code	获取二维码失败
 Getting QR code…	正在获取二维码…
-Scan with the NetEase Cloud Music app	打开手机网易云音乐 App 扫码
+Scan with the NetEase Cloud Music app	打开手机网易云音乐扫码
 Scanned. Confirm login on your phone	已扫码，请在手机上确认登录
 QR code expired	二维码已过期
 Something went wrong. Please try again	出错了，请重试

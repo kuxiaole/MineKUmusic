@@ -213,7 +213,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         player.left.remove("shuffle")   // 随机播放用播放栏上的按钮就够了，设置页不再显示（状态照样保存）
         player.left.remove("repeatOne") // 单曲循环同样通过播放栏控制
         val card = Src(mm.get(SongCardModule::class.java), fmts = mapOf("posX" to ::percent, "posY" to ::percent))
-        val island = Src(mm.get(DynamicIslandModule::class.java), fmts = mapOf("notifyTime" to { v: Any -> "%.1f s".format((v as FloatValue).value) }))
+        val island = Src(mm.get(DynamicIslandModule::class.java), fmts = mapOf("notifyTime" to { v: Any -> I18n.format("%.1f s", (v as FloatValue).value) }))
         val music = listOf(
             Group("Player", "Playback", player.m, false, player.take(listOf("volume", "language", "reducedChannelMotion"))),
             Group("Hotkeys", "Click, then press a key · Backspace clears", player.m, false, player.take()),
@@ -363,7 +363,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             Ctl.KEY -> drawKeyButton(r.value as IntValue, clip, cx, cy)
             Ctl.LANGUAGE -> {
                 val v = r.value as IntValue
-                listOf("English", "中文").forEachIndexed { i, label ->
+                listOf(I18n.text("English"), I18n.text("Chinese")).forEachIndexed { i, label ->
                     val button = LayoutBounds(cx + i * 74f, cy - 12f, 68f, 24f)
                     ui.card(button, if (v.value == i) RED else if (ui.hover(button)) Theme.CARD_HOVER else Theme.CARD, 7f)
                     ui.text(label, button.x + (button.width - ui.width(label, 11f, Theme.FONT_MEDIUM)) / 2f,

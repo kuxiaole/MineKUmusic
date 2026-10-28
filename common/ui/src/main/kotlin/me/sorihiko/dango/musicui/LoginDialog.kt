@@ -85,7 +85,7 @@ internal class LoginDialog(private val screen: MusicScreen) {
         }
 
         val msg = when (state) {
-            NeteaseLogin.State.WAITING -> I18n.text("打开手机网易云音乐 App 扫码")
+            NeteaseLogin.State.WAITING -> I18n.text("Scan with the NetEase Cloud Music app")
             NeteaseLogin.State.SCANNED -> I18n.text("已扫码，请在手机上确认登录")
             NeteaseLogin.State.EXPIRED -> I18n.text("二维码已过期")
             NeteaseLogin.State.ERROR -> I18n.text("出错了，请重试")

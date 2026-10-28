@@ -19,12 +19,14 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| Fabric 客户端 | `MineKUmusic-1.6.6+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
-| NeoForge 客户端 | `MineKUmusic-1.6.6+26.2-neoforge.jar` | 客户端 `mods` |
-| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.6-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.6.6-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| Fabric 客户端 | `MineKUmusic-1.6.7+26.2-fabric.jar` | 客户端 `mods`，同时安装对应 Fabric API |
+| NeoForge 客户端 | `MineKUmusic-1.6.7+26.2-neoforge.jar` | 客户端 `mods` |
+| 独立 Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.6.7-folia.jar` | Folia `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.6.7-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
+
+1.6.7 修复中文界面的按钮翻译遗漏：点歌确认与切回个人播放弹窗统一显示“取消”，全服点歌页显示“搜索”，同时统一设置和登录提示的中文用语。此次界面修复只需更新客户端，已部署的 1.6.6 插件可继续使用。
 
 ## 使用
 

@@ -10,13 +10,13 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 独立 Folia
 
-1. 将 `MineKUmusic-server-1.6.6-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.7-folia.jar` 放入 Folia 26.2 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装对应加载器的 26.2 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.6.6-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.6.7-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
 3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
@@ -25,7 +25,8 @@ Minecraft 26.2 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所�
 
 ### 从旧版升级
 
-- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.6+26.2-fabric.jar` 或 `MineKUmusic-1.6.6+26.2-neoforge.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
+- 关闭游戏及插件所在服务器，替换旧客户端和插件 JAR，不要同时保留新旧插件。客户端文件为 `MineKUmusic-1.6.7+26.2-fabric.jar` 或 `MineKUmusic-1.6.7+26.2-neoforge.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -110,8 +111,8 @@ economy-bridge-only=false
 
 ### Velocity 群组服
 
-1. Velocity 安装 `MineKUmusic-server-1.6.6-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.6-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+1. Velocity 安装 `MineKUmusic-server-1.6.7-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
+2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.7-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -270,6 +271,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 
 ### 本次验证记录
 
+- 1.6.7 四种 JAR 构建成功；客户端 14 项与 Folia 经济适配 7 项测试通过，服务端核心 77 项复用 Gradle 已通过结果，共 98 项检查通过。扫描客户端直接调用的英文翻译键，没有缺失；300 条中文语言资源无重复键，并核对 Fabric / NeoForge 成品内的语言文件与源码完全一致。修复点歌和个人播放确认中的“取消”、全服点歌“搜索”，统一设置与扫码提示的中文文案。未启动实际游戏进行界面截图验证。
 - 1.6.6 共 98 项测试通过（服务端核心 77 项、Folia 经济适配 7 项、客户端 14 项），四种 JAR 构建成功。新增隔离的合成 Economy 服务与实体调度器测试，验证 ServiceIO 名称的服务注册、启动后注册、余额不足、调用前失败、同一交易只扣一次、重启后已付款 / 不确定记录保留，以及 Vault API 完全缺失时仍可读取旧回执并拒绝新扣款。未在真实 ServiceIO / XConomy 或实际 Velocity / Folia 服务器上联调；代理泛化的旧“正在核对”日志不足以单独确认现场根因。
 - 1.6.5 共 91 项测试通过（服务端 77 项、客户端 14 项），四种 JAR 构建成功。账号配置只读取 `cookie.json`，覆盖完整浏览器导出字段、UTF-8 BOM、含逗号和等号的值、空值、已有文件保留、旧 TXT 被忽略、JSON 热更新及格式错误提示；本地模拟音源确认导出值原样进入请求头。用户提供的 JSON 已完成本地解析和请求头构建检查，未发起账号网络请求；未进行实际歌曲播放联调。两种插件已核对包含空数组 JSON 模板，且不再打包 TXT 模板。
 - 1.6.4 服务端 75 项测试通过；客户端 14 项测试检查通过（客户端代码未变，复用 Gradle 已通过结果），共 89 项，四种 JAR 构建成功。新增验证中文注释和自定义值保留、缺项补齐、主题色、按钮标签及悬浮文字、动态占位符、独立服务器主题、格式错误保留文件、配置与语言一起重载、任一校验失败时保留两份旧运行设置。收费确认和搜索点击原有测试继续通过；已核对两种插件内的语言模板且未重复打包 Adventure。尚未在实际 Folia / Velocity 上验证配色观感与鼠标交互。
