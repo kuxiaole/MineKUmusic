@@ -25,7 +25,7 @@ subprojects {
         dependencies { "implementation"(project(":core")) }
         tasks.named<ShadowJar>("shadowJar") {
             archiveBaseName.set("MineKUmusic-server")
-            archiveClassifier.set(project.name)
+            archiveClassifier.set(if (project.name == "folia") "" else project.name)
             destinationDirectory.set(rootProject.layout.buildDirectory.dir("libs"))
             relocate("com.google.gson", "me.sorihiko.dango.server.libs.gson")
             relocate("kotlin", "me.sorihiko.dango.server.libs.kotlin")

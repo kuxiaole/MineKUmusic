@@ -7,7 +7,7 @@
 # 全服音源账号分别放在本目录的 netease-cookie.json（网易云）和 qq-cookie.json（QQ 音乐）。
 # 两个文件都使用浏览器导出的 JSON 数组，也可由管理员在游戏内执行 /music login netease 或 /music login qq 扫码保存。
 # 旧 cookie.json 只会在 netease-cookie.json 不存在时复制迁移，原文件保留；不会迁移到 QQ 账号。
-# 群组服只在 Velocity 配置音源账号；economy-bridge-only=true 的 Folia 后端不创建账号文件。
+# 群组服只在 Velocity 配置音源账号；economy-bridge-only=true 的 Paper / Folia 后端不创建账号文件。
 # 保存账号文件后，下一次搜索或解析读取新账号；/music reload 会取消尚未完成的扫码登录。
 
 # 【频道与点歌规则】
@@ -39,7 +39,7 @@ sync-seconds=2
 # 【点歌收费】
 # 是否启用全服点歌收费，默认 false（免费）；true 为收费。
 # 只收取点歌入队的费用，搜索、收听、查看队列、投票和个人播放均免费。
-# 独立 Folia 需要 Vault / ServiceIO 接口插件及支持 Folia 的经济插件（如 XConomy）；群组服还需配置下方经济桥接。
+# 独立 Paper / Folia 需要 Vault / ServiceIO 接口插件及兼容当前服务端的经济插件（如 XConomy）；群组服还需配置下方经济桥接。
 # 群组服由 Velocity 的收费配置决定费用，后端经济桥接模式不读取此项决定价格。
 request-fee-enabled=false
 
@@ -54,15 +54,15 @@ request-fee-amount=10
 currency-name=KU币
 
 # 【Velocity 群组服经济桥接】
-# 是否让 Folia 插件只负责扣款、不建立音乐频道，默认 false。
-# 独立 Folia：false。群组服收费的 Folia 后端：true。Velocity 配置中保持 false。
+# 是否让 Paper / Folia 插件只负责扣款、不建立音乐频道，默认 false。
+# 独立 Paper / Folia：false。群组服收费的 Paper / Folia 后端：true。Velocity 配置中保持 false。
 # 群组服队列由 Velocity 统一管理，各后端的 Vault 经济插件还需共用或同步余额。
 # 设为 true 时，上方频道、队列和收费规则由 Velocity 配置决定。
 # 此项变更必须完整重启，不支持 /minekumusic reload。
 economy-bridge-only=false
 
 # 代理与后端之间校验扣款消息的共享密钥，默认留空。
-# 独立 Folia 不需要填写；群组服收费时，在 Velocity 和所有经济桥接后端填写同一个随机值。
+# 独立 Paper / Folia 不需要填写；群组服收费时，在 Velocity 和所有经济桥接后端填写同一个随机值。
 # 密钥至少 32 个字符，建议使用随机字母和数字；启用经济桥接模式后不能留空。
 # 密钥仅供服务器之间使用，不要发给玩家，也不要上传到公开仓库。
 # 此项变更必须完整重启，不支持 /minekumusic reload；请先完成未决交易，再协调修改代理和后端。

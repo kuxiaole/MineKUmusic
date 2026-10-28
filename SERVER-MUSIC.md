@@ -1,10 +1,10 @@
 # MineKUmusic 全服音乐
 
-Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件。所有组件使用 Java 25。项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。需要替换原 DangoMusic，不要同时安装两个相同 mod ID 的版本。
+Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia / Velocity 插件。所有组件使用 Java 25。项目、插件和发行文件名称为 `MineKUmusic`，客户端内显示为 `MineKU Music`。需要替换原 DangoMusic，不要同时安装两个相同 mod ID 的版本。
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-1.7.0 默认编译使用 Folia API `26.3.build.5-alpha`、Velocity API `4.3.0`。Folia 插件最低 API 版本仍为 26.2，同一个 JAR 用于 Folia 26.2 / 26.3；26.3 API 当前采用 alpha 构建。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+1.7.0 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.2 / 26.3。构建使用 Folia API `26.3.build.5-alpha` 和 Velocity API `4.3.0`；26.3 API 当前采用 alpha 构建。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
 
 | Minecraft | Fabric Loader | Fabric API | NeoForge |
 | --- | --- | --- | --- |
@@ -15,9 +15,9 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 ## 安装
 
-### 独立 Folia
+### 独立 Paper / Folia
 
-1. 将 `MineKUmusic-server-1.7.0-folia.jar` 放入 Folia 26.2 或 26.3 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.0.jar` 放入 Paper 或 Folia 26.2 / 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装与游戏版本一致的 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
@@ -25,7 +25,7 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 1. 将 `MineKUmusic-server-1.7.0-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
-3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 Folia 插件并设为经济桥接模式，步骤见下文。不要同时部署独立 Folia 音乐实例；队列、权限和播放时间全部由代理管理。
+3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.0.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
 
 不需要额外开放音乐插件端口，不依赖 Firebase、Redis 或 AllMusic。玩家没有安装 MineKU Music 也可以正常进入服务器，但无法收听频道。
@@ -34,15 +34,15 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Folia / Velocity 插件
 
 ### 从旧版升级
 
-- 1.7.0 同步上游个人三音源功能，全服频道新增 QQ 音乐和管理员扫码登录。客户端及管理频道的 Folia / Velocity 插件一起升级；群组服后端使用本版经济桥接插件。保留 `queue.json`、`payments.json`、`server-id`、已有费用和权限配置。旧队列中没有音源标记的歌曲按网易云读取；新队列按音源和原始歌曲 ID 保存，升级后不要直接用旧插件读取 QQ 队列。
+- 1.7.0 同步上游个人三音源功能，全服频道新增 QQ 音乐和管理员扫码登录。客户端及管理频道的 Paper / Folia / Velocity 插件一起升级；群组服后端使用本版经济桥接插件。保留 `queue.json`、`payments.json`、`server-id`、已有费用和权限配置。旧队列中没有音源标记的歌曲按网易云读取；新队列按音源和原始歌曲 ID 保存，升级后不要直接用旧插件读取 QQ 队列。
 - 首次升级时，仅在 `netease-cookie.json` 不存在时，将旧 `cookie.json` 复制到新文件并保留原件。之后只读取新文件，不再跟随旧文件修改；QQ 使用独立的 `qq-cookie.json`。经济桥接后端不创建或迁移音源账号文件。
-- 1.6.10 新增 26.3 Fabric / NeoForge 全服音乐接入，同时保留 26.2 客户端。升级游戏时须选择文件名含 `+26.3` 的客户端 JAR；Folia 26.2 / 26.3 共用本版 Folia 插件。频道协议、配置、语言、队列、交易文件和 `server-id` 均沿用，升级前备份插件数据，替换 JAR 后完整重启。群组服的收费后端继续使用经济桥接模式。
-- 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
+- 1.6.10 新增 26.3 Fabric / NeoForge 全服音乐接入，同时保留 26.2 客户端。升级游戏时须选择文件名含 `+26.3` 的客户端 JAR；Paper / Folia 26.2 / 26.3 共用同一服务器插件。频道协议、配置、语言、队列、交易文件和 `server-id` 均沿用，升级前备份插件数据，替换 JAR 后完整重启。群组服的收费后端继续使用经济桥接模式。
+- 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Paper / Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
 - 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.0+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.0+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
-- 两种插件显示名称均为 `MineKUmusic`。Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
-- 若新目录没有 `config.properties`，Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
+- 两种插件显示名称均为 `MineKUmusic`。Paper / Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
+- 若新目录没有 `config.properties`，Paper / Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
 - 客户端 mod ID、`config/dangomusic`、`dangomusic:channel` 和 `dangomusic.*` 权限节点继续沿用。主指令统一为 `/minekumusic`，只提供 `/music` 和 `/kum` 两个别名，不再注册 `/dgm`；旧的聊天投票消息需等待新版插件重新发送。
 
@@ -75,9 +75,9 @@ MineKU Music: JIT workaround installed (Java 25): 2 compiler directives added
 | 网易云音乐 | `netease-cookie.json` | `music.163.com` |
 | QQ 音乐 | `qq-cookie.json` | `y.qq.com` |
 
-1. 替换插件 JAR 并完整重启一次。首次启动在实际数据目录生成两份内容为 `[]` 的文件；已有文件不会被覆盖。全新独立 Folia 使用 `plugins/MineKUmusic/`，Velocity 使用 `plugins/minekumusic/`；升级安装以启动日志显示的位置为准。
+1. 替换插件 JAR 并完整重启一次。首次启动在实际数据目录生成两份内容为 `[]` 的文件；已有文件不会被覆盖。全新独立 Paper / Folia 使用 `plugins/MineKUmusic/`，Velocity 使用 `plugins/minekumusic/`；升级安装以启动日志显示的位置为准。
 2. 将对应站点导出的 JSON 原样保存到对应文件。最外层必须是数组 `[...]`，每项有字符串类型的 `name` 和 `value`；保留 `domain`、`path` 以及浏览器附带的其他字段即可，无需拼接为 `name=value`。不要混用两个音源的账号文件。
-3. 群组服把文件放在 **Velocity 插件数据目录**，音乐音源请求由代理处理；Folia 经济桥接后端不需要配置账号。
+3. 群组服把文件放在 **Velocity 插件数据目录**，音乐音源请求由代理处理；Paper / Folia 经济桥接后端不需要配置账号。
 4. 保存后下一次搜索、点歌或播放地址刷新会重新读取，无需再重启或执行 reload。已经播放中的歌曲继续使用现有地址。
 
 以下是结构示例，所有登录值均为占位文本，不是真实凭据：
@@ -123,7 +123,7 @@ JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`�
 ## 使用
 
 - 初次默认不加入，加入选择按 `server-id` 保存在客户端 `config/dangomusic/server-music.properties`。
-- 成功点歌后，所有在线玩家（含尚未加入频道的玩家）收到点歌人、歌曲和“点击加入全服音乐”按钮。Folia 向本服发送，Velocity 向整个群组发送一次，经济桥接后端不重复广播。搜索、报价、取消、失败及待核对的扣款不公告，重复提交与正常重启恢复不重复公告；待核对交易在确认成功并首次入队后公告。
+- 成功点歌后，所有在线玩家（含尚未加入频道的玩家）收到点歌人、歌曲和“点击加入全服音乐”按钮。独立服插件向本服发送，Velocity 向整个群组发送一次，经济桥接后端不重复广播。搜索、报价、取消、失败及待核对的扣款不公告，重复提交与正常重启恢复不重复公告；待核对交易在确认成功并首次入队后公告。
 - 玩家点击公告或执行 `/music join` 后，客户端走正常加入流程，保存个人播放状态并跟随当前频道；加入免费，收到公告不会自动订阅。重复点击不会重新保存个人快照或解除本人暂停。需具有 `dangomusic.use` 权限且客户端支持聊天加入；缺少模组或版本过旧时提供中文提示。
 - 加入时保存个人播放队列和状态，退出或真正断线时恢复。点个人歌曲会先弹出切换确认。
 - 全服页支持搜索点歌、队列分页和撤回自己的待播歌曲；原有搜索和歌单旁的 `+` 也可点到全服。
@@ -145,9 +145,9 @@ JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`�
 
 群组服的付款通道由 Velocity 拦截，只接收原后端签名验证通过、且与待处理交易完全匹配的回执；该通道不会转发给玩家。客户端不含桥接密钥，也没有标记付款成功的权限。开源代码不提供免单能力，但部署时仍须保护服务端密钥、经济插件和管理权限。
 
-### 独立 Folia
+### 独立 Paper / Folia
 
-1. 安装适用于当前 Folia 的 Vault 接口插件（也可使用 ServiceIO），以及已注册 Vault Economy 服务的经济插件，例如 XConomy。1.6.6 起按实际注册的服务接入，不再以 Vault 插件名称作为启用条件；每次新扣款重新查询服务，兼容启动后才完成注册的情况。
+1. 安装 Vault 兼容接口插件（也可使用 ServiceIO），以及已注册 Vault Economy 服务的经济插件，例如 XConomy。经济插件需兼容当前 Paper / Folia 服务端。1.6.6 起按实际注册的服务接入，不再以 Vault 插件名称作为启用条件；每次新扣款重新查询服务，兼容启动后才完成注册的情况。
 2. 在 MineKUmusic 实际数据目录的 `config.properties` 中设置：
 
 ```properties
@@ -157,12 +157,12 @@ currency-name=KU币
 economy-bridge-only=false
 ```
 
-3. 重启 Folia。扣款在该玩家的 Folia 实体调度器中执行，交易文件写入异步执行。经济插件自身也必须支持 Folia。
+3. 重启 Paper 或 Folia。扣款在玩家实体调度器中执行，交易文件异步写入。
 
 ### Velocity 群组服
 
 1. Velocity 安装 `MineKUmusic-server-1.6.7-velocity.jar`，配置费用、币名和 `economy-bridge-secret`。密钥至少 32 个字符，使用随机生成的值。
-2. 在每个允许点歌的 Folia 后端安装 `MineKUmusic-server-1.6.7-folia.jar`、Vault 接口插件和经济插件。后端设置如下：
+2. 在每个允许点歌的 Paper / Folia 后端安装对应版本的 MineKUmusic 服务器插件、Vault 接口插件和经济插件。后端设置如下：
 
 ```properties
 economy-bridge-only=true
@@ -179,7 +179,7 @@ request-fee-enabled=false
 
 1.6.6 补齐 ServiceIO、XConomy 的软依赖加载顺序，并独立保留交易日志。即使 Vault API 或经济服务暂时缺失，已保存的成功回执仍可查询，原有不确定交易仍保持待核对；只有确认尚未调用扣款的新交易才会返回经济不可用。
 
-升级时完整停止并替换 **Velocity 和所有收费 Folia 后端**的插件，再完整启动。保留原来的配置、`queue.json` 和 `payments.json`；无需修改已有费用、密钥或桥接开关。客户端可继续用 1.6.0～1.6.5，更新到 1.6.6 才能显示新增桥接状态的客户端中文翻译。
+升级时完整停止并替换 **Velocity 和所有收费 Paper / Folia 后端**的插件，再完整启动。保留原来的配置、`queue.json` 和 `payments.json`；无需修改已有费用、密钥或桥接开关。客户端可继续用 1.6.0～1.6.5，更新到 1.6.6 才能显示新增桥接状态的客户端中文翻译。
 
 - 后端启动时应看到 `经济接口已连接：...`，后面显示实际服务名称和注册插件。如果看到“未找到可用的 Vault Economy 服务”，检查 ServiceIO 与 XConomy 是否正常启用、是否成功注册 Economy 服务；安装接口插件并不代表经济服务一定已就绪。
 - “原扣款后端没有可用的插件消息连接”：让至少一名玩家进入日志所示的原后端，并保持连接，代理会继续核对原交易。新扣款需要付款玩家仍在该后端；单纯读取已完成交易可借助其他在线玩家的连接。
@@ -193,9 +193,9 @@ request-fee-enabled=false
 
 - 玩家确认后，服务端先检查权限、频道订阅、队列上限、重复歌曲、冷却及音源可用性，然后保存交易并扣款。上述检查失败、余额不足或明确扣款失败时，不加入队列、不收取费用。
 - 费用购买的是一次点歌入队。扣款确认成功后，即使玩家已经离线，歌曲仍会入队；撤回、投票切歌、管理员删除，以及之后播放时音源变化导致的失败不自动退款。
-- `queue.json` 保存尚待核对的点歌，原扣款 Folia 后端的 `payments.json` 保存交易结果。回执延迟或重启后会核对原交易，已完成的扣款不会再次执行；核对期间暂停接受新的点歌，搜索和当前播放仍可继续。不要删除有未完成交易的文件，也不要在核对完成前更换后端名称或密钥。
+- `queue.json` 保存尚待核对的点歌，原扣款 Paper / Folia 后端的 `payments.json` 保存交易结果。回执延迟或重启后会核对原交易，已完成的扣款不会再次执行；核对期间暂停接受新的点歌，搜索和当前播放仍可继续。不要删除有未完成交易的文件，也不要在核对完成前更换后端名称或密钥。
 - 未送达的扣款首次执行期限为两分钟；如果后端确认没有执行过且期限已过，则不再扣款。已记录的结果保留 30 天；有待人工核对的记录持续保留，交易文件最多保留 50000 条，达到上限会停止新的扣款并提示维护。
-- Vault 扣款和本插件文件之间没有共同的数据库事务。若进程恰好在扣款执行中退出，插件会标记为待管理员核对，不自动重复扣款。管理员应先查询经济插件交易记录，然后在**原扣款 Folia 后端控制台**执行 `minekumusic payment <交易ID> paid`（确认已经扣款）或 `minekumusic payment <交易ID> cancel`（确认未扣款）。该命令只处理不确定交易，不能覆盖已确定的结果。代理随后会继续入队或结束该请求。
+- Vault 扣款和本插件文件之间没有共同的数据库事务。若进程恰好在扣款执行中退出，插件会标记为待管理员核对，不自动重复扣款。管理员应先查询经济插件交易记录，然后在**原扣款 Paper / Folia 后端控制台**执行 `minekumusic payment <交易ID> paid`（确认已经扣款）或 `minekumusic payment <交易ID> cancel`（确认未扣款）。该命令只处理不确定交易，不能覆盖已确定的结果。代理随后会继续入队或结束该请求。
 
 配置示例见仓库根目录的 `config.properties.example`，每项都带中文用途、取值范围和独立服 / 群组服说明。插件生成的 `config.properties` 使用同一份注释模板；旧版升级后启动一次，会自动补齐缺少的选项和中文注释，保留已有配置值，无需删除旧配置。首次将 `server-id` 留空会自动生成，生成后应保留。不要把真实密钥、账号 Cookie、`payments.json` 或运行中的配置文件提交到公开仓库。
 
@@ -212,7 +212,7 @@ request-fee-enabled=false
 | `request-fee-enabled` | `false` | 是否对全服点歌收费 |
 | `request-fee-amount` | `10` | 每首点歌费用；0 表示免费 |
 | `currency-name` | `KU币` | 确认弹窗与付款提示中的货币名称 |
-| `economy-bridge-only` | `false` | Folia 后端仅提供经济桥接，队列由 Velocity 管理 |
+| `economy-bridge-only` | `false` | Paper / Folia 后端仅提供经济桥接，队列由 Velocity 管理 |
 | `economy-bridge-secret` | 空 | 代理与桥接后端共享的随机密钥，至少 32 个字符 |
 
 配置文件使用 UTF-8。常用配置调整后执行 `/minekumusic reload`，频道标识、桥接模式和密钥变更则需完整重启，具体范围见下文；Cookie 文件下一次解析即生效。`queue.json` 自动保存队列和进度，重启时重新解析播放地址并从保存进度继续，不补算停机时间；不保存音频地址、Cookie 和投票。
@@ -237,9 +237,9 @@ request-fee-enabled=false
 | `/minekumusic login <netease\|qq>` | 在管理员客户端显示全服账号登录二维码 | `dangomusic.admin`，仅玩家 |
 | `/minekumusic login status [netease\|qq]` | 查看账号文件配置情况，不检查在线有效性 | `dangomusic.admin`，仅玩家 |
 | `/minekumusic login cancel [netease\|qq]` | 取消自己的待完成扫码，不删除已有账号 | `dangomusic.admin`，仅玩家 |
-| `/minekumusic payment <交易ID> paid` / `cancel` | 原扣款 Folia 后端核对中断交易 | `dangomusic.admin` |
+| `/minekumusic payment <交易ID> paid` / `cancel` | 原扣款 Paper / Folia 后端核对中断交易 | `dangomusic.admin` |
 
-以上命令也可将 `/minekumusic` 替换为 `/music` 或 `/kum`，两者使用相同的权限、Tab 补全和处理逻辑。`/dgm` 已移除。普通功能默认允许，管理权限在 Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
+以上命令也可将 `/minekumusic` 替换为 `/music` 或 `/kum`，两者使用相同的权限、Tab 补全和处理逻辑。`/dgm` 已移除。普通功能默认允许，管理权限在 Paper / Folia 默认给 OP，在 Velocity 需由代理端权限插件分配。控制台可以管理队列。
 
 Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 补全可用子命令，`queue` 补全实际页码，`withdraw` 只补全自己的待播条目 ID，管理员的 `remove` 补全全部待播条目 ID，`vote` 可补全当前播放实例，`payment` 的最后一个参数补全 `paid` / `cancel`。`search`、`request` 补全音源，`login` 补全音源及 `status`、`cancel`。关键词和歌曲 ID 需自行填写，不会误补成在线玩家姓名。经济桥接后端只显示 `help`、`reload`、`payment`；Velocity 不处理后端的交易核对命令。
 
@@ -250,15 +250,15 @@ Tab 补全按权限、大小写不敏感的前缀及参数位置过滤：`help` 
 - `/music search <关键词>` 每页显示 10 首，歌曲旁的 `[点歌]` 执行对应歌曲 ID 的点歌指令，悬停可查看完整歌名、歌手及歌曲 ID。无点歌权限或控制台身份不会显示点歌按钮。
 - `[上一页]`、`[下一页]` 直接翻页，不可用的按钮显示为灰色；`[重新搜索]` 将搜索指令填入输入框。搜索与翻页均免费，点击点歌仍需已加入频道，并在客户端弹窗确认后才会扣款。
 - 每位玩家只保留最近一次聊天搜索的关键词和页码，10 分钟无操作后失效，离线时清理。翻页按钮绑定该次搜索，重新搜索后点击旧翻页按钮会提示失效；旧歌曲按钮始终对应当时显示的歌曲 ID。网络请求失败可重试，不改动队列。
-- Folia 与 Velocity 使用相同的消息组件；Folia 在玩家实体调度器中一次发送整组消息，网络搜索继续异步执行。客户端播放器内的搜索仍每页 20 首。
+- Paper / Folia 与 Velocity 使用相同的消息组件；服务器插件在玩家实体调度器中一次发送整组消息，网络搜索继续异步执行。客户端播放器内的搜索仍每页 20 首。
 
 ### 聊天语言与配色客制化
 
 1.6.4 起，插件的聊天文案保存在实际数据目录的 **`messages.properties`**，与 `config.properties` 放在一起；首次启动自动生成，模板见仓库根目录的 `messages.properties.example`。文件使用 **UTF-8**，每项都有中文用途和占位符说明。可以翻译成其他语言，也可保留中文并改成自己的服务器风格。
 
-- 独立 Folia 修改 `plugins/MineKUmusic/messages.properties`；旧版升级使用启动日志显示的实际数据目录。
+- 独立 Paper / Folia 修改 `plugins/MineKUmusic/messages.properties`；旧版升级使用启动日志显示的实际数据目录。
 - 群组服的帮助、搜索、队列、投票和点歌结果由 **Velocity** 发送，因此修改代理端数据目录的文件，并在代理执行 `/minekumusic reload`。
-- Folia 经济桥接后端的本地帮助、交易核对和重载提示使用自己的语言文件；需要统一外观时复制同一份配置到各后端，并分别重载。不会自动跨服覆盖文件。
+- Paper / Folia 经济桥接后端的本地帮助、交易核对和重载提示使用自己的语言文件；需要统一外观时复制同一份配置到各后端，并分别重载。不会自动跨服覆盖文件。
 - 语言文件控制插件聊天展示。客户端播放器仍使用自己的语言切换和文案；音源、经济插件提供的未知错误详情会按原文插入。按钮指令、权限、15% 投票规则和收费确认逻辑不随文字修改而改变。
 
 默认采用紫色品牌、金色重点、黄色正文、青色按钮、灰色说明、深灰禁用项、绿色成功提示和红色错误。以下为可直接修改的示例，替换已有同名项即可，不要追加重复键：
@@ -307,8 +307,8 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 2. 可热重载聊天语言、主题颜色、按钮文字、悬浮说明、频道名称、每人及全局队列上限、点歌冷却、同步间隔、收费开关、价格和币名。队列、当前歌曲、播放进度、暂停状态、订阅、投票和交易记录保留；降低队列上限不会删除已入队歌曲。
 3. 调整收费开关、价格或币名后，尚未确认的旧报价失效，玩家需重新点歌；已经确认的请求按确认时的金额和币名继续处理，未决扣款仍核对原交易。
 4. `server-id`、`economy-bridge-only`、`economy-bridge-secret` 变更必须完整重启。若它们同时被修改，热重载会拒绝整次变更，并指出需重启的配置项；不会部分应用其他修改。密钥变更前应先处理完未决交易，再协调代理和后端。
-5. 配置或语言文件格式、颜色、占位符错误时，整次重载失败并继续使用运行中的原配置和语言；修正文件后可以再次重载。连续重复执行时会提示正在处理。重载在异步线程读取文件，Folia 玩家线程不会等待磁盘操作。
-6. Folia 经济桥接后端也支持 `help`、Tab 和 `reload`，但它不拥有音乐队列，修改费用应在代理端完成。安装或更新插件 JAR、Vault 及经济插件仍需完整重启，`/minekumusic reload` 不会重新加载 JAR。
+5. 配置或语言文件格式、颜色、占位符错误时，整次重载失败并继续使用运行中的原配置和语言；修正文件后可以再次重载。连续重复执行时会提示正在处理。重载在异步线程读取文件，Paper / Folia 玩家线程不会等待磁盘操作。
+6. Paper / Folia 经济桥接后端也支持 `help`、Tab 和 `reload`，但它不拥有音乐队列，修改费用应在代理端完成。安装或更新插件 JAR、Vault 及经济插件仍需完整重启，`/minekumusic reload` 不会重新加载 JAR。
 
 ## 构建与验证
 

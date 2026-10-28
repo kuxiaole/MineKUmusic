@@ -56,7 +56,7 @@ login.configured=<success>{source}：已配置 Cookie 文件；账号是否有�
 login.missing=<muted>{source}：未配置账号，当前使用匿名模式。</muted>
 # 文件格式不正确；{source} 为音源显示名称。
 login.invalid=<error>{source}：Cookie JSON 文件无效，请检查对应音源文件或重新扫码。</error>
-# 修改后执行 /minekumusic reload；Velocity 和各 Folia 后端分别读取自身数据目录。
+# 修改后执行 /minekumusic reload；Velocity 和各 Paper / Folia 后端分别读取自身数据目录。
 # 支持 <red>文字</red>、<#A78BFA>文字</#A78BFA>、<bold>粗体</bold>、<underlined>下划线</underlined>、<newline>换行。
 # 主题色用 <brand>、<heading>、<primary>、<action>、<muted>、<disabled>、<error>、<success>，非换行标签必须闭合。
 # 不支持 & 颜色码、reset、click、hover 等标签；按钮动作由插件保持，语言配置只修改显示。
@@ -282,7 +282,7 @@ command.number=<error>参数必须是有效的数字。用法：{usage}</error>
 command.not-ready=<error>音乐服务尚未就绪，请检查插件启动日志。</error>
 
 # 代理端无法核对交易。
-command.backend=<error>交易核对请在原扣款 Folia 后端控制台执行 minekumusic payment 交易ID paid或cancel。</error>
+command.backend=<error>交易核对请在原扣款 Paper / Folia 后端控制台执行 minekumusic payment 交易ID paid或cancel。</error>
 
 # 管理员切歌通知；{song} 为被跳过歌曲。
 admin.skipped=<primary>管理员已跳过《{song}》</primary>
@@ -398,7 +398,7 @@ command.reload.description=管理员重新读取配置、语言和配色；保�
 # payment 指令参数的显示文字，不改变指令实际语法。
 command.payment.arguments=<交易ID> <paid|cancel>
 # payment 指令帮助说明。
-command.payment.description=仅在原扣款 Folia 后端核对中断交易：paid 表示已扣款，cancel 表示未扣款；务必先核对经济插件记录
+command.payment.description=仅在原扣款 Paper / Folia 后端核对中断交易：paid 表示已扣款，cancel 表示未扣款；务必先核对经济插件记录
 
 # 业务提示：有一笔点歌扣款正在核对，请稍候；无占位符。
 result.a-payment-is-still-being-checked-please-wait=<error>有一笔点歌扣款正在核对，请稍候</error>
