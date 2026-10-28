@@ -2,7 +2,7 @@
 
 本版本由 **小乐** 开发，基于 **Sorihiko / DangoMusic** 修改，提供个人音乐和自愿加入的全服音乐频道；服务端队列与 Velocity 群组服实现参考 **Coloryr / AllMusic**。项目、插件和发行文件名称为 **MineKUmusic**，客户端内显示为 **MineKU Music**。
 
-本分支交付 Minecraft **26.2 / 26.3 Fabric / NeoForge 客户端**、**Folia 26.2 / 26.3 通用插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支的交付范围。构建与自动化验证不代表已完成实际游戏联调，详见部署文档。
+本分支交付 Minecraft **26.2 / 26.3 Fabric / NeoForge 客户端**、**Folia 26.2 / 26.3 通用插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支的交付范围。
 
 源码仓库：[kuxiaole / MineKUmusic](https://github.com/kuxiaole/MineKUmusic)。问题反馈：[Issues](https://github.com/kuxiaole/MineKUmusic/issues)。
 
