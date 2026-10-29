@@ -12,6 +12,9 @@ import java.lang.reflect.Proxy
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
 
 class ServerMusicTest {
     companion object {
@@ -140,6 +143,58 @@ class ServerMusicTest {
         MusicPlayer.restoreQueue(listOf(track), 0, 0, false, false)
         welcome(); join(); assertTrue(ServerMusic.joined)
         ServerMusic.leave(); assertFalse(ServerMusic.joined); assertEquals(101, MusicPlayer.queue.single().id); assertFalse(MusicPlayer.active)
+    }
+    private fun withMusicLoaderBlocked(action: () -> Unit) {
+        val loader = MusicPlayer::class.java.getDeclaredField("loader").apply { isAccessible = true }.get(null) as ExecutorService
+        val ready = CountDownLatch(1); val release = CountDownLatch(1)
+        val blocked = loader.submit { ready.countDown(); check(release.await(30, TimeUnit.SECONDS)) }
+        try {
+            assertTrue(ready.await(5, TimeUnit.SECONDS))
+            action()
+        } finally {
+            ServerMusic.disconnected(); MusicPlayer.stop()
+            release.countDown(); blocked.get(5, TimeUnit.SECONDS)
+            loader.submit {}.get(5, TimeUnit.SECONDS)
+        }
+    }
+    private fun syntheticPersonalPlayback(state: MusicPlayer.State) {
+        val tracks = listOf(101L, 102L).map { NeteaseTrack(it, "Synthetic personal track $it", listOf("Fixture artist"), 180000, "") }
+        MusicPlayer.restoreQueue(tracks, 1, 42000, true, state != MusicPlayer.State.STOPPED)
+        // Simulate playback without network requests or a real audio device.
+        MusicPlayer::class.java.getDeclaredField("state").apply { isAccessible = true }.set(null, state)
+        MusicPlayer::class.java.getDeclaredField("seekBaseMs").apply { isAccessible = true }.setLong(null, 42000)
+    }
+    @Test fun disconnectPausesServerListenersButPreservesPersonalPlaybackState() = withMusicLoaderBlocked {
+        for (initial in listOf(MusicPlayer.State.PLAYING, MusicPlayer.State.PAUSED, MusicPlayer.State.LOADING, MusicPlayer.State.STOPPED)) {
+            for (serverChannel in listOf(false, true)) {
+                network = UUID.randomUUID().toString(); welcome(); syntheticPersonalPlayback(initial)
+                val queue = MusicPlayer.queue; val track = MusicPlayer.current; val position = MusicPlayer.positionMs
+                if (serverChannel) join()
+                ServerMusic.disconnected()
+                val expected = if (serverChannel && initial != MusicPlayer.State.STOPPED) MusicPlayer.State.PAUSED else initial
+                repeat(2) {
+                    assertFalse(ServerMusic.joined); assertFalse(ServerMusic.available); assertFalse(MusicPlayer.followMode)
+                    assertEquals(expected, MusicPlayer.state); assertEquals(queue, MusicPlayer.queue)
+                    assertEquals(track, MusicPlayer.current); assertEquals(1, MusicPlayer.index); assertEquals(position, MusicPlayer.positionMs)
+                    ServerMusic.disconnected()
+                }
+            }
+        }
+    }
+    @Test fun manualLeaveAndExplicitPlayStillResumePersonalPlayback() = withMusicLoaderBlocked {
+        for (disconnect in listOf(false, true)) {
+            network = UUID.randomUUID().toString(); welcome(); syntheticPersonalPlayback(MusicPlayer.State.PLAYING); join()
+            if (disconnect) {
+                ServerMusic.disconnected()
+                assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state); assertEquals(42000L, MusicPlayer.positionMs)
+                MusicPlayer.seek(45000)
+                assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state); assertEquals(45000L, MusicPlayer.positionMs)
+                MusicPlayer.togglePause()
+            } else ServerMusic.leave()
+            assertFalse(ServerMusic.joined); assertFalse(MusicPlayer.followMode)
+            assertEquals(MusicPlayer.State.LOADING, MusicPlayer.state); assertEquals(102L, MusicPlayer.current?.id)
+            MusicPlayer.stop()
+        }
     }
     @Test fun backendConfigurationAndRehandshakeKeepSubscription() {
         welcome(); join(); ServerMusic.configurationPhase()

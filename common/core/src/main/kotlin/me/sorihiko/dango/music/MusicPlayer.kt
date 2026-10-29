@@ -157,6 +157,13 @@ object MusicPlayer {
         stopLine()
         audio = null
         current = track
+        if (paused) {
+            // Wait for explicit play; a failed background load must not skip to a playing track.
+            pausedAtMs = position.coerceIn(0L, max(0L, track.durationMs - 1000))
+            state = State.PAUSED
+            message = ""
+            return
+        }
         state = State.LOADING
         loader.execute { load(gen, track, { position }, paused) }
     }
@@ -205,8 +212,10 @@ object MusicPlayer {
                     // 声卡输出只是停住了，接着放就行；解码线程看到状态变回 PLAYING 会继续写数据
                     state = State.PLAYING
                     l.start()
+                } else if (audio == null) {
+                    restoreQueue(queue, index, pausedAtMs, false)
                 } else {
-                    seek(pausedAtMs)
+                    syncTo(pausedAtMs, true)
                 }
             }
             else -> {}
@@ -214,10 +223,10 @@ object MusicPlayer {
     }
 
     fun seek(ms: Long) {
-        val bytes = audio ?: return
         val target = ms.coerceIn(0L, max(0L, durationMs - 500))
         // 暂停时拖动：停在新位置，仍保持暂停
         if (state == State.PAUSED) pausedAtMs = target
+        val bytes = audio ?: return
         val gen = ++generation
         stopLine()
         startDecode(gen, bytes, target)

@@ -4,7 +4,7 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-1.7.2 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.1.2 / 26.2 / 26.3。发行构建使用最低支持版本的 Folia API `26.1.2.build.8-stable` 和 Velocity API `4.3.0`。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+1.7.3 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.1.2 / 26.2 / 26.3。发行构建使用最低支持版本的 Folia API `26.1.2.build.8-stable` 和 Velocity API `4.3.0`。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
 
 | Minecraft | Fabric Loader | Fabric API | NeoForge |
 | --- | --- | --- | --- |
@@ -18,15 +18,15 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 
 ### 独立 Paper / Folia
 
-1. 将 `MineKUmusic-server-1.7.2.jar` 放入 Paper 或 Folia 26.1.2 / 26.2 / 26.3 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.3.jar` 放入 Paper 或 Folia 26.1.2 / 26.2 / 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装与游戏版本一致的 26.1.2 / 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.7.2-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.3-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
-3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.2.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
+3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.3.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
 
 不需要额外开放音乐插件端口，不依赖 Firebase、Redis 或 AllMusic。玩家没有安装 MineKU Music 也可以正常进入服务器，但无法收听频道。
@@ -35,6 +35,7 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 
 ### 从旧版升级
 
+- 1.7.3 修复全服频道退服后个人音乐自动播放，只需更新客户端；服务端协议和配置不变，1.7.2 插件可继续使用。
 - 1.7.2 新增 26.1.2 Fabric / NeoForge 全服音乐适配，服务器插件最低 API 调整为 26.1.2；26.1.2 服务器需要使用 1.7.2 插件。26.2 / 26.3 上的 1.7.0 / 1.7.1 插件与新版客户端协议兼容，账号、队列、收费记录和配置格式不变。
 - 1.7.1 同步上游 `6d902b8` 的歌词、HUD、Vulkan、字体和交互改进；服务器协议、队列与交易格式保持 1.7.0 兼容，可先更新客户端。新增翻译适用于个人音源歌词，全服歌词仍按原有协议传送。
 - 1.7.0 同步上游个人三音源功能，全服频道新增 QQ 音乐和管理员扫码登录。客户端及管理频道的 Paper / Folia / Velocity 插件一起升级；群组服后端使用本版经济桥接插件。保留 `queue.json`、`payments.json`、`server-id`、已有费用和权限配置。旧队列中没有音源标记的歌曲按网易云读取；新队列按音源和原始歌曲 ID 保存，升级后不要直接用旧插件读取 QQ 队列。
@@ -43,7 +44,7 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 - 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Paper / Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
-- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.2+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.2+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.3+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.3+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Paper / Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Paper / Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -128,7 +129,7 @@ JSON 使用 UTF-8，可带 BOM。`name`、`value` 必须为字符串；`domain`�
 - 初次默认不加入，加入选择按 `server-id` 保存在客户端 `config/dangomusic/server-music.properties`。
 - 成功点歌后，所有在线玩家（含尚未加入频道的玩家）收到点歌人、歌曲和“点击加入全服音乐”按钮。独立服插件向本服发送，Velocity 向整个群组发送一次，经济桥接后端不重复广播。搜索、报价、取消、失败及待核对的扣款不公告，重复提交与正常重启恢复不重复公告；待核对交易在确认成功并首次入队后公告。
 - 玩家点击公告或执行 `/music join` 后，客户端走正常加入流程，保存个人播放状态并跟随当前频道；加入免费，收到公告不会自动订阅。重复点击不会重新保存个人快照或解除本人暂停。需具有 `dangomusic.use` 权限且客户端支持聊天加入；缺少模组或版本过旧时提供中文提示。
-- 加入时保存个人播放队列和状态，退出或真正断线时恢复。点个人歌曲会先弹出切换确认。
+- 加入时保存个人播放队列和状态，手动退出频道时恢复。退服前在全服频道，退服后恢复个人队列和进度并暂停；退服前在个人频道，保留原来的播放状态。点个人歌曲会先弹出切换确认。
 - 全服页支持搜索点歌、队列分页和撤回自己的待播歌曲；原有搜索和歌单旁的 `+` 也可点到全服。
 - 全服页、歌单中的全服点歌按钮及 `/minekumusic request` 都先显示确认弹窗，列出本次费用和币名。确认有效期 60 秒；取消或过期不扣款。命令点歌会在离开聊天界面后打开播放器确认。
 - 暂停只暂停本人收听，恢复时跟上全服进度；下一首按钮和快捷键用于投票切歌。个人拖动、上一首、随机和循环在频道模式不可用。

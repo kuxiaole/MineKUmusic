@@ -96,7 +96,7 @@ object ServerMusic {
     }
     fun configurationPhase() { transport = null; assembler.clear() }
     fun disconnected() {
-        restorePersonal()
+        restorePersonal(pause = true)
         connected = false; available = false; desired = false; transport = null
         serverLogin = null; dismissedLogins.clear(); admin = false; sources = listOf(MusicSource.NETEASE)
         assembler.clear(); pending.clear(); current = null; queue = emptyList(); searchResults = emptyList()
@@ -289,11 +289,11 @@ object ServerMusic {
         personal = Personal(MusicPlayer.queue.toList(), MusicPlayer.index, MusicPlayer.positionMs, MusicPlayer.state == MusicPlayer.State.PAUSED, MusicPlayer.active)
         MusicPlayer.stop(); MusicPlayer.followMode = true; joined = true; locallyPaused = false
     }
-    private fun restorePersonal() {
+    private fun restorePersonal(pause: Boolean = false) {
         val saved = personal; personal = null
         if (joined) {
             MusicPlayer.stop(); MusicPlayer.followMode = false
-            if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, saved.paused, saved.active)
+            if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, pause || saved.paused, saved.active)
         }
         joined = false; locallyPaused = false; lyrics = null; playingInstance = ""; pendingPersonal = null
         pendingRequest = null; quoteRequest = ""; requestingSong = false
