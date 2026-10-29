@@ -26,11 +26,40 @@ internal object KugouLyrics {
         }
         return parse(text)
     }
+    /**
+     * KRC 的翻译在 [language:...] 里：Base64 的 JSON，content 里 type = 1 的是翻译（0 是罗马音），
+     * lyricContent 按顺序对应每一句带时间的歌词。
+     */
+    private fun translations(text: String): List<String?> {
+        val tag = text.lineSequence().map { it.trim() }.firstOrNull { it.startsWith("[language:") && it.endsWith("]") } ?: return emptyList()
+        return try {
+            val json = String(Base64.getDecoder().decode(tag.substring(10, tag.length - 1).trim()), Charsets.UTF_8)
+            val root = com.google.gson.JsonParser().parse(json).asJsonObject
+            val content = root.getAsJsonArray("content") ?: return emptyList()
+            for (el in content) {
+                val o = el.asJsonObject
+                if (o.get("type")?.asInt != 1) continue
+                val rows = o.getAsJsonArray("lyricContent") ?: continue
+                return rows.map { row ->
+                    if (!row.isJsonArray) null else row.asJsonArray.joinToString("") { if (it.isJsonPrimitive) it.asString else "" }
+                        .takeIf { LyricsProvider.isRealTranslation(it) }
+                }
+            }
+            emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun parse(text: String): List<LyricLine> {
         val linePattern = Regex("^\\[(\\d+),(\\d+)](.*)$")
         val wordPattern = Regex("<(\\d+),(\\d+),\\d+>([^<]*)")
+        val trans = translations(text)
+        var index = -1
         return text.lineSequence().mapNotNull { raw ->
             val line = linePattern.matchEntire(raw.trim()) ?: return@mapNotNull null
+            index++
+            val tr = trans.getOrNull(index)
             val start = line.groupValues[1].toLongOrNull() ?: return@mapNotNull null
             val words = wordPattern.findAll(line.groupValues[3]).mapNotNull { word ->
                 val offset = word.groupValues[1].toLongOrNull() ?: return@mapNotNull null
@@ -38,7 +67,8 @@ internal object KugouLyrics {
                 if (offset > Long.MAX_VALUE-start) null else LyricWord(start+offset,duration,word.groupValues[3])
             }.toList()
             val value = if (words.isEmpty()) line.groupValues[3] else words.joinToString("") { it.text }
-            if (value.isBlank() || LyricsProvider.isCredit(value)) null else LyricLine(start,value,words.takeIf { it.isNotEmpty() })
+            if (value.isBlank() || LyricsProvider.isCredit(value)) null
+            else LyricLine(start, value, words.takeIf { it.isNotEmpty() }, tr?.takeIf { it.trim() != value.trim() })
         }.sortedBy { it.timeMs }.toList()
     }
 }

@@ -87,8 +87,9 @@ void main() {
     vec4 g = texture2D(tex, gl_TexCoord[0].xy);
     vec3 energy = g.rgb * tint * exposure;
     vec3 c = vec3(1.0) - exp(-energy);
-    c += (rand(gl_FragCoord.xy) - 0.5) / 255.0;
-    gl_FragColor = vec4(max(c, vec3(0.0)), 1.0);
+    // 按概率进位到 1/255 的整数倍：光晕最外圈以细颗粒慢慢淡出，不会在暗处露出一条边
+    c = floor(c * 255.0 + rand(gl_FragCoord.xy)) / 255.0;
+    gl_FragColor = vec4(c, 1.0);
 }
 """
     }

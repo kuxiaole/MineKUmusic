@@ -1,5 +1,7 @@
 package me.sorihiko.dango.font
 
+import me.sorihiko.dango.DangoLogger
+
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.EXTFramebufferObject
 import org.lwjgl.opengl.GL11
@@ -14,6 +16,7 @@ import java.awt.RenderingHints
 import java.awt.font.FontRenderContext
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferByte
+import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -23,6 +26,7 @@ import kotlin.math.max
  * 中日韩文字 / 符号字体：用系统自带字体（微软雅黑 → 日文 / 韩文字体 → Segoe UI Symbol），
  * 遇到没见过的字才现场画出来，塞进 1024×1024 的贴图页里（满了开新页），之后直接复用。
  * mod 不需要打包任何字体文件。
+ * 安卓启动器（ZL2、Pojav 等）里的 Java 找不到手机的系统字体，这时直接去系统字体目录里加载中文字体文件。
  *
  * 只能在渲染线程调用。
  */
@@ -86,10 +90,54 @@ object CjkFont {
             list += displayFamilies.filter { it.lowercase() in available }.map { Font(it, Font.PLAIN, 1).deriveFont(base) }
         }
         list += families.filter { it.lowercase() in available }.map { Font(it, awtStyle, 1).deriveFont(base) }
+        if (list.none { it.canDisplay('中') }) list += fileFonts.map { it.deriveFont(awtStyle, base) }
         // Java 的逻辑字体在 Windows 上会映射到系统的中文字体，作为最后的兜底
         list += Font(Font.DIALOG, awtStyle, 1).deriveFont(base)
         fontLists[style] = list
         return list
+    }
+
+    /** 按名字认出来的中文字体文件，越靠前越好 */
+    private val fileHints = listOf(
+        "notosanscjk", "notosanssc", "notosanshans", "sourcehansans", "misans", "harmonyos_sans_sc",
+        "hyqihei", "droidsansfallback", "wqy", "cjk", "fallback",
+    )
+
+    private val fontDirs = listOf(
+        "/system/fonts", "/system/product/fonts", "/product/fonts", "/system_ext/fonts", "/data/fonts/files",
+        "/usr/share/fonts", "/usr/local/share/fonts", System.getProperty("user.home") + "/.local/share/fonts",
+        System.getProperty("user.home") + "/.fonts",
+    )
+
+    /** 找不到任何能显示中文的系统字体时，直接从字体目录加载字体文件（只找一次） */
+    private val fileFonts: List<Font> by lazy {
+        val files = ArrayList<File>()
+        fun scan(dir: File, depth: Int) {
+            val list = try { dir.listFiles() } catch (_: Exception) { null } ?: return
+            for (f in list) {
+                val n = f.name.lowercase()
+                if (f.isDirectory) {
+                    if (depth < 3) scan(f, depth + 1)
+                } else if ((n.endsWith(".ttf") || n.endsWith(".otf") || n.endsWith(".ttc")) && fileHints.any { it in n }) {
+                    files += f
+                }
+            }
+        }
+        for (d in fontDirs) scan(File(d), 0)
+        files.sortWith(compareBy<File>({ f -> fileHints.indexOfFirst { it in f.name.lowercase() } },
+            { if ("regular" in it.name.lowercase()) 0 else 1 }, { it.name }))
+        val out = ArrayList<Font>()
+        for (f in files) {
+            if (out.size >= 2) break
+            val font = try { Font.createFont(Font.TRUETYPE_FONT, f) } catch (_: Throwable) { null } ?: continue
+            if (font.canDisplay('中')) out += font
+        }
+        if (out.isEmpty()) {
+            DangoLogger.warn("Dango Music: no CJK font found on this system; Chinese / Japanese / Korean text cannot be shown")
+        } else {
+            DangoLogger.info("Dango Music: loaded CJK font from file: {}", out.joinToString { it.fontName })
+        }
+        out
     }
 
     fun glyph(c: Char, style: Int): Glyph? {

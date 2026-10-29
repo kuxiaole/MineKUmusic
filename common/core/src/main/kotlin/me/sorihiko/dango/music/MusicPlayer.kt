@@ -78,6 +78,11 @@ object MusicPlayer {
 
     private fun clearBeats() = synchronized(beats) { beats.clear() }
 
+    /** 最近检测到的鼓点：[0] 时间（歌曲内 ms），[1] 强度 0..1，从早到晚 */
+    fun beatSnapshot(): Array<FloatArray> = synchronized(beats) {
+        Array(beats.size) { val b = beats.elementAt(it); floatArrayOf(b.timeMs.toFloat(), b.strength) }
+    }
+
     val positionMs: Long
         get() = when (state) {
             State.PLAYING -> seekBaseMs + (line?.microsecondPosition ?: 0L) / 1000

@@ -180,7 +180,45 @@ internal class TracksPage(private val screen: MusicScreen) {
             ui.text(I18n.format("No songs match \"%s\"", filterText), area.x + 12f, area.y + 20f, 12f, Theme.TEXT_TERTIARY)
             return
         }
-        if (ScreenState.coverView) ui.itemAnim(0) { drawCoverflow(area, tracks, list) } else drawTrackList(area, tracks, list)
+        drawViews(area, tracks, list)
+    }
+
+    // 列表 / 封面墙切换：红色选中块用弹簧滑过去（滑动时被拉长一点），内容左右滑入滑出（和设置页的标签切换一样）
+    private val viewPill = Spring(300f, 23f, if (ScreenState.coverView) 1f else 0f)
+    private val viewFade = Spring(210f, 24f, 1f)
+    private var lastCover = ScreenState.coverView
+    private var viewFrom: Boolean? = null
+
+    private fun drawViews(area: LayoutBounds, tracks: List<NeteaseTrack>, list: List<Pair<Int, NeteaseTrack>>) {
+        val cover = ScreenState.coverView
+        if (cover != lastCover) {
+            viewFrom = lastCover
+            lastCover = cover
+            viewFade.x = 0f
+            viewFade.v = 0f
+        }
+        val t = viewFade.tick(1f)
+        val from = viewFrom
+        if (from == null || t >= 0.999f) {
+            viewFrom = null
+            if (cover) ui.itemAnim(0) { drawCoverflow(area, tracks, list) } else drawTrackList(area, tracks, list)
+            return
+        }
+        // 封面墙在右边：切到封面墙时内容往左走，切回列表时往右走
+        val dir = if (cover) 1f else -1f
+        // 两种视图各自会裁剪到 area（裁剪不能嵌套），这里不再套一层
+        val out = (1f - t * 1.6f).coerceIn(0f, 1f)
+        if (out > 0.01f) {
+            // 旧内容只是画出来，点击区域不保留
+            val keep = ui.hits.size
+            ui.shifted(-dir * 36f * t.coerceIn(0f, 1f), 0f, out) { drawView(from, area, tracks, list) }
+            while (ui.hits.size > keep) ui.hits.removeAt(ui.hits.size - 1)
+        }
+        ui.shifted(dir * 36f * (1f - t), 0f, t.coerceIn(0f, 1f)) { drawView(cover, area, tracks, list) }
+    }
+
+    private fun drawView(cover: Boolean, area: LayoutBounds, tracks: List<NeteaseTrack>, list: List<Pair<Int, NeteaseTrack>>) {
+        if (cover) drawCoverflow(area, tracks, list) else drawTrackList(area, tracks, list)
     }
 
     /** 当前打开的歌单的加载进度（[已拿到, 总数]） */
@@ -263,11 +301,16 @@ internal class TracksPage(private val screen: MusicScreen) {
         val half = LayoutBounds(seg.x, seg.y, segW / 2f, seg.height)
         val other = LayoutBounds(seg.x + segW / 2f, seg.y, segW / 2f, seg.height)
         val coverView = state.coverView
-        ctx.drawGlass(if (coverView) other else half, Theme.GLASS_SELECTION)
+        if (ui.hover(if (coverView) half else other)) ui.card(if (coverView) half else other, Theme.CARD_HOVER, 13f)
+        val pill = viewPill.tick(if (coverView) 1f else 0f)
+        val stretch = min(14f, abs(viewPill.v) * 5f)
+        val px = seg.x + pill.coerceIn(-0.06f, 1.06f) * half.width - (if (viewPill.v > 0f) stretch else 0f)
+        ctx.drawShape(LayoutBounds(px, seg.y, half.width + stretch, seg.height), ShapeStyle(RED, 13f))
+        val on = pill.coerceIn(0f, 1f)
         ui.text(I18n.text("List"), half.x + (half.width - ui.width(I18n.text("List"), 12f, Theme.FONT_MEDIUM)) / 2f, half.y + 8f, 12f,
-            if (coverView) Theme.TEXT_SECONDARY else Theme.TEXT_PRIMARY, Theme.FONT_MEDIUM)
+            mixColor(Theme.TEXT_SECONDARY, Theme.TEXT_PRIMARY, 1f - on), Theme.FONT_MEDIUM)
         ui.text(I18n.text("Covers"), other.x + (other.width - ui.width(I18n.text("Covers"), 12f, Theme.FONT_MEDIUM)) / 2f, other.y + 8f, 12f,
-            if (coverView) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY, Theme.FONT_MEDIUM)
+            mixColor(Theme.TEXT_SECONDARY, Theme.TEXT_PRIMARY, on), Theme.FONT_MEDIUM)
         ui.hits += half to { if (ScreenState.coverView) screen.toggleCoverView() }
         ui.hits += other to { if (!ScreenState.coverView) screen.toggleCoverView() }
 

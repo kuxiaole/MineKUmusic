@@ -18,6 +18,7 @@ import me.sorihiko.dango.music.NeteaseApi
 import me.sorihiko.dango.music.MusicSources
 import me.sorihiko.dango.music.MusicSource
 import me.sorihiko.dango.platform.Keys
+import me.sorihiko.dango.platform.allowedPlayerKey
 import me.sorihiko.dango.platform.PlayerAction
 import me.sorihiko.dango.platform.PlayerKeyBinding
 import me.sorihiko.dango.update.UpdateChecker
@@ -151,7 +152,7 @@ class NeteaseMusicModule : Module() {
 
     /** 播放器界面里按键时调用：是某个快捷键就执行并返回 true */
     fun handleHotkey(keyCode: Int): Boolean {
-        if (keyCode == Keys.NONE) return false
+        if (allowedPlayerKey(keyCode) == Keys.NONE) return false
         val hit = hotkeys.firstOrNull { it.first.value == keyCode } ?: return false
         hit.second()
         return true

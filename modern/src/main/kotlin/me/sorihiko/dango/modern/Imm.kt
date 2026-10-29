@@ -19,6 +19,10 @@ import java.nio.FloatBuffer
  *
  * [end] 用当前绑定的着色器画（顶点属性：0 = a_Pos，1 = a_UV）；
  * [endFixed] 用 [Fixed] 的固定管线替代品画（颜色 × 贴图，矩阵来自 [Fixed]），相当于 1.8.9 的固定管线。
+ *
+ * 合批：[endFixed] 不马上画，而是把顶点按当时的矩阵和颜色算好，攒进一批；连续的、状态没变的可以一次画掉
+ * （歌词每个字一次 → 一行字一次）。要换状态（贴图、混合、裁剪、帧缓冲、着色器……）或要用别的方式画之前，
+ * 先调 [flush] 把攒着的画掉，先后顺序和效果都和一个个画完全一样。[Gl] 的状态函数会在状态真的变了时自动 flush。
  */
 object Imm {
     const val ATTR_POS = 0
@@ -83,12 +87,108 @@ object Imm {
         upload = BufferUtils.createFloatBuffer(data.size)
     }
 
-    fun end() = draw(false)
+    fun end() {
+        flush()
+        draw(false)
+    }
 
-    fun endFixed() = draw(true)
+    /** 一共交了几次要画的东西（26.x 选 Vulkan 时据此判断这一帧有没有画东西，没画就不用读回） */
+    var draws = 0
+        private set
+
+    /** 真正调了几次 glDrawArrays（合批之后，性能测量用） */
+    var glDraws = 0
+        private set
+
+    // ---------------------------------------------------------------- 合批（只用于 endFixed）
+
+    /** 每个点：裁剪空间坐标 4 + 贴图坐标 2 + 颜色 4 */
+    private const val BATCH_STRIDE = 10
+    private var batch = FloatArray(BATCH_STRIDE * 6 * 256)
+    private var batchCount = 0
+    private var batchTextured = true
+    private var batchVao = 0
+    private var batchVbo = 0
+    private var batchUpload: FloatBuffer = BufferUtils.createFloatBuffer(batch.size)
+    private val mvp = Matrix4f()
+
+    /** 用 [Fixed] 当前的矩阵和颜色画刚交进来的点：先攒进这一批 */
+    fun endFixed() {
+        if (count == 0) return
+        draws++
+        if (batchCount > 0 && batchTextured != textured) flush()
+        batchTextured = textured
+        Fixed.matrix(mvp)
+        val c = Fixed.color
+        val r = c[0]
+        val g = c[1]
+        val b = c[2]
+        val a = c[3]
+        if ((batchCount + count) * BATCH_STRIDE > batch.size) {
+            batch = batch.copyOf(maxOf(batch.size * 2, (batchCount + count) * BATCH_STRIDE))
+            batchUpload = BufferUtils.createFloatBuffer(batch.size)
+        }
+        val m = mvp
+        val out = batch
+        var o = batchCount * BATCH_STRIDE
+        for (i in 0 until count) {
+            val x = data[i * 4]
+            val y = data[i * 4 + 1]
+            out[o] = m.m00() * x + m.m10() * y + m.m30()
+            out[o + 1] = m.m01() * x + m.m11() * y + m.m31()
+            out[o + 2] = m.m02() * x + m.m12() * y + m.m32()
+            out[o + 3] = m.m03() * x + m.m13() * y + m.m33()
+            out[o + 4] = data[i * 4 + 2]
+            out[o + 5] = data[i * 4 + 3]
+            out[o + 6] = r
+            out[o + 7] = g
+            out[o + 8] = b
+            out[o + 9] = a
+            o += BATCH_STRIDE
+        }
+        batchCount += count
+        count = 0
+    }
+
+    /** 把攒着的一批画掉（没有就什么都不做） */
+    fun flush() {
+        if (batchCount == 0) return
+        val n = batchCount
+        batchCount = 0
+        glDraws++
+        if (batchVao == 0) {
+            batchVao = GL30.glGenVertexArrays()
+            batchVbo = GL15.glGenBuffers()
+        }
+        val prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM)
+        val prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING)
+        val prevBuffer = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING)
+
+        Fixed.useBatch(batchTextured)
+        GL30.glBindVertexArray(batchVao)
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, batchVbo)
+        batchUpload.clear()
+        batchUpload.put(batch, 0, n * BATCH_STRIDE)
+        batchUpload.flip()
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, batchUpload, GL15.GL_STREAM_DRAW)
+        GL20.glEnableVertexAttribArray(0)
+        GL20.glVertexAttribPointer(0, 4, GL11.GL_FLOAT, false, BATCH_STRIDE * 4, 0L)
+        GL20.glEnableVertexAttribArray(1)
+        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, BATCH_STRIDE * 4, 16L)
+        GL20.glEnableVertexAttribArray(2)
+        GL20.glVertexAttribPointer(2, 4, GL11.GL_FLOAT, false, BATCH_STRIDE * 4, 24L)
+        McCompat.beforeDraw()
+        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, n)
+
+        GL30.glBindVertexArray(prevVao)
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, prevBuffer)
+        GL20.glUseProgram(prevProgram)
+    }
 
     private fun draw(fixed: Boolean) {
         if (count == 0) return
+        draws++
+        glDraws++
         if (vao == 0) {
             vao = GL30.glGenVertexArrays()
             vbo = GL15.glGenBuffers()
@@ -147,6 +247,9 @@ object Fixed {
     fun color(r: Float, g: Float, b: Float, a: Float) {
         color[0] = r; color[1] = g; color[2] = b; color[3] = a
     }
+
+    /** 当前的完整矩阵：投影 × 视图 × [pose]（合批时用它把点算到屏幕上） */
+    fun matrix(dest: Matrix4f): Matrix4f = dest.set(McCompat.projection()).mul(McCompat.modelView()).mul(pose)
 
     // ---------------------------------------------------------------- 着色器
 
@@ -214,6 +317,65 @@ void main() {
         locColor = GL20.glGetUniformLocation(p, "u_Color")
         locTextured = GL20.glGetUniformLocation(p, "u_Textured")
         locTexture = GL20.glGetUniformLocation(p, "u_Texture")
+    }
+
+    // 合批用：点已经算好在屏幕上、自带颜色
+    private const val BATCH_VERT = """
+#version 150
+in vec4 a_Clip;
+in vec2 a_UV;
+in vec4 a_Color;
+out vec2 uv;
+out vec4 color;
+void main() {
+    gl_Position = a_Clip;
+    uv = a_UV;
+    color = a_Color;
+}
+"""
+
+    private const val BATCH_FRAG = """
+#version 150
+uniform sampler2D u_Texture;
+uniform int u_Textured;
+in vec2 uv;
+in vec4 color;
+out vec4 fragColor;
+void main() {
+    vec4 c = color;
+    if (u_Textured != 0) c *= texture(u_Texture, uv);
+    fragColor = c;
+}
+"""
+
+    private var batchProgram = 0
+    private var batchLocTextured = 0
+    private var batchLocTexture = 0
+
+    /** 绑定合批用的着色器（贴图用当前 0 号单元上绑的那张） */
+    fun useBatch(textured: Boolean) {
+        if (batchProgram == 0) {
+            val vs = compile(GL20.GL_VERTEX_SHADER, BATCH_VERT)
+            val fs = compile(GL20.GL_FRAGMENT_SHADER, BATCH_FRAG)
+            val p = GL20.glCreateProgram()
+            GL20.glAttachShader(p, vs)
+            GL20.glAttachShader(p, fs)
+            GL20.glBindAttribLocation(p, 0, "a_Clip")
+            GL20.glBindAttribLocation(p, 1, "a_UV")
+            GL20.glBindAttribLocation(p, 2, "a_Color")
+            GL20.glLinkProgram(p)
+            GL20.glDeleteShader(vs)
+            GL20.glDeleteShader(fs)
+            if (GL20.glGetProgrami(p, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+                error("Fixed batch shader link failed: " + GL20.glGetProgramInfoLog(p, 4096))
+            }
+            batchProgram = p
+            batchLocTextured = GL20.glGetUniformLocation(p, "u_Textured")
+            batchLocTexture = GL20.glGetUniformLocation(p, "u_Texture")
+        }
+        GL20.glUseProgram(batchProgram)
+        GL20.glUniform1i(batchLocTextured, if (textured) 1 else 0)
+        GL20.glUniform1i(batchLocTexture, 0)
     }
 
     /** 绑定固定管线着色器，设好矩阵和颜色（贴图用当前 0 号单元上绑的那张） */

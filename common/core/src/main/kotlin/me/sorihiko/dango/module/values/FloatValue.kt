@@ -16,6 +16,8 @@ class FloatValue(
     }
 
     fun setValue(value: Float) {
+        // 不是数（比如拿 0 宽度的滑条算出来的）就不要，否则之后显示 / 保存都会出错
+        if (value.isNaN()) return
         this.value = round(value.coerceIn(minRange, maxRange))
     }
 

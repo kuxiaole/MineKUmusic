@@ -12,6 +12,7 @@ import me.sorihiko.dango.events.TickEvent
 import me.sorihiko.dango.module.Module
 import me.sorihiko.dango.module.ModuleManager
 import me.sorihiko.dango.module.values.BooleanValue
+import me.sorihiko.dango.module.values.ColorValue
 import me.sorihiko.dango.module.values.FloatValue
 import me.sorihiko.dango.module.values.IntValue
 import me.sorihiko.dango.module.values.ModuleValue
@@ -89,6 +90,7 @@ class ConfigManager(
             is BooleanValue -> value.set(json.asBoolean)
             is IntValue -> value.setValue(json.asInt)
             is FloatValue -> value.setValue(json.asFloat)
+            is ColorValue -> if (json.isJsonPrimitive) ColorValue.parse(json.asString)?.let { value.setValue(it) }
         }
     }
 
@@ -105,6 +107,7 @@ class ConfigManager(
                     is BooleanValue -> values.addProperty(field.name, v.get())
                     is IntValue -> values.addProperty(field.name, v.value)
                     is FloatValue -> values.addProperty(field.name, v.value)
+                    is ColorValue -> values.addProperty(field.name, v.hex())
                 }
             }
             obj.add("values", values)
@@ -147,7 +150,7 @@ class ConfigManager(
             if (fresh) {
                 for (module in modules()) {
                     try {
-                        module.enabled = true
+                        module.enabled = module.enabledByDefault
                     } catch (ex: Exception) {
                         DangoLogger.warn("Enable module failed: {}", module.name)
                     }

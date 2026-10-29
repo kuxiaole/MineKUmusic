@@ -7,6 +7,7 @@ import me.sorihiko.dango.platform.savedPlayerKeys
 import net.minecraft.client.settings.KeyBinding
 import net.minecraftforge.fml.client.registry.ClientRegistry
 
+/** saveOptions() 会把所有按键（包括其他模组的）写回 options.txt，所以只在我们的按键真的变了时才保存（issue #18） */
 object LegacyKeyBindings {
     private val mappings by lazy {
         PlayerAction.values().associateWith { KeyBinding(it.translationKey, it.defaultKey, "key.categories.dangomusic") }
@@ -29,10 +30,11 @@ object LegacyKeyBindings {
             val saved = savedPlayerKeys(mc.mcDataDir.toPath().resolve("options.txt"))
             links = bindings.map { binding ->
                 val mapping = mappings.getValue(binding.action)
+                val before = mapping.keyCode
                 KeyBindingLink(binding, { mapping.keyCode }, { mapping.keyCode = it },
                     saved[binding.action.translationKey]?.toIntOrNull())
+                    .also { if (mapping.keyCode != before) dirty = true }
             }
-            dirty = true
         }
         links!!.forEach { if (it.sync()) dirty = true }
         if (dirty) {

@@ -52,11 +52,13 @@ abstract class GlShader(
     private var previous = 0
 
     fun bind() {
+        Imm.flush()
         previous = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM)
         GL20.glUseProgram(programId)
     }
 
     fun unbind() {
+        Imm.flush()
         GL20.glUseProgram(previous)
     }
 

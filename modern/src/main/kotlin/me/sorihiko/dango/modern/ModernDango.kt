@@ -4,6 +4,7 @@ import me.sorihiko.dango.DangoClient
 import me.sorihiko.dango.DangoLogger
 import me.sorihiko.dango.DangoMusic
 import me.sorihiko.dango.events.TickEvent
+import me.sorihiko.dango.events.HudRenderEvent
 import me.sorihiko.dango.events.WorldRenderEndEvent
 
 /** Fabric / Forge 入口调用：启动和事件转发（两个加载器共用） */
@@ -51,13 +52,39 @@ object ModernDango {
         ModernWorld.basePose.identity()
             .rotateX(Math.toRadians(McCompat.cameraXRot().toDouble()).toFloat())
             .rotateY(Math.toRadians(McCompat.cameraYRot().toDouble() + 180.0).toFloat())
+        Perf.begin("world")
         McCompat.beginWorld()
         McCompat.pushIdentityModelView()
         try {
             // partialTicks 目前没有地方用到，各版本拿它的写法又不一样，就不传了
             DangoMusic.callEvent(WorldRenderEndEvent(0f))
+            // 1.21.11 / 26.x 的界面是先收集、最后统一画：HUD 先在这里画到自己的贴图上，原版画完暗角时再交出去
+            McCompat.renderHudLayer { DangoMusic.callEvent(HudRenderEvent) }
         } finally {
+            Imm.flush()
+            BorrowedGlyphTextures.endPass()
+            Gl.forget()
             McCompat.popModelView()
+            McCompat.endWorld()
+            Perf.end("world")
+        }
+    }
+
+    /**
+     * 原版画完暗角（HUD 里，快捷栏之前）：Song card、灵动岛、Now playing 在这里画 / 交给原版，不会被暗角压暗。
+     * 26.x 选 Vulkan 时，整个世界那一层（含歌词）也在这里交出去。
+     */
+    @JvmStatic
+    fun hudOverlay(graphics: Any) {
+        if (!started || !McCompat.glAvailable) return
+        Perf.begin("hud")
+        try {
+            McCompat.hudOverlay(graphics) { DangoMusic.callEvent(HudRenderEvent) }
+        } finally {
+            Imm.flush()
+            BorrowedGlyphTextures.endPass()
+            Gl.forget()
+            Perf.end("hud")
         }
     }
 
@@ -65,7 +92,13 @@ object ModernDango {
     @JvmStatic
     fun beforeGui() {
         if (!started || !McCompat.glAvailable) return
+        Perf.frame()
+        Perf.begin("screen")
         McCompat.beforeGui()
+        Imm.flush()
+        BorrowedGlyphTextures.endPass()
+        Gl.forget()
+        Perf.end("screen")
     }
 
     @JvmStatic
@@ -74,5 +107,8 @@ object ModernDango {
         if (!me.sorihiko.dango.music.MusicPlayer.active) return
         ModernGl.init()
         McCompat.mainMenuNowPlaying(graphics)
+        Imm.flush()
+        BorrowedGlyphTextures.endPass()
+        Gl.forget()
     }
 }

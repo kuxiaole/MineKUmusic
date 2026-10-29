@@ -58,5 +58,7 @@ object I18n {
         Regex("连不上 Firebase（(.*)）") to "Unable to connect to Firebase: %s",
         Regex("创建房间失败（(.*)）") to "Failed to create room: %s",
         Regex("加入失败（(.*)）") to "Failed to join room: %s",
+        Regex("设置失败（(.*)）") to "Failed to change the setting: %s",
+        Regex("操作没发出去（(.*)）") to "Couldn't send your action to the host: %s",
     )
 }

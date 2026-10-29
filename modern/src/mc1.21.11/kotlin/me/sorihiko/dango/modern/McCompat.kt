@@ -70,6 +70,23 @@ internal object GlCache {
  * 这里把这些差别补齐，让共用代码照旧直接用 OpenGL 画。
  */
 internal object McCompat {
+    /** 游戏（包括其他模组）已经加载完：加载画面已经消失 */
+    fun gameLoaded(mc: Minecraft): Boolean = mc.overlay == null
+
+    /** 是不是在自己开的、看不见的 OpenGL 环境里画（只有 26.2 选 Vulkan 时的试验会这样） */
+    val offscreenGl: Boolean get() = false
+
+    /** 世界这一轮画完（只有选 Vulkan 时有事做） */
+    fun endWorld() {}
+
+    /** 26.x 才用：HUD 先画到贴图上。这个版本在 [hudOverlay] 里当场画到贴图上再交出去 */
+    fun renderHudLayer(block: () -> Unit) {}
+
+    /** 原版画完暗角：把我们的 HUD 画到透明贴图上，作为一个界面元素交给原版（排在暗角后面，暗角压不到它） */
+    fun hudOverlay(graphics: Any, block: () -> Unit) {
+        ScreenLayer.draw(graphics as GuiGraphics, block)
+    }
+
     fun mainMenuNowPlaying(graphics: Any) {
         ScreenLayer.draw(graphics as GuiGraphics) { me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying() }
     }
@@ -213,6 +230,7 @@ internal object McCompat {
      * 这个版本的原版会记住"现在绑的是哪个"，记的和实际不一样时，它会以为不用重绑，画到错的地方去。
      */
     fun bindFramebuffer(target: Int, id: Int) {
+        Imm.flush()
         if (dummyFramebuffer == 0) dummyFramebuffer = GL30.glGenFramebuffers()
         GlStateManager._glBindFramebuffer(target, dummyFramebuffer)
         GlStateManager._glBindFramebuffer(target, id)

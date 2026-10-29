@@ -5,7 +5,7 @@ import org.lwjgl.opengl.GL33
 
 /** 游戏和字体模组拥有的贴图：临时修改后必须恢复真实原值，不能假定默认通道布局。 */
 class BorrowedGlyphTextures : AutoCloseable {
-    private val previousTexture = Gl.currentTexture()
+    private var previousTexture = Gl.currentTexture()
     private val originals = LinkedHashMap<Int, IntArray>()
 
     fun bind(texture: Int, gray: Boolean) {
@@ -22,7 +22,23 @@ class BorrowedGlyphTextures : AutoCloseable {
             intArrayOf(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_RED))
     }
 
+    companion object {
+        private var pass: BorrowedGlyphTextures? = null
+
+        /** 这一轮画图共用一个：改过的设置一直保持，等这一轮画完（[endPass]）才改回去 */
+        fun forPass(): BorrowedGlyphTextures = pass ?: BorrowedGlyphTextures().also { pass = it }
+
+        /** 一轮画完（原版自己画字之前）：把借来的贴图设置改回去，当前绑定的贴图不变 */
+        fun endPass() {
+            val p = pass ?: return
+            pass = null
+            p.previousTexture = Gl.currentTexture()
+            p.close()
+        }
+    }
+
     override fun close() {
+        Imm.flush()
         try {
             for ((texture, values) in originals) {
                 Gl.bindTexture(texture)

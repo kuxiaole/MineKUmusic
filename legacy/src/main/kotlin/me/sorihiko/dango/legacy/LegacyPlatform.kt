@@ -65,6 +65,8 @@ object LegacyPlatform : Platform {
             return mc.netHandler?.getPlayerInfo(p.uniqueID)?.responseTime ?: 0
         }
 
+    override val skyDarken: Int? get() = mc.theWorld?.skylightSubtracted
+
     override val player: PlayerPose?
         get() {
             val p = mc.thePlayer ?: return null

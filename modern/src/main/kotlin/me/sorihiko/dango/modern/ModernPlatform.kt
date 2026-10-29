@@ -76,6 +76,8 @@ object ModernPlatform : Platform {
             return mc.connection?.getPlayerInfo(p.uuid)?.latency ?: 0
         }
 
+    override val skyDarken: Int? get() = mc.level?.getSkyDarken()
+
     override val player: PlayerPose?
         get() {
             val p = mc.player ?: return null

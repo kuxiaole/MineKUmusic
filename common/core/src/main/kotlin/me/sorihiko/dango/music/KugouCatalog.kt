@@ -98,7 +98,11 @@ internal class KugouCatalog(
             val total = data.number(if (ref.kind == "rank") "total" else "count")
             consumed += list.size()
             TrackLoadProgress.report(tracks.size, total.toInt())
-            if (list.size() == 0 || (total > 0 && consumed >= total) || (total <= 0 && list.size() < 50)) return tracks.values.toList()
+            if (list.size() == 0 || (total > 0 && consumed >= total) || (total <= 0 && list.size() < 50)) {
+                // 个人歌单接口按收藏时间从早到晚返回，酷狗 App 里是最新收藏的在最前面；排行榜保持原样
+                val all = tracks.values.toList()
+                return if (ref.kind == "personal") all.reversed() else all
+            }
             if (added == 0) throw SourceAccessException("Kugou repeated a library page. Please retry.")
         }
         throw SourceAccessException("Kugou returned too many library pages. Please retry.")

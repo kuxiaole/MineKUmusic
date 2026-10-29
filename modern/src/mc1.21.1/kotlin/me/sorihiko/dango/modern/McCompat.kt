@@ -42,6 +42,24 @@ internal object GlCache {
  * 每个版本在 src/mc<版本>/ 里放一份，构建时按版本选用，对外的样子完全一样。
  */
 internal object McCompat {
+    /** 游戏（包括其他模组）已经加载完：加载画面已经消失 */
+    fun gameLoaded(mc: Minecraft): Boolean = mc.overlay == null
+
+    /** 是不是在自己开的、看不见的 OpenGL 环境里画（只有 26.2 选 Vulkan 时的试验会这样） */
+    val offscreenGl: Boolean get() = false
+
+    /** 世界这一轮画完（只有选 Vulkan 时有事做） */
+    fun endWorld() {}
+
+    /** 1.21.11 / 26.x 才用：HUD 先画到贴图上。这个版本界面是直接画的，HUD 在 [hudOverlay] 里画 */
+    fun renderHudLayer(block: () -> Unit) {}
+
+    /** 原版画完暗角：先把原版排好的界面画掉，再直接画我们的 HUD（这样暗角压不到它） */
+    fun hudOverlay(graphics: Any, block: () -> Unit) {
+        (graphics as GuiGraphics).flush()
+        block()
+    }
+
     fun mainMenuNowPlaying(graphics: Any) {
         (graphics as GuiGraphics).flush()
         me.sorihiko.dango.DangoClient.renderMainMenuNowPlaying()
@@ -123,6 +141,7 @@ internal object McCompat {
 
     /** 绑定帧缓冲（这些版本原版不记帧缓冲，直接绑） */
     fun bindFramebuffer(target: Int, id: Int) {
+        Imm.flush()
         GL30.glBindFramebuffer(target, id)
     }
 

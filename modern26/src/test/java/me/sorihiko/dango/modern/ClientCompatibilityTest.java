@@ -63,6 +63,30 @@ public class ClientCompatibilityTest {
         assertTrue("No render hooks were checked", checked > 0);
     }
 
+    @Test
+    public void hudAndDanceHooksMatchTargetGameSignatures() throws Exception {
+        Map<String, String> targets = Map.of(
+                "HudMixin", "net/minecraft/client/gui/Hud",
+                "LivingEntityRendererMixin", "net/minecraft/client/renderer/entity/LivingEntityRenderer");
+        for (var entry : targets.entrySet()) {
+            ClassNode mixin = bytecode("me/sorihiko/dango/" + loader + "/mixin/" + entry.getKey());
+            ClassNode game = bytecode(entry.getValue());
+            int checked = 0;
+            for (MethodNode method : mixin.methods) {
+                if (method.visibleAnnotations == null) continue;
+                for (AnnotationNode inject : method.visibleAnnotations) {
+                    if (!inject.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;")) continue;
+                    List<?> names = (List<?>) value(inject, "method");
+                    String descriptor = method.desc.replace("Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;", "");
+                    assertTrue("Missing injection signature for " + entry.getKey(),
+                            game.methods.stream().anyMatch(m -> names.contains(m.name) && m.desc.equals(descriptor)));
+                    checked++;
+                }
+            }
+            assertEquals("Expected one verified hook in " + entry.getKey(), 1, checked);
+        }
+    }
+
     private static Object value(AnnotationNode annotation, String name) {
         for (int i = 0; i < annotation.values.size(); i += 2)
             if (name.equals(annotation.values.get(i))) return annotation.values.get(i + 1);

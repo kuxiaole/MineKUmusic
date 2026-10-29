@@ -5,7 +5,7 @@ import me.sorihiko.dango.i18n.I18n
 import me.sorihiko.dango.DangoClient
 import me.sorihiko.dango.DangoMusic
 import me.sorihiko.dango.event.EventHandler
-import me.sorihiko.dango.events.WorldRenderEndEvent
+import me.sorihiko.dango.events.HudRenderEvent
 import me.sorihiko.dango.font.MixedText
 import me.sorihiko.dango.gfx.GuiCanvas
 import me.sorihiko.dango.gfx.Texture
@@ -192,7 +192,7 @@ class DynamicIslandModule : Module() {
     // ---------------------------------------------------------------- 渲染
 
     @EventHandler
-    fun render(e: WorldRenderEndEvent) {
+    fun render(e: HudRenderEvent) {
         if (!enabled) return
         val now = System.nanoTime()
         val dt = if (lastNanos == 0L) 0.016f else ((now - lastNanos) / 1e9f).coerceIn(0f, 0.05f)

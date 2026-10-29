@@ -197,6 +197,8 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
     }
 
     private fun setVolumeAt(x: Int) {
+        // 音量条还没画出来（宽度是 0）时算出来是 NaN
+        if (volRect.width <= 0f) return
         val v = ((x - volRect.x) / volRect.width).coerceIn(0f, 1f)
         module.setVolume(v)
         MusicPlayer.volume = v

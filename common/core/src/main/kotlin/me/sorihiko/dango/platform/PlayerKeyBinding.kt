@@ -14,6 +14,12 @@ enum class PlayerAction(val id: String, val defaultKey: Int = Keys.NONE) {
 
 class PlayerKeyBinding(val action: PlayerAction, val value: IntValue)
 
+/**
+ * 鼠标左键 / 右键不能当快捷键：绑上以后界面里每次点击都被当成快捷键吃掉，什么都点不了。
+ * 原版按键设置里绑的、旧配置里存的，都当成没绑定。
+ */
+fun allowedPlayerKey(key: Int): Int = if (key == Keys.mouse(0) || key == Keys.mouse(1)) Keys.NONE else key
+
 /** 对接实际原版按键；首次优先采用原版已保存值，没有时迁移模组已有绑定。 */
 class KeyBindingLink(
     private val setting: PlayerKeyBinding,
@@ -25,13 +31,15 @@ class KeyBindingLink(
 
     init {
         if (savedNative != null) setting.value.setValue(savedNative)
+        setting.value.setValue(allowedPlayerKey(setting.value.value))
         previous = setting.value.value
         writeNative(previous)
     }
 
     /** 有修改时返回 true，调用方批量刷新原版映射并保存。 */
     fun sync(): Boolean {
-        val configured = setting.value.value
+        val configured = allowedPlayerKey(setting.value.value)
+        if (configured != setting.value.value) setting.value.setValue(configured)
         val native = readNative()
         return when {
             configured != previous -> {
@@ -40,7 +48,7 @@ class KeyBindingLink(
                 true
             }
             native != previous -> {
-                setting.value.setValue(native)
+                setting.value.setValue(allowedPlayerKey(native))
                 previous = setting.value.value
                 if (previous != native) writeNative(previous)
                 true

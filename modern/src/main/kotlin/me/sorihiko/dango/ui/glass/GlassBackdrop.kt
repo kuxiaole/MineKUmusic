@@ -47,6 +47,13 @@ class GlassBackdrop {
         val w = window.width
         val h = window.height
         if (w <= 0 || h <= 0) return
+        me.sorihiko.dango.modern.OffscreenHints.glassUsed = true
+        me.sorihiko.dango.modern.Imm.flush()
+        me.sorihiko.dango.modern.Perf.begin("glass")
+        try { captureNow(w, h) } finally { me.sorihiko.dango.modern.Perf.end("glass") }
+    }
+
+    private fun captureNow(w: Int, h: Int) {
 
         // 高版本没有 glPushAttrib：自己记下状态，最后原样恢复（帧缓冲、视口、混合、贴图……）
         val state = GlState()

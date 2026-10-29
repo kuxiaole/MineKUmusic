@@ -8,6 +8,17 @@
 
 玩家安装、点歌、收费、投票和常见问题见 [玩家使用说明](全服音乐玩家使用说明.md)。
 
+## 1.7.1 上游同步更新
+
+同步上游 DangoMusic `6d902b84d6d4b8241d79024723cb0e9e7847c685`（2026-10-29，上游 1.7.0），增量基线为 `42397a1c8b78138175cfba4781d35cc9ff8aca94`。MineKUmusic 使用独立版本号 **1.7.1**。
+
+- 接入 26.2 / 26.3 的 Vulkan 离屏绘制、HUD 暗角修复和渲染优化。
+- 个人音乐新增歌词翻译、歌词与翻译自定义颜色、仅夜间发光，以及按节拍摇动的生物动画。
+- 同步列表 / 封面墙切换动画、按键映射修复、中日韩字体兼容和音量条修复。
+- 保留全服队列、收费确认、投票、管理员扫码登录、中文输入和 MineKU 署名。全服频道继续由 Paper / Folia / Velocity 管理。
+
+已有 1.7.0 服务器插件可继续配合 1.7.1 客户端使用。上游 Firebase 成员控制不接入全服频道；26.1.2 只保留上游源码，当前发行目标仍为 26.2 / 26.3。详细范围和验证限制见 [1.7.1 更新说明](docs/CHANGELOG-MineKUmusic-1.7.1.md)。
+
 ## 1.7.0 多音源更新
 
 同步 DangoMusic 提交 `42397a1c8b78138175cfba4781d35cc9ff8aca94` 的个人音乐改进：网易云、QQ 音乐、酷狗音源，扫码登录、歌单、推荐、逐字歌词，以及界面动画、主菜单播放器和渲染调整。保留 MineKU Music 品牌、小乐署名、中文界面和本项目的全服音乐流程。
@@ -33,16 +44,16 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.0+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.0+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.0+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.0+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.0.jar` | Paper / Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.0-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.1+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.1+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.1+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.1+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.1.jar` | Paper / Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.1-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
-1.6.10 接入 26.3 Fabric / NeoForge 的全服频道通信，保留 26.2 客户端；Folia 默认编译 API 更新为 `26.3.build.5-alpha`，同一个插件继续以 26.2 为最低 API 版本。26.3 沿用点歌收费、聊天点击加入、个人播放恢复和 Velocity 群组服功能。播放器与歌词仍需要 OpenGL，不支持 Vulkan 绘制；相关提示会跟随客户端语言设置显示。
+1.6.10 接入 26.3 Fabric / NeoForge 的全服频道通信，保留 26.2 客户端；Folia 默认编译 API 更新为 `26.3.build.5-alpha`，同一个插件继续以 26.2 为最低 API 版本。26.3 沿用点歌收费、聊天点击加入、个人播放恢复和 Velocity 群组服功能。1.6.10 当时的播放器与歌词仅支持 OpenGL；1.7.1 新增 Vulkan 离屏绘制。
 
 1.6.9 新增点歌成功后的全服聊天公告，显示点歌人、歌曲和可点击的“加入全服音乐”按钮。支持独立 Paper / Folia 与 Velocity 群组服；点击加入免费，并沿用个人播放保存与退出恢复流程。聊天按钮加入需要客户端和管理频道的插件同时更新至 1.6.9，旧客户端仍可从“全服音乐”页面手动加入。
 
@@ -62,7 +73,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
 - `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置、聊天语言和配色，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
-26.2 / 26.3 的歌词与播放器界面需要 OpenGL。全服频道仅使用音源正常授权返回的完整 MP3；服务器账号与客户端个人登录分开配置。1.7.0 分别读取 `netease-cookie.json` 和 `qq-cookie.json`，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
+26.2 / 26.3 可使用 OpenGL 或 Vulkan；Vulkan 通过离屏 OpenGL 环境绘制，需要驱动支持创建该环境，3D 歌词会覆盖手部画面。全服频道仅使用音源正常授权返回的完整 MP3；服务器账号与客户端个人登录分开配置。1.7.0 分别读取 `netease-cookie.json` 和 `qq-cookie.json`，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
 
 ## 聊天语言与配色
 

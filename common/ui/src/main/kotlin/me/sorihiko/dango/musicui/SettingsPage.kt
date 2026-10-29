@@ -9,11 +9,13 @@ import me.sorihiko.dango.module.impls.music.LyricsModule
 import me.sorihiko.dango.module.impls.music.NeteaseMusicModule
 import me.sorihiko.dango.module.impls.music.SongCardModule
 import me.sorihiko.dango.module.values.BooleanValue
+import me.sorihiko.dango.module.values.ColorValue
 import me.sorihiko.dango.module.values.FloatValue
 import me.sorihiko.dango.module.values.IntValue
 import me.sorihiko.dango.module.values.ModuleValue
 import me.sorihiko.dango.music.MusicScreen
 import me.sorihiko.dango.platform.Keys
+import me.sorihiko.dango.platform.allowedPlayerKey
 import me.sorihiko.dango.ui.LayoutBounds
 import me.sorihiko.dango.ui.ShapeStyle
 import me.sorihiko.dango.ui.Theme
@@ -31,7 +33,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
     private val ui = screen.ui
     private val about = AboutPage(screen)
 
-    private enum class Ctl { TOGGLE, SLIDER, SWATCH, KEY, LANGUAGE }
+    private enum class Ctl { TOGGLE, SLIDER, SWATCH, KEY, LANGUAGE, COLOR }
 
     /** scale：显示值 = 实际值 × scale（百分比的选项是 100），手动输入时按显示值换算回去 */
     private class Row(
@@ -75,7 +77,26 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
     private val keyButtons = mutableListOf<LayoutBounds>()
     private val keyResetButtons = mutableListOf<Hit>()
 
-    val editing: Boolean get() = editRow != null
+    val editing: Boolean get() = editRow != null || hexEditing
+
+    // ---------------------------------------------------------------- 取色器（颜色选项点开后的小面板）
+
+    /** 正在改的颜色；null = 没打开 */
+    private var picker: ColorValue? = null
+    /** 这个颜色那一行在屏幕上的位置（面板贴着它弹出来） */
+    private var pickerAnchor = LayoutBounds()
+    /** 色相 0..360、饱和度 0..1、亮度 0..1 */
+    private var pickH = 0f
+    private var pickS = 0f
+    private var pickV = 1f
+    /** 正在拖哪一条：0 没有，1 色相，2 饱和度，3 亮度 */
+    private var pickerDrag = 0
+    private val pickerBars = arrayOf(LayoutBounds(), LayoutBounds(), LayoutBounds())
+    /** 本帧取色器（和颜色那一行）占的点击区域：点到这些以外的地方就收起面板 */
+    private val pickerHits = mutableListOf<LayoutBounds>()
+    private var hexEditing = false
+    private var hexText = ""
+    private val presets = intArrayOf(0xF7E1D7, 0xFFFFFF, 0xFFB3C8, 0xFF5C8A, 0xFFD27A, 0xA8E6CF, 0x8EC5FF, 0xC5A3FF)
 
     private var copiedAt = 0L
 
@@ -103,9 +124,13 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         if (dragValue != null) {
             if (DangoClient.platform.isMouseDown(0)) applyDrag() else dragValue = null
         }
+        if (pickerDrag != 0) {
+            if (DangoClient.platform.isMouseDown(0)) dragPicker() else pickerDrag = 0
+        }
     }
 
     fun beginFrame() {
+        pickerHits.clear()
         keyButtons.clear()
         keyResetButtons.clear()
     }
@@ -158,6 +183,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
 
     /** 点到别处时：收起快捷键录制和数值输入 */
     fun onClickElsewhere(hit: Hit?) {
+        if (picker != null && (hit == null || pickerHits.none { it === hit.first })) closePicker()
         if (bindingKey != null && (hit == null || hit.first !in keyButtons)) bindingKey = null
         if (editRow != null && (hit == null || hit.first != editRect.intersect(area))) commitEdit()
     }
@@ -197,6 +223,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                     v is BooleanValue -> Ctl.TOGGLE
                     k == "glowColor" -> Ctl.SWATCH
                     k == "openKey" || (k.startsWith("key") && v is IntValue) -> Ctl.KEY
+                    v is ColorValue -> Ctl.COLOR
                     v is IntValue || v is FloatValue -> Ctl.SLIDER
                     else -> return@mapNotNull null
                 }
@@ -209,19 +236,24 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             mm.get(LyricsModule::class.java),
             deps = mapOf(
                 "distance" to "worldMode", "facePlayer" to "worldMode", "keepAway" to "worldMode", "stayOnScreen" to "worldMode", "aboveGround" to "worldMode", "spread" to "worldMode",
-                "glowColor" to "glow", "glowStrength" to "glow", "glowRadius" to "glow",
+                "glowNightOnly" to "glow", "glowColor" to "glow", "glowStrength" to "glow", "glowRadius" to "glow",
                 "wiggleFps" to "wiggle", "wiggleAmount" to "wiggle",
                 "flashSize" to "textFlash",
+                "danceAuto" to "dance", "danceTap" to "dance", "danceSpin" to "dance", "danceAmount" to "dance", "danceOffset" to "dance",
+                "translationColor" to "translation", "translationAnimation" to "translation", "translationWiggle" to "translation",
             ),
             fmts = mapOf(
                 "spread" to { v: Any -> "${(v as FloatValue).value.roundToInt()}°" },
                 "glowRadius" to ::percent,
+                "danceOffset" to { v: Any -> "${(v as IntValue).value} ms" },
             ),
         )
         val lyrics = mutableListOf(
-            Group("Placement", "In the world", ly.m, false, ly.take(listOf("worldMode", "distance", "facePlayer", "keepAway", "stayOnScreen", "aboveGround", "spread", "scale", "smoothFont", "splitLines"))),
-            Group("Glow", "Deep Glow", ly.m, false, ly.take(listOf("glow", "glowColor", "glowStrength", "glowRadius"))),
+            Group("Placement", "In the world", ly.m, false, ly.take(listOf("worldMode", "distance", "facePlayer", "keepAway", "stayOnScreen", "aboveGround", "spread", "scale", "smoothFont", "textColor", "splitLines"))),
+            Group("Translation", "Under each line", ly.m, false, ly.take(listOf("translation", "translationColor", "translationAnimation", "translationWiggle"))),
+            Group("Glow", "Deep Glow", ly.m, false, ly.take(listOf("glow", "glowNightOnly", "glowColor", "glowStrength", "glowRadius"))),
             Group("Motion", "Animation", ly.m, false, ly.take(listOf("wiggle", "wiggleFps", "wiggleAmount", "textFlash", "wordPop", "flashSize"))),
+            Group("Dance", "Mobs on the beat", ly.m, false, ly.take(listOf("dance", "danceAuto", "danceTap", "danceSpin", "danceAmount", "danceOffset"))),
         )
         // 左上角的原版风格"正在播放"和 Song card 是同一类东西，放到 Music & HUD 里
         val nowPlaying = Group("Now playing", "Classic overlay", ly.m, false, ly.take(listOf("nowPlaying", "showCover")))
@@ -301,6 +333,175 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             val ty = view.y + (view.height - th) * (pos / maxScroll)
             ui.ctx.drawShape(LayoutBounds(view.right - 4f, ty, 4f, th), ShapeStyle(Color(1f, 1f, 1f, 0.30f), 2f))
         }
+        drawPicker(view)
+    }
+
+    // ---------------------------------------------------------------- 取色器
+
+    private fun rgb(c: Int) = Color((c shr 16 and 255) / 255f, (c shr 8 and 255) / 255f, (c and 255) / 255f, 1f)
+
+    private fun hsv(h: Float, s: Float, v: Float): Int {
+        val hh = ((h % 360f) + 360f) % 360f / 60f
+        val i = hh.toInt()
+        val f = hh - i
+        val p = v * (1f - s)
+        val q = v * (1f - s * f)
+        val t = v * (1f - s * (1f - f))
+        val (r, g, b) = when (i) {
+            0 -> Triple(v, t, p)
+            1 -> Triple(q, v, p)
+            2 -> Triple(p, v, t)
+            3 -> Triple(p, q, v)
+            4 -> Triple(t, p, v)
+            else -> Triple(v, p, q)
+        }
+        return ((r * 255f).roundToInt() shl 16) or ((g * 255f).roundToInt() shl 8) or (b * 255f).roundToInt()
+    }
+
+    /** 从颜色算回色相 / 饱和度 / 亮度（灰色时保留原来的色相，拖饱和度不会跳） */
+    private fun setPick(c: Int) {
+        val r = (c shr 16 and 255) / 255f
+        val g = (c shr 8 and 255) / 255f
+        val b = (c and 255) / 255f
+        val mx = maxOf(r, g, b)
+        val mn = minOf(r, g, b)
+        val d = mx - mn
+        pickV = mx
+        pickS = if (mx <= 0f) 0f else d / mx
+        if (d > 0f) {
+            pickH = when (mx) {
+                r -> 60f * (((g - b) / d) % 6f)
+                g -> 60f * ((b - r) / d + 2f)
+                else -> 60f * ((r - g) / d + 4f)
+            }
+            if (pickH < 0f) pickH += 360f
+        }
+    }
+
+    private fun openPicker(v: ColorValue) {
+        commitEdit()
+        bindingKey = null
+        picker = v
+        hexEditing = false
+        setPick(v.value)
+    }
+
+    fun closePicker() {
+        if (hexEditing) applyHex()
+        picker = null
+        pickerDrag = 0
+        hexEditing = false
+    }
+
+    private fun applyHex() {
+        hexEditing = false
+        val v = picker ?: return
+        val c = ColorValue.parse(hexText) ?: return
+        v.setValue(c)
+        setPick(c)
+    }
+
+    private fun dragPicker() {
+        val v = picker ?: return
+        val bar = pickerBars[pickerDrag - 1]
+        if (bar.width <= 0f) return
+        val p = ((ui.mx - bar.x) / bar.width).coerceIn(0f, 1f)
+        when (pickerDrag) {
+            1 -> pickH = p * 360f
+            2 -> pickS = p
+            3 -> pickV = p
+        }
+        v.setValue(hsv(pickH, pickS, pickV))
+    }
+
+    /** 在设置列表上面画取色器：预览 + 十六进制、色相 / 饱和度 / 亮度三条、几个常用色；点击区域放在最前面，优先处理 */
+    private fun drawPicker(view: LayoutBounds) {
+        val v = picker ?: return
+        val ctx = ui.ctx
+        val w = 224f
+        val h = 178f
+        var px = pickerAnchor.right - w
+        var py = pickerAnchor.bottom + 2f
+        if (py + h > view.bottom) py = pickerAnchor.y - h - 2f
+        px = px.coerceIn(view.x, view.right - w - 8f)
+        py = py.coerceIn(view.y, max(view.y, view.bottom - h))
+        val panel = LayoutBounds(px, py, w, h)
+        ctx.drawShape(panel, ShapeStyle(Color(0.11f, 0.11f, 0.13f, 0.98f), 12f, 1f, Color(1f, 1f, 1f, 0.14f)))
+        val hits = ArrayList<Hit>()
+        val x = px + 12f
+        val iw = w - 24f
+        var y = py + 12f
+
+        // 预览 + 十六进制（点一下可以直接输入）+ 恢复默认
+        ctx.drawShape(LayoutBounds(x, y, 28f, 28f), ShapeStyle(rgb(v.value), 8f, 1f, Color(1f, 1f, 1f, 0.35f)))
+        val hexBox = LayoutBounds(x + 36f, y + 2f, 86f, 24f)
+        ui.card(hexBox, if (hexEditing) Theme.CARD_HOVER else Theme.CARD, 6f)
+        if (hexEditing) ctx.drawShape(hexBox, ShapeStyle(Color(0f, 0f, 0f, 0f), 6f, 1f, RED))
+        val hexShown = if (hexEditing) "#" + hexText + (if (caretVisible()) "|" else "") else v.hex()
+        ui.text(hexShown, hexBox.x + 8f, hexBox.y + 12f - 11f * 0.39f - 0.5f, 11f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+        hits += hexBox to {
+            if (!hexEditing) {
+                hexEditing = true
+                hexText = v.hex().removePrefix("#")
+            }
+        }
+        val reset = I18n.text("Reset")
+        val resetBox = LayoutBounds(px + w - 12f - ui.width(reset, 11f, Theme.FONT_MEDIUM) - 16f, y + 2f, ui.width(reset, 11f, Theme.FONT_MEDIUM) + 16f, 24f)
+        ui.card(resetBox, if (ui.hover(resetBox)) Theme.CARD_HOVER else Theme.CARD, 6f)
+        ui.text(reset, resetBox.x + 8f, resetBox.y + 12f - 11f * 0.39f - 0.5f, 11f, Theme.TEXT_SECONDARY, Theme.FONT_MEDIUM)
+        hits += resetBox to {
+            v.reset()
+            setPick(v.value)
+            hexEditing = false
+        }
+        y += 40f
+
+        // 三条：色相（彩虹）、饱和度（灰 → 纯色）、亮度（黑 → 颜色）；拖动或点一下
+        val segs = intArrayOf(36, 20, 20)
+        for (bi in 0..2) {
+            val bar = LayoutBounds(x, y, iw, 12f)
+            pickerBars[bi] = bar
+            val n = segs[bi]
+            val sw = bar.width / n
+            for (k in 0 until n) {
+                val t = (k + 0.5f) / n
+                val c = when (bi) {
+                    0 -> hsv(t * 360f, 1f, 1f)
+                    1 -> hsv(pickH, t, pickV.coerceAtLeast(0.15f))
+                    else -> hsv(pickH, pickS, t)
+                }
+                val radius = if (k == 0 || k == n - 1) 6f else 0f
+                ctx.drawShape(LayoutBounds(bar.x + k * sw, bar.y, sw + 0.6f, bar.height), ShapeStyle(rgb(c), radius))
+            }
+            val knob = when (bi) { 0 -> pickH / 360f; 1 -> pickS; else -> pickV }
+            val kx = bar.x + bar.width * knob.coerceIn(0f, 1f)
+            ctx.drawShape(LayoutBounds(kx - 7f, bar.y - 1f, 14f, 14f), ShapeStyle(rgb(v.value), 7f, 2f, Color(1f, 1f, 1f, 1f)))
+            hits += bar.expand(4f, 6f) to {
+                pickerDrag = bi + 1
+                hexEditing = false
+                dragPicker()
+            }
+            y += 26f
+        }
+
+        // 常用色
+        y += 4f
+        presets.forEachIndexed { i, c ->
+            val sb = LayoutBounds(x + i * (iw - 18f) / (presets.size - 1), y, 18f, 18f)
+            val sel = v.value == c
+            if (sel) ctx.drawShape(sb.expand(3f, 3f), ShapeStyle(Color(0f, 0f, 0f, 0f), 12f, 1.5f, Theme.TEXT_PRIMARY))
+            ctx.drawShape(sb, ShapeStyle(rgb(c), 9f, 1f, Color(1f, 1f, 1f, 0.25f)))
+            hits += sb.expand(3f, 3f) to {
+                v.setValue(c)
+                setPick(c)
+                hexEditing = false
+            }
+        }
+
+        // 面板本身吃掉点击（点空白处不会点到下面的选项）；点击区域插到最前面，比设置列表优先
+        hits += panel to {}
+        for (hh in hits) pickerHits += hh.first
+        ui.hits.addAll(0, hits)
     }
 
     // 两列瀑布流：每组放进当前较矮的一列
@@ -428,6 +629,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             Ctl.SWATCH -> 16f * 4 + 8f * 3
             Ctl.KEY -> 130f
             Ctl.LANGUAGE -> 142f
+            Ctl.COLOR -> 92f
         }
         val textW = b.width - ctlW - 14f
         ui.text(ui.trim(I18n.text(r.label), textW, 12f, Theme.FONT_MEDIUM), b.x, b.y + 8f, 12f, Theme.TEXT_PRIMARY, Theme.FONT_MEDIUM)
@@ -464,6 +666,19 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                 }
             }
             Ctl.KEY -> drawKeyButton(r.value as IntValue, clip, cx, cy)
+            Ctl.COLOR -> {
+                // 颜色块 + 十六进制值，点一下弹出取色器
+                val v = r.value as ColorValue
+                val open = picker === v
+                val box = LayoutBounds(cx - 4f, cy - 13f, 96f, 26f)
+                if (open || ui.hover(box)) ui.card(box, Theme.CARD_HOVER, 7f)
+                ui.ctx.drawShape(LayoutBounds(cx, cy - 9f, 18f, 18f), ShapeStyle(rgb(v.value), 6f, 1f, Color(1f, 1f, 1f, 0.35f)))
+                ui.text(v.hex(), cx + 26f, cy - 11f * 0.39f - 0.5f, 11f, if (open) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
+                if (open) pickerAnchor = b
+                val hit = box.intersect(clip)
+                pickerHits += hit
+                ui.hits += hit to { if (picker === v) closePicker() else openPicker(v) }
+            }
             Ctl.LANGUAGE -> {
                 // 红色选中块用弹簧滑到另一个语言上
                 val v = r.value as IntValue
@@ -578,6 +793,21 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
 
     /** 正在输入数值或录快捷键时的按键；返回 true 表示按键被吃掉了 */
     fun keyTyped(typedChar: Char, keyCode: Int): Boolean {
+        // 取色器里输入十六进制：Enter 确定，Esc 取消
+        if (hexEditing) {
+            when {
+                keyCode == Keys.RETURN || keyCode == Keys.NUMPADENTER -> applyHex()
+                keyCode == Keys.ESCAPE -> hexEditing = false
+                keyCode == Keys.BACK -> if (hexText.isNotEmpty()) hexText = hexText.dropLast(1)
+                DangoClient.platform.ctrlDown && keyCode == Keys.A -> hexText = ""
+                (typedChar.isDigit() || typedChar.lowercaseChar() in 'a'..'f') && hexText.length < 6 -> hexText += typedChar.uppercaseChar()
+            }
+            return true
+        }
+        if (picker != null && keyCode == Keys.ESCAPE) {
+            closePicker()
+            return true
+        }
         // 正在输入数值：Enter 确定，Esc 取消
         if (editRow != null) {
             when {
@@ -603,6 +833,8 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
 
     fun bindMouse(button: Int): Boolean {
         val value = bindingKey ?: return false
+        // 左键 / 右键不能绑（绑上以后界面点不了），照常当点击处理
+        if (allowedPlayerKey(Keys.mouse(button)) == Keys.NONE) return false
         value.setValue(Keys.mouse(button))
         bindingKey = null
         return true

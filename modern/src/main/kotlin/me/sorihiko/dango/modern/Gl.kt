@@ -22,15 +22,51 @@ object Gl {
      */
     var premultipliedTarget = false
 
+    // 合批（Imm.endFixed 攒着一批没画）：状态真的变了才先把那一批画掉。这里记的是上次设的值，-1 = 不知道
+    private var cBlend = -1
+    private val cFunc = intArrayOf(-1, -1, -1, -1)
+    private var cDepth = -1
+    private var cDepthMask = -1
+    private var cCull = -1
+    private var cScissor = -1
+    private val cScissorBox = intArrayOf(-1, -1, -1, -1)
+    private val cViewport = intArrayOf(-1, -1, -1, -1)
+    private var cColorMask = -1
+    private var cUnit = -1
+    private var cTexture = -1
+
+    /** 状态可能被别处直接改过（或一轮画完了）：忘掉记着的值 */
+    fun forget() {
+        cBlend = -1; cFunc.fill(-1); cDepth = -1; cDepthMask = -1; cCull = -1; cScissor = -1
+        cScissorBox.fill(-1); cViewport.fill(-1); cColorMask = -1; cUnit = -1; cTexture = -1
+    }
+
+    private fun set4(cache: IntArray, a: Int, b: Int, c: Int, d: Int) {
+        if (cache[0] == a && cache[1] == b && cache[2] == c && cache[3] == d) return
+        Imm.flush()
+        cache[0] = a; cache[1] = b; cache[2] = c; cache[3] = d
+    }
+
+    private fun bit(on: Boolean) = if (on) 1 else 0
+
     fun blend(on: Boolean) {
+        if (cBlend != bit(on)) { Imm.flush(); cBlend = bit(on) }
         GlCache.blend(on)
         if (on) GL11.glEnable(GL11.GL_BLEND) else GL11.glDisable(GL11.GL_BLEND)
     }
 
     fun blendFunc(srcRgb: Int, dstRgb: Int, srcAlpha: Int, dstAlpha: Int) {
-        val sa = if (premultipliedTarget && srcAlpha == GL11.GL_SRC_ALPHA) GL11.GL_ONE else srcAlpha
-        GlStateManager._blendFuncSeparate(srcRgb, dstRgb, sa, dstAlpha)
-        GL14.glBlendFuncSeparate(srcRgb, dstRgb, sa, dstAlpha)
+        var sa = if (premultipliedTarget && srcAlpha == GL11.GL_SRC_ALPHA) GL11.GL_ONE else srcAlpha
+        var da = dstAlpha
+        // 普通透明混合画到透明贴图上：透明度必须"叠加"（ONE, 1 - 源）。画在实心画面上时有的地方用"直接覆盖"（ONE, ZERO），
+        // 在透明贴图上那样会让后画的字形四边把先画的字的透明度盖掉，字被啃掉、周围出现方框
+        if (premultipliedTarget && srcRgb == GL11.GL_SRC_ALPHA && dstRgb == GL11.GL_ONE_MINUS_SRC_ALPHA) {
+            sa = GL11.GL_ONE
+            da = GL11.GL_ONE_MINUS_SRC_ALPHA
+        }
+        set4(cFunc, srcRgb, dstRgb, sa, da)
+        GlStateManager._blendFuncSeparate(srcRgb, dstRgb, sa, da)
+        GL14.glBlendFuncSeparate(srcRgb, dstRgb, sa, da)
     }
 
     fun blendFunc(src: Int, dst: Int) = blendFunc(src, dst, src, dst)
@@ -42,47 +78,57 @@ object Gl {
     }
 
     fun depthTest(on: Boolean) {
+        if (cDepth != bit(on)) { Imm.flush(); cDepth = bit(on) }
         if (on) GlStateManager._enableDepthTest() else GlStateManager._disableDepthTest()
         if (on) GL11.glEnable(GL11.GL_DEPTH_TEST) else GL11.glDisable(GL11.GL_DEPTH_TEST)
     }
 
     fun depthMask(on: Boolean) {
+        if (cDepthMask != bit(on)) { Imm.flush(); cDepthMask = bit(on) }
         GlStateManager._depthMask(on)
         GL11.glDepthMask(on)
     }
 
     fun cull(on: Boolean) {
+        if (cCull != bit(on)) { Imm.flush(); cCull = bit(on) }
         if (on) GlStateManager._enableCull() else GlStateManager._disableCull()
         if (on) GL11.glEnable(GL11.GL_CULL_FACE) else GL11.glDisable(GL11.GL_CULL_FACE)
     }
 
     fun scissor(on: Boolean) {
+        if (cScissor != bit(on)) { Imm.flush(); cScissor = bit(on) }
         if (on) GlStateManager._enableScissorTest() else GlStateManager._disableScissorTest()
         if (on) GL11.glEnable(GL11.GL_SCISSOR_TEST) else GL11.glDisable(GL11.GL_SCISSOR_TEST)
     }
 
     fun scissorBox(x: Int, y: Int, w: Int, h: Int) {
+        set4(cScissorBox, x, y, w, h)
         GlStateManager._scissorBox(x, y, w, h)
         GL11.glScissor(x, y, w, h)
     }
 
     fun viewport(x: Int, y: Int, w: Int, h: Int) {
+        set4(cViewport, x, y, w, h)
         GlStateManager._viewport(x, y, w, h)
         GL11.glViewport(x, y, w, h)
     }
 
     fun colorMask(r: Boolean, g: Boolean, b: Boolean, a: Boolean) {
+        val m = bit(r) or (bit(g) shl 1) or (bit(b) shl 2) or (bit(a) shl 3)
+        if (cColorMask != m) { Imm.flush(); cColorMask = m }
         GlCache.colorMask(r, g, b, a)
         GL11.glColorMask(r, g, b, a)
     }
 
     fun activeTexture(unit: Int) {
+        if (cUnit != unit) { Imm.flush(); cUnit = unit; cTexture = -1 }
         GlStateManager._activeTexture(unit)
         GL13.glActiveTexture(unit)
     }
 
     /** 绑定到当前贴图单元 */
     fun bindTexture(id: Int) {
+        if (cTexture != id) { Imm.flush(); cTexture = id }
         GlStateManager._bindTexture(id)
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id)
     }
@@ -95,6 +141,8 @@ object Gl {
     }
 
     fun deleteTexture(id: Int) {
+        Imm.flush()
+        if (cTexture == id) cTexture = -1
         GlStateManager._deleteTexture(id)
     }
 
@@ -130,6 +178,7 @@ object Gl {
  * 包住我们自己的一段绘制：前后原版的渲染状态完全不变。
  */
 class GlState {
+    private val flushed = run { Imm.flush(); true }
     private val program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM)
     private val vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING)
     private val arrayBuffer = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING)
@@ -158,6 +207,7 @@ class GlState {
             binding[i] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D)
         }
         GL13.glActiveTexture(activeTex)
+        Gl.forget()
         GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, scissorBox)
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport)
         val mask = org.lwjgl.BufferUtils.createByteBuffer(4)
@@ -166,6 +216,9 @@ class GlState {
     }
 
     fun restore() {
+        Imm.flush()
+        BorrowedGlyphTextures.endPass()
+        Gl.forget()
         McCompat.bindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFbo)
         McCompat.bindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFbo)
         Gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])

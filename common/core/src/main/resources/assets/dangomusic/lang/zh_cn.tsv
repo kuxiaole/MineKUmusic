@@ -299,7 +299,7 @@ Server NetEase Cookie header is too large	服务端网易云 Cookie 请求头过
 The economy bridge is unavailable; check the server configuration	经济桥接不可用，请检查服务端配置；未决扣款仍需核对
 The payment backend did not return a receipt; check its economy bridge configuration	扣款后端未返回回执，请检查后端桥接模式、插件状态和密钥；请勿重复点歌
 The payment backend has no plugin-message connection; waiting to check the transaction	原扣款后端没有可用的插件消息连接，请让玩家连接原后端以继续核对；请勿重复点歌
-Lyrics and the music screen require OpenGL. Switch the graphics API to OpenGL in Video Settings; audio playback is unaffected.	歌词和播放器界面需要 OpenGL，请在视频设置中将图形接口切换为 OpenGL；音频播放不受影响。
+The OpenGL rendering context could not be created. Try OpenGL in Video Settings; audio playback is unaffected.	无法创建 OpenGL 绘制环境，请尝试在视频设置中切换为 OpenGL；音频播放不受影响。
 NetEase	网易云
 QQ Music	QQ 音乐
 Kugou	酷狗
@@ -398,3 +398,30 @@ Expires in %s seconds	二维码将在 %s 秒后失效
 Authentication request failed	音源账号请求失败，请检查网络后重试
 Invalid authentication response	音源账号返回的数据无法识别，请稍后重试
 Source request failed	音源请求失败，请检查网络后重试
+Translation	歌词翻译
+Show the translation under each lyric line when the song has one	歌曲有翻译时，在每句歌词下面显示翻译
+Translation animation	翻译出场动画
+The translation appears character by character like the lyrics	翻译像歌词一样逐字出现
+Translation wiggle	翻译抖动
+The translation wiggles like the lyrics (uses the Wiggle speed and amount)	翻译也像歌词一样抖动（用抖动的速度和幅度）
+Lyric color	歌词颜色
+Color of the 3D lyrics	3D 歌词的文字颜色
+Translation color	翻译颜色
+Color of the translation	翻译的文字颜色
+Under each line	原文下方
+Dance	跳舞
+Mobs on the beat	生物跟着节奏
+Mob dance	生物跟着摇
+Every creature in the world squashes and stretches on the beat of the song	世界里所有生物踩着歌曲的节拍压扁再拉长
+Spin	转圈
+Creatures also spin around steadily	生物同时匀速转圈
+Dance amount	摇的幅度
+How much creatures squash and stretch	压扁拉长得多厉害
+Beat offset	踩点偏移
+Move the bounce earlier or later if it doesn't land on the beat	没踩在点上时，把弹的时刻往前或往后挪
+Auto BPM	自动测 BPM
+Work out the song's BPM from its drum beats	从歌里的鼓点自动算出 BPM
+Tap BPM	自己点 BPM
+Left-click 16 times on the beat to set the BPM yourself; counting starts with your first click (recommended, most accurate)	跟着节拍左键点 16 下自己定 BPM，点第一下才开始算（最推荐，最准）
+Night glow only	只在晚上发光
+Turn glow off in daylight and back on when it gets dark	白天关掉发光，天黑了自动打开

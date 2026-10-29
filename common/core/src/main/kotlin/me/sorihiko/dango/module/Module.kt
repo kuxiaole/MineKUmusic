@@ -20,6 +20,9 @@ abstract class Module : Listener {
             }
         }
 
+    /** 第一次启动（还没有配置文件）时要不要打开 */
+    open val enabledByDefault: Boolean get() = true
+
     open fun init() {}
     protected open fun onEnable() {}
     protected open fun onDisable() {}

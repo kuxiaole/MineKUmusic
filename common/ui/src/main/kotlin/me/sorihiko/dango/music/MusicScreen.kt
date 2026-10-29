@@ -323,7 +323,8 @@ class MusicScreen(
 
         val s = ScreenState
         // 设置页的标签切换有自己的过渡动画，不算换页（否则整页会从透明重新淡入，看起来闪一下）
-        val key = "${s.page}|${s.opened?.id}|${s.coverView}|${s.lastQuery}"
+        // 列表 / 封面墙切换有自己的过渡动画，不算换页（否则整页会从透明重新淡入，看起来闪一下）
+        val key = "${s.page}|${s.opened?.id}|${s.lastQuery}"
         if (key != pageKey) {
             pageKey = key
             ui.pageAt = System.currentTimeMillis()

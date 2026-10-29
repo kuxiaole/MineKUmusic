@@ -2,7 +2,7 @@ package me.sorihiko.dango.module.impls.music
 
 import me.sorihiko.dango.DangoClient
 import me.sorihiko.dango.event.EventHandler
-import me.sorihiko.dango.events.WorldRenderEndEvent
+import me.sorihiko.dango.events.HudRenderEvent
 import me.sorihiko.dango.font.MixedText
 import me.sorihiko.dango.gfx.GuiCanvas
 import me.sorihiko.dango.lyrics.Lyrics
@@ -32,6 +32,9 @@ import kotlin.math.sin
 @ModuleMeta(Category.MUSIC, "SongCard")
 class SongCardModule : Module() {
 
+    /** 默认用灵动岛，歌曲卡片要自己打开 */
+    override val enabledByDefault: Boolean get() = false
+
     @ModuleValue("Scale", "Card size")
     private val scale = FloatValue(0.6f, 2f, 1f, 1)
 
@@ -58,7 +61,7 @@ class SongCardModule : Module() {
     private val mt = MixedText()
 
     @EventHandler
-    fun render(e: WorldRenderEndEvent) {
+    fun render(e: HudRenderEvent) {
         if (!enabled) return
         val now = System.nanoTime()
         val dt = if (lastNanos == 0L) 16f else ((now - lastNanos) / 1e6f).coerceAtMost(50f)

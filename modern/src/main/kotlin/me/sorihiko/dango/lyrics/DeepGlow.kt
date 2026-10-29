@@ -85,7 +85,9 @@ void main() {
 }
 """
 
-        // 合成：指数色调映射（亮处趋向白色），加一点抖动避免色带
+        // 合成：指数色调映射（亮处趋向白色）。
+        // 画面只能存 0～255 的整数：直接舍入的话，光晕最外圈（不到 1/255）全变成 0，在暗的天空上能看到一条边。
+        // 所以按概率进位：0.3/255 的地方有 30% 的像素是 1/255，光晕以细颗粒慢慢淡出；完全没光的地方仍然是 0
         const val COMPOSITE = """
 #version 150
 in vec2 v_UV;
@@ -98,8 +100,9 @@ void main() {
     vec4 g = texture(tex, v_UV);
     vec3 energy = g.rgb * tint * exposure;
     vec3 c = vec3(1.0) - exp(-energy);
-    c += (rand(gl_FragCoord.xy) - 0.5) / 255.0;
-    fragColor = vec4(max(c, vec3(0.0)), 1.0);
+    c = floor(c * 255.0 + rand(gl_FragCoord.xy)) / 255.0;
+    // 透明度跟着亮度走：叠在实心画面上时（加法混合）没区别，叠在透明的离屏贴图上时（26.x 选 Vulkan）没光的地方保持透明
+    fragColor = vec4(c, max(c.r, max(c.g, c.b)));
 }
 """
     }
@@ -239,6 +242,8 @@ void main() {
 
     /** 开始往发光画布上画。返回 false 表示用不了（着色器编译失败等），这时直接跳过发光 */
     override fun begin(): Boolean {
+        me.sorihiko.dango.modern.Imm.flush()
+        me.sorihiko.dango.modern.Gl.forget()
         if (!ensurePrograms()) return false
         val window = Minecraft.getInstance().window
         val w = window.width
@@ -277,6 +282,13 @@ void main() {
      */
     override fun end(r: Float, g: Float, b: Float, exposure: Float, spread: Float) {
         if (!active) return
+        me.sorihiko.dango.modern.Perf.begin("glow")
+        try { endNow(r, g, b, exposure, spread) } finally { me.sorihiko.dango.modern.Perf.end("glow") }
+    }
+
+    private fun endNow(r: Float, g: Float, b: Float, exposure: Float, spread: Float) {
+        me.sorihiko.dango.modern.Imm.flush()
+        me.sorihiko.dango.modern.Gl.forget()
         active = false
         // 先切回原来的帧缓冲再记状态：最后恢复的应该是原来的画面，而不是发光画布
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, savedFbo)
@@ -337,6 +349,8 @@ void main() {
 
     /** 中途出错时保证切回原来的帧缓冲 */
     fun abort() {
+        me.sorihiko.dango.modern.Imm.flush()
+        me.sorihiko.dango.modern.Gl.forget()
         if (!active) return
         active = false
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, savedFbo)

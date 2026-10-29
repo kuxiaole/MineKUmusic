@@ -5,6 +5,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "GameRendererMixin",
+    "GuiMixin",
+    "LivingEntityRendererMixin",
     "ScreenMixin"
   ],
   "injectors": {

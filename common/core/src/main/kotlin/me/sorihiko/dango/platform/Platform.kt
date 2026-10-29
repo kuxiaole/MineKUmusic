@@ -65,6 +65,9 @@ interface Platform {
     /** 玩家眼睛的位置和朝向；不在世界里时是 null */
     val player: PlayerPose?
 
+    /** 天黑的程度（原版的 sky darken：0 = 白天，11 = 半夜，下雨也会变暗）；不在世界里时是 null */
+    val skyDarken: Int? get() = null
+
     // ---------------------------------------------------------------- 界面
 
     /** 打开内置播放器 */

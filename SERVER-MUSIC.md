@@ -4,28 +4,28 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia / Velocit
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-1.7.0 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.2 / 26.3。构建使用 Folia API `26.3.build.5-alpha` 和 Velocity API `4.3.0`；26.3 API 当前采用 alpha 构建。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+1.7.1 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.2 / 26.3。构建使用 Folia API `26.3.build.5-alpha` 和 Velocity API `4.3.0`；26.3 API 当前采用 alpha 构建。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
 
 | Minecraft | Fabric Loader | Fabric API | NeoForge |
 | --- | --- | --- | --- |
 | 26.2 | `0.19.5` | `0.161.0+26.2` | `26.2.0.93` |
 | 26.3 | `0.19.5` | `0.164.0+26.3` | `26.3.0.95` |
 
-四个客户端 JAR 分别对应版本和加载器，不能互换。播放器和歌词沿用 OpenGL 渲染；Vulkan 下只保留音频播放，并在聊天中提示切换图形接口。
+四个客户端 JAR 分别对应版本和加载器，不能互换。1.7.1 接入上游 Vulkan 离屏绘制；OpenGL 环境创建失败时保留音频并提示切换图形接口。Vulkan 下 3D 歌词覆盖手部画面，实际兼容性仍需按驱动实测。
 
 ## 安装
 
 ### 独立 Paper / Folia
 
-1. 将 `MineKUmusic-server-1.7.0.jar` 放入 Paper 或 Folia 26.2 / 26.3 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.1.jar` 放入 Paper 或 Folia 26.2 / 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装与游戏版本一致的 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.7.0-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.1-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
-3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.0.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
+3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.1.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
 
 不需要额外开放音乐插件端口，不依赖 Firebase、Redis 或 AllMusic。玩家没有安装 MineKU Music 也可以正常进入服务器，但无法收听频道。
@@ -34,13 +34,14 @@ Minecraft 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia / Velocit
 
 ### 从旧版升级
 
+- 1.7.1 同步上游 `6d902b8` 的歌词、HUD、Vulkan、字体和交互改进；服务器协议、队列与交易格式保持 1.7.0 兼容，可先更新客户端。新增翻译适用于个人音源歌词，全服歌词仍按原有协议传送。
 - 1.7.0 同步上游个人三音源功能，全服频道新增 QQ 音乐和管理员扫码登录。客户端及管理频道的 Paper / Folia / Velocity 插件一起升级；群组服后端使用本版经济桥接插件。保留 `queue.json`、`payments.json`、`server-id`、已有费用和权限配置。旧队列中没有音源标记的歌曲按网易云读取；新队列按音源和原始歌曲 ID 保存，升级后不要直接用旧插件读取 QQ 队列。
 - 首次升级时，仅在 `netease-cookie.json` 不存在时，将旧 `cookie.json` 复制到新文件并保留原件。之后只读取新文件，不再跟随旧文件修改；QQ 使用独立的 `qq-cookie.json`。经济桥接后端不创建或迁移音源账号文件。
 - 1.6.10 新增 26.3 Fabric / NeoForge 全服音乐接入，同时保留 26.2 客户端。升级游戏时须选择文件名含 `+26.3` 的客户端 JAR；Paper / Folia 26.2 / 26.3 共用同一服务器插件。频道协议、配置、语言、队列、交易文件和 `server-id` 均沿用，升级前备份插件数据，替换 JAR 后完整重启。群组服的收费后端继续使用经济桥接模式。
 - 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Paper / Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
-- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.0+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.0+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.1+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.1+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Paper / Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Paper / Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -329,6 +330,7 @@ Folia 旧版 API 的编译与测试可通过 `.\gradlew.bat -p ..\server :folia:
 
 ### 本次验证记录
 
+- 1.7.1 六个发行 JAR 在 Java 25 下构建成功，155 项自动化测试通过：共享核心 27 项、共享音源 3 项、服务端核心 90 项、Folia 经济适配 7 项、四个客户端目标各 7 项；无失败、错误或跳过。新增覆盖歌词翻译与逐字时间保留、按键迁移、无效音量值、颜色配置，以及真实游戏字节码中的 HUD / 生物动画 Mixin 签名。Velocity 插件完成构建与产物检查，没有独立测试用例。未进行真实游戏、Vulkan 驱动或服务器联机测试。
 - 1.7.0 六个发行 JAR 构建成功，146 项自动化测试通过：服务端核心 90 项、Folia 经济适配 7 项、客户端核心 22 项、共享音源 3 项、四个客户端目标各 6 项。新增覆盖旧 Cookie 复制迁移及新文件优先、QQ JSON 读写、经济桥接模式不创建账号文件、双音源队列和付款恢复、QQ 聊天点歌原始 MID、音源偏好、酷狗个人播放与全服隔离、扫码取消和切服状态、QQ 逐字歌词与元数据、MineKUmusic 自身更新匹配。
 - 1.7.0 另以 Folia `26.2.build.7-beta` 完成编译和 7 项经济适配测试，最终插件由 `26.3.build.5-alpha` 构建。六个 JAR 的版本、协议及共享音源类、二维码依赖、项目署名和许可证已核对，账号文件未被打入产物。扫码测试使用合成账号和模拟登录器。
 - 2026-10-29 使用成品 Velocity JAR 进行匿名接口检查，网易云和 QQ 搜索各返回 2 首结果，获取到网易云 256×256、QQ 150×150 的登录二维码。两个插件 JAR 的共享音源类都通过独立 Java 进程加载检查。
