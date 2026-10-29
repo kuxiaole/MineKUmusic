@@ -65,8 +65,9 @@ public class ClientCompatibilityTest {
 
     @Test
     public void hudAndDanceHooksMatchTargetGameSignatures() throws Exception {
+        String hud = "26.1.2".equals(System.getProperty("minekumusic.test.minecraft")) ? "Gui" : "Hud";
         Map<String, String> targets = Map.of(
-                "HudMixin", "net/minecraft/client/gui/Hud",
+                hud + "Mixin", "net/minecraft/client/gui/" + hud,
                 "LivingEntityRendererMixin", "net/minecraft/client/renderer/entity/LivingEntityRenderer");
         for (var entry : targets.entrySet()) {
             ClassNode mixin = bytecode("me/sorihiko/dango/" + loader + "/mixin/" + entry.getKey());

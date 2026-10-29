@@ -1,17 +1,16 @@
 modLoader="javafml"
 loaderVersion="[4,)"
 license="GPL-3.0"
-issueTrackerURL="https://github.com/Sorihiko/DangoMusic/issues"
 
 [[mods]]
 modId="dangomusic"
 version="${version}"
-displayName="Dango Music"
-authors="Sorihiko"
-displayURL="https://github.com/Sorihiko/DangoMusic"
+displayName="MineKU Music"
+authors="\u5c0f\u4e50 (MineKU Music), Sorihiko (DangoMusic)"
 logoFile="assets/dangomusic/icon.png"
 description='''
-A NetEase Cloud Music player inside Minecraft: liquid-glass player, 3D lyrics, song card, Dynamic Island and Listen Together.
+Personal and server music, based on DangoMusic by Sorihiko.
+Server design references AllMusic by Coloryr. Project credits are available in Settings > About.
 '''
 
 [[mixins]]

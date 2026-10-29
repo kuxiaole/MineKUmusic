@@ -1,6 +1,6 @@
 repositories { maven("https://jitpack.io") }
-// Override to verify the same source against the oldest supported Folia API.
-val foliaApiVersion = providers.gradleProperty("foliaApiVersion").orElse("26.3.build.5-alpha").get()
+// Build releases against the oldest supported API; override for newer-version compatibility checks.
+val foliaApiVersion = providers.gradleProperty("foliaApiVersion").orElse("26.1.2.build.8-stable").get()
 dependencies {
     compileOnly("dev.folia:folia-api:$foliaApiVersion")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") { isTransitive = false }

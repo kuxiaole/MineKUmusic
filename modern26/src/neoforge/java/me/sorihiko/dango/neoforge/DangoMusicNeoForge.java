@@ -18,7 +18,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
- * 26.2 / 26.3 共用 NeoForge 入口与全服音乐通信。
+ * 26.1.2 / 26.2 / 26.3 共用 NeoForge 入口与全服音乐通信。
  * 只在客户端加载（dist = CLIENT），其它代码（画图、按键、界面）和 Fabric 版共用。
  */
 @Mod(value = "dangomusic", dist = Dist.CLIENT)

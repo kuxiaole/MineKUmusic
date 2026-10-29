@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.7.1", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
+@Plugin(id = "minekumusic", name = "MineKUmusic", version = "1.7.2", authors = {"\u5c0f\u4e50 (MineKUmusic)", "Sorihiko (DangoMusic)"})
 public final class DangoMusicVelocity implements MusicServer.Endpoint {
     private final ProxyServer proxy;
     private final Logger logger;

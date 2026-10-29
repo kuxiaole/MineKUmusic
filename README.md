@@ -2,11 +2,20 @@
 
 本版本由 **小乐** 开发，基于 **Sorihiko / DangoMusic** 修改，提供个人音乐和自愿加入的全服音乐频道；服务端队列与 Velocity 群组服实现参考 **Coloryr / AllMusic**。项目、插件和发行文件名称为 **MineKUmusic**，客户端内显示为 **MineKU Music**。
 
-本分支交付 Minecraft **26.2 / 26.3 Fabric / NeoForge 客户端**、**Paper / Folia 26.2 / 26.3 通用服务器插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支的交付范围。
+本分支交付 Minecraft **26.1.2 / 26.2 / 26.3 Fabric / NeoForge 客户端**、**Paper / Folia 26.1.2 / 26.2 / 26.3 通用服务器插件**和 **Velocity 插件**，使用 Java 25。上游其他版本的源码仍保留在项目中，不属于本分支的交付范围。
 
 源码仓库：[kuxiaole / MineKUmusic](https://github.com/kuxiaole/MineKUmusic)。问题反馈：[Issues](https://github.com/kuxiaole/MineKUmusic/issues)。
 
 玩家安装、点歌、收费、投票和常见问题见 [玩家使用说明](全服音乐玩家使用说明.md)。
+
+## 1.7.2：26.1.2 全服音乐适配
+
+- 启用上游 26.1.2 Fabric / NeoForge 构建，复用 MineKU 的全服通信、费用确认、投票、扫码登录和个人播放恢复。
+- 补齐中文输入生命周期、品牌与作者信息，并按 26.1.2 的 Gui 渲染入口验证 HUD 和节拍动画。
+- Paper / Folia 插件最低版本调整为 26.1.2，发行插件使用 Folia API `26.1.2.build.8-stable` 编译；继续交付 26.2 / 26.3 客户端和 Velocity 插件。
+- 包含 1.7.1 的歌词翻译、配色、节拍动画和渲染更新；上游基线仍为 `6d902b8`。
+
+完整范围与验证结果见 [1.7.2 更新说明](docs/CHANGELOG-MineKUmusic-1.7.2.md)。
 
 ## 1.7.1 上游同步更新
 
@@ -17,7 +26,7 @@
 - 同步列表 / 封面墙切换动画、按键映射修复、中日韩字体兼容和音量条修复。
 - 保留全服队列、收费确认、投票、管理员扫码登录、中文输入和 MineKU 署名。全服频道继续由 Paper / Folia / Velocity 管理。
 
-已有 1.7.0 服务器插件可继续配合 1.7.1 客户端使用。上游 Firebase 成员控制不接入全服频道；26.1.2 只保留上游源码，当前发行目标仍为 26.2 / 26.3。详细范围和验证限制见 [1.7.1 更新说明](docs/CHANGELOG-MineKUmusic-1.7.1.md)。
+已有 1.7.0 服务器插件可继续配合 1.7.1 客户端使用。上游 Firebase 成员控制不接入全服频道；1.7.1 当时仅保留 26.1.2 上游源码，已在 1.7.2 启用对应发行目标。详细范围和验证限制见 [1.7.1 更新说明](docs/CHANGELOG-MineKUmusic-1.7.1.md)。
 
 ## 1.7.0 多音源更新
 
@@ -44,12 +53,14 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.1+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.1+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.1+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.1+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.1.jar` | Paper / Folia 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.1-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.2+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.2+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.2+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.2+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.2+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.2+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.2.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.2-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 请替换旧版客户端和对应插件 JAR，避免新旧版同时加载。部署版本、Cookie 配置、权限和升级兼容说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -73,7 +84,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - “设置 → 关于”注明“本版本由小乐开发”，首先列出本项目开源地址 `https://github.com/kuxiaole/MineKUmusic` 并提供复制按钮，再列出基础项目、参考项目、原作者、许可证与项目地址。
 - `/minekumusic` 或 `/minekumusic help` 显示彩色中文帮助，品牌标题只显示一次，每条指令提供执行或填入输入框的按钮；也可使用 `/music`、`/kum` 两个别名。Tab 按权限和输入前缀补全指令、队列页码及可操作的待播条目 ID。管理员使用 `/minekumusic reload` 热重载常用配置、聊天语言和配色，保留播放、队列和交易记录；`/minekumusic help reload` 查看重载范围。
 
-26.2 / 26.3 可使用 OpenGL 或 Vulkan；Vulkan 通过离屏 OpenGL 环境绘制，需要驱动支持创建该环境，3D 歌词会覆盖手部画面。全服频道仅使用音源正常授权返回的完整 MP3；服务器账号与客户端个人登录分开配置。1.7.0 分别读取 `netease-cookie.json` 和 `qq-cookie.json`，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
+26.1.2 使用 OpenGL；26.2 / 26.3 可使用 OpenGL 或 Vulkan；Vulkan 通过离屏 OpenGL 环境绘制，需要驱动支持创建该环境，3D 歌词会覆盖手部画面。全服频道仅使用音源正常授权返回的完整 MP3；服务器账号与客户端个人登录分开配置。1.7.0 分别读取 `netease-cookie.json` 和 `qq-cookie.json`，旧 `netease-cookie.txt` 不再读取。群组服配置在 Velocity 端；详见 [JSON 账号配置](SERVER-MUSIC.md#配置会员账号仅-json)。
 
 ## 聊天语言与配色
 
@@ -100,6 +111,7 @@ currency-name=KU币
 在 `modern26` 目录使用 Java 25：
 
 ```powershell
+.\gradlew.bat :26.1.2-fabric:build :26.1.2-neoforge:build
 .\gradlew.bat :26.2-fabric:build :26.2-neoforge:build
 .\gradlew.bat :26.3-fabric:build :26.3-neoforge:build
 .\gradlew.bat -p ..\common :sources:test :core:test
@@ -109,13 +121,14 @@ currency-name=KU币
 Linux / macOS 在同一目录使用：
 
 ```sh
+./gradlew :26.1.2-fabric:build :26.1.2-neoforge:build
 ./gradlew :26.2-fabric:build :26.2-neoforge:build
 ./gradlew :26.3-fabric:build :26.3-neoforge:build
 ./gradlew -p ../common :sources:test :core:test
 ./gradlew -p ../server build
 ```
 
-客户端输出在 `modern26/versions/26.2-*/build/libs` 和 `modern26/versions/26.3-*/build/libs`，插件输出在 `server/build/libs`。名称带 `dev` 的 JAR 是中间产物。
+客户端输出在 `modern26/versions/<游戏版本>-<加载器>/build/libs`，插件输出在 `server/build/libs`。名称带 `dev` 的 JAR 是中间产物。
 
 ## 兼容与许可证
 

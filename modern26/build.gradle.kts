@@ -109,6 +109,7 @@ subprojects {
         systemProperty("java.io.tmpdir", jitTempDir.absolutePath)
         systemProperty("file.encoding", "COMPAT")
         systemProperty("minekumusic.test.loader", loader)
+        systemProperty("minekumusic.test.minecraft", mcVersion)
         doFirst { check(jitTempDir.mkdirs() || jitTempDir.isDirectory) }
     }
 

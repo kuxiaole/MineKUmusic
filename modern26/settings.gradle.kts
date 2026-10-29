@@ -15,7 +15,7 @@ includeBuild("../common")
 // 26.x 起 Minecraft 不再混淆：Fabric 用新的 fabric-loom，NeoForge 用 ModDevGradle，
 // 这两个和 modern/ 用的 Architectury Loom 不能放在同一个构建里，所以单独一个文件夹。
 // 代码照样用 modern/src 里的（共用部分 + src/mc<版本>/）。
-val targets = listOf("26.2-fabric", "26.2-neoforge", "26.3-fabric", "26.3-neoforge")
+val targets = listOf("26.1.2-fabric", "26.1.2-neoforge", "26.2-fabric", "26.2-neoforge", "26.3-fabric", "26.3-neoforge")
 targets.forEach {
     include(it)
     project(":$it").projectDir = file("versions/$it")
