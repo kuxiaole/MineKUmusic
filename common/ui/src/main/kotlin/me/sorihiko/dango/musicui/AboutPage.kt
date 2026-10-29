@@ -13,9 +13,6 @@ internal class AboutPage(screen: MusicScreen) {
     private val ui = screen.ui
     private data class Credit(val title: String, val author: String, val description: String, val url: String = "")
     private val credits = listOf(
-        Credit("Project source", "MineKUmusic | \u5c0f\u4e50 | GPL-3.0",
-            "Source code and issue tracker for MineKUmusic. Use the button to copy the repository link.",
-            "https://github.com/kuxiaole/MineKUmusic"),
         Credit("DangoMusic", "Sorihiko | GPL-3.0",
             "Client foundation: multi-source personal music, account login, playlists, lyrics, HUD and interface. MineKU Music is a modified version of this project.",
             "https://github.com/Sorihiko/DangoMusic"),
@@ -42,8 +39,7 @@ internal class AboutPage(screen: MusicScreen) {
     fun draw(view: LayoutBounds) {
         if (view.width <= 0f || view.height <= 0f) return
         val width = max(1f, view.width - 24f)
-        val subtitle = ui.wrap2(I18n.format("This version is developed by %s.", "\u5c0f\u4e50"), width, 12f)
-        val headerHeight = 56f + subtitle.size * 18f
+        val headerHeight = 56f
         val descriptions = credits.map { ui.wrap2(I18n.text(it.description), width, 12f) }
         val heights = descriptions.mapIndexed { index, lines -> 56f + lines.size * 18f + if (credits[index].url.isEmpty()) 0f else 32f }
         val contentHeight = headerHeight + heights.sum()
@@ -53,9 +49,6 @@ internal class AboutPage(screen: MusicScreen) {
         ui.beginClip(view)
         ui.headerAnim {
             ui.text(DangoMusic.NAME, view.x, view.y + 6f - pos, 22f, Theme.TEXT_PRIMARY, Theme.FONT_DISPLAY)
-            subtitle.forEachIndexed { line, text ->
-                ui.text(text, view.x, view.y + 38f + line * 18f - pos, 12f, Theme.TEXT_SECONDARY)
-            }
         }
         var y = view.y + headerHeight - pos
         credits.forEachIndexed { index, credit ->

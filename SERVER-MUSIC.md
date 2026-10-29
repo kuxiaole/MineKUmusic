@@ -4,7 +4,7 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 
 本版本由 **小乐** 开发，基于 [Sorihiko / DangoMusic](https://github.com/Sorihiko/DangoMusic) 修改，服务端队列、点歌与代理接入参考 [Coloryr / AllMusic](https://github.com/Coloryr/AllMusic)。原有界面的 MuoniumPlayer 设计署名与第三方许可证也予以保留，详见 [CREDITS.md](CREDITS.md) 和客户端“设置 → 关于”。
 
-1.7.3 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.1.2 / 26.2 / 26.3。发行构建使用最低支持版本的 Folia API `26.1.2.build.8-stable` 和 Velocity API `4.3.0`。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
+1.7.4 服务器插件使用 Paper 提供的 Bukkit 与调度器 API；同一个服务器 JAR 可用于 Paper / Folia 26.1.2 / 26.2 / 26.3。发行构建使用最低支持版本的 Folia API `26.1.2.build.8-stable` 和 Velocity API `4.3.0`。客户端依赖如下，Fabric 还需要安装相应的 Fabric API：
 
 | Minecraft | Fabric Loader | Fabric API | NeoForge |
 | --- | --- | --- | --- |
@@ -18,15 +18,15 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 
 ### 独立 Paper / Folia
 
-1. 将 `MineKUmusic-server-1.7.3.jar` 放入 Paper 或 Folia 26.1.2 / 26.2 / 26.3 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.4.jar` 放入 Paper 或 Folia 26.1.2 / 26.2 / 26.3 的 `plugins` 目录。
 2. 全新安装首次启动后，在 `plugins/MineKUmusic/config.properties` 调整频道名称和点歌规则，使用 `/minekumusic reload` 生效。升级安装按下文说明读取旧目录。
 3. 玩家安装与游戏版本一致的 26.1.2 / 26.2 / 26.3 Fabric 或 NeoForge 客户端，在播放器左侧打开“全服音乐”，自行加入频道。
 
 ### Velocity 群组服
 
-1. 将 `MineKUmusic-server-1.7.3-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
+1. 将 `MineKUmusic-server-1.7.4-velocity.jar` 放入 Velocity 4.3.0 的 `plugins` 目录。
 2. 使用代理生成的插件数据目录中的 `config.properties` 配置全服频道。
-3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.3.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
+3. 免费模式下后端不用安装音乐插件。开启收费时，后端安装 `MineKUmusic-server-1.7.4.jar` 并设为经济桥接模式，步骤见下文。不要同时部署独立 Paper / Folia 音乐实例；队列、权限和播放时间全部由代理管理。
 4. 保持客户端到同一代理的连接即可跨后端续播。切换到另一个代理地址属于重新连接。
 
 不需要额外开放音乐插件端口，不依赖 Firebase、Redis 或 AllMusic。玩家没有安装 MineKU Music 也可以正常进入服务器，但无法收听频道。
@@ -44,7 +44,7 @@ Minecraft 26.1.2 / 26.2 / 26.3 的 Fabric / NeoForge 客户端与 Paper / Folia 
 - 1.6.9 新增点歌成功后的全服聊天公告与点击加入。请更新客户端，以及管理频道的独立 Paper / Folia / Velocity 插件后完整重启；群组服经济桥接后端无需为此功能增加配置。旧客户端仍可在全服音乐页面手动加入，点击公告会提示升级。升级会在 `messages.properties` 中补齐带中文注释的 `request.announcement`、`join.*` 和命令说明，保留已有自定义值。
 - 1.6.8 修复客户端 Java 25 的 C2 编译兼容规则加载，避免临时文件路径问题导致规则未生效却记录成功。只需替换客户端 JAR，服务端可继续使用 1.6.6 / 1.6.7；随包的 1.6.8 插件仅同步版本号。
 - 1.6.7 的改动为客户端界面翻译：修复“取消”“搜索”按钮，语言选项按当前界面语言显示，设置中的悬浮显示、三维歌词、时长单位，以及扫码登录和歌曲编号提示统一使用中文。此次修复只需替换客户端 JAR，服务端可继续使用 1.6.6；随包的 1.6.7 插件仅同步版本号。
-- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.3+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.3+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
+- 更新客户端前关闭游戏；需要更新插件时再关闭对应服务器，替换旧 JAR，不要同时保留新旧版本。客户端文件格式为 `MineKUmusic-1.7.4+<游戏版本>-<加载器>.jar`，例如 `MineKUmusic-1.7.4+26.3-fabric.jar`。1.6.0～1.6.5 客户端可继续配合 1.6.6 插件使用（新版经济桥接状态的客户端中文翻译需要 1.6.6）；从更早版本升级收费功能时需要同时更新客户端和插件，旧客户端在收费服务器会收到升级提示，不会直接扣款。
 - 两种插件显示名称均为 `MineKUmusic`。Paper / Folia 全新安装使用 `plugins/MineKUmusic`；Velocity 内部插件 ID 保持小写 `minekumusic`，全新安装使用 `plugins/minekumusic`。
 - 若新目录没有 `config.properties`，Paper / Folia 按 `plugins/minekumusic`、`plugins/DangoMusic` 的顺序查找旧配置，Velocity 则查找 `plugins/dangomusic-server`；找到后继续使用对应旧目录。Cookie、队列、频道名称和 `server-id` 会一并保留，启动日志会显示实际读取目录。Windows 上仅大小写不同的目录通常视为同一目录。
 - 若新目录已有 `config.properties`，则以新目录为准。需要迁移时，停服后完整复制旧目录内容到新目录，保留 `server-id`。
@@ -350,7 +350,7 @@ payment.paid=<success>点歌成功，已支付 {amount} {currency}。</success>
 - 1.6.1 版本通过 76 项自动化测试（服务端 62 项、客户端 14 项）；本次新增指令帮助、补全规则、重载保留播放及队列、降低上限后恢复队列、无效配置回退、需重启选项及重载期间原价交易延续的验证。此前已覆盖中文配置注释、特殊字符和原配置值保留。
 - 1.7.2 八个 JAR 的共享协议类、加载器描述文件和许可证已核对。
 - 收费测试使用隔离的合成余额与曲目，覆盖搜索免费、取消、费用确认、余额不足、重复提交、歌曲不可播放、命令点歌、离线与跨后端交易归属、重启核对、交易记录复用及人工核对。客户端测试覆盖确认、取消、过期、切服、旧版免费服务器及延迟回执。
-- 本轮改名覆盖客户端侧栏、主页、游戏按键分类、mod 列表、插件名称、聊天前缀及四种发行文件。设置中的“关于”注明“本版本由小乐开发”，列出来源、上游作者、许可证和项目地址；四种加载器或插件描述信息也包含小乐署名。四种 JAR 均附带来源说明。
+- 本轮改名覆盖客户端侧栏、主页、游戏按键分类、mod 列表、插件名称、聊天前缀及四种发行文件；四种 JAR 均附带来源说明。
 - Cookie 测试使用隔离的合成账号数据，覆盖请求携带登录信息、AllMusic JSON 导入、配置更新、登录失效、无播放权限和试听拒绝。
 - 此前的网易云真实接口抽样：搜索返回 20 条；无可用完整 MP3 的歌曲被拒绝；另一首返回完整 MP3 地址，音频 HTTP 状态为 200，类型为 `audio/mpeg`，并用 JLayer 成功连续解码 100 帧。
 - 输入法修复已核对实际 26.2 客户端的 `TextInputManager` 与界面生命周期，并通过两种加载器构建。
