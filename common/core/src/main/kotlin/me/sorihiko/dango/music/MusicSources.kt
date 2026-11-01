@@ -26,9 +26,20 @@ object MusicSources {
             NeteaseApi.ensureCookieFile()
             return NeteaseApi.userPlaylists()
         }
-        override fun recommend() = NeteaseApi.recommendPlaylists()
+        override fun recommend(): List<NeteasePlaylist> {
+            // 登录了就在最前面放"每日推荐""私人 FM"（拿不到不影响下面的推荐歌单）
+            val personal = try { NeteaseApi.personalCards() } catch (e: Exception) {
+                me.sorihiko.dango.DangoLogger.warn("NetEase daily recommend failed: {}", e.toString())
+                emptyList()
+            }
+            return personal + NeteaseApi.recommendPlaylists()
+        }
         override fun charts() = NeteaseApi.toplists()
-        override fun playlistTracks(id: Long) = NeteaseApi.playlistTracks(id)
+        override fun playlistTracks(id: Long) = when (id) {
+            NeteaseApi.DAILY_ID -> NeteaseApi.dailySongs()
+            NeteaseApi.FM_ID -> NeteaseApi.personalFm()
+            else -> NeteaseApi.playlistTracks(id)
+        }
     }
 
     fun api(source: MusicSource = selected): MusicSourceApi = when (source) {

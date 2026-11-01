@@ -1,5 +1,6 @@
 package me.sorihiko.dango.music
 
+import com.google.gson.JsonObject
 import java.net.CookieManager
 import java.nio.ByteBuffer
 import java.security.MessageDigest
@@ -21,6 +22,8 @@ class NativeAccount @JvmOverloads constructor(
     val cookies: CookieManager,
     val loginType: Int = 2,
     val avatarUrl: String = "",
+    val concept: Boolean = false,
+    val renewal: JsonObject? = null,
 )
 
 object SourceIdentity {

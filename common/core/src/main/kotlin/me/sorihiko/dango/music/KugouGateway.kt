@@ -23,6 +23,7 @@ internal object KugouGateway {
     fun request(path: String, values: Map<String, String>, body: JsonObject?, account: NativeAccount?): JsonObject {
         require(path.startsWith("/") && !path.contains('?') && !path.contains(".."))
         require(account == null || account.source == MusicSource.KUGOU)
+        if (account?.concept == true) return concept(path, values, body, account)
         val device = account?.deviceId?.takeIf { it.isNotEmpty() } ?: guestDevice
         val mid = BigInteger(md5(device),16).toString()
         val now = (System.currentTimeMillis()/1000).toString()
@@ -51,6 +52,25 @@ internal object KugouGateway {
         val root = response.json()
         val code = root.number("error_code").takeIf { it != 0L } ?: root.number("err_code")
         DangoLogger.info("Kugou catalog route={} status={} code={}",path,root.number("status"),code)
+        return checked(root, code)
+    }
+
+    /** 概念版登录的账号：私人歌单这些也要用概念版的身份去要（普通版那套网页登录它没有） */
+    private fun concept(path: String, values: Map<String, String>, body: JsonObject?, account: NativeAccount): JsonObject {
+        var route = path
+        val extra = HashMap<String, String>()
+        if (path.startsWith("/cloudlist.service/")) {
+            route = path.removePrefix("/cloudlist.service").replace("/v8/get_all_list", "/v7/get_all_list")
+            extra["x-router"] = "cloudlist.service.kugou.com"
+        }
+        val root = KugouLite.request("https://gateway.kugou.com$route", values, account, body?.toString(), "application/json", extra)
+        KugouLite.checkVerification(root)
+        val code = root.number("error_code").takeIf { it != 0L } ?: root.number("err_code")
+        DangoLogger.info("Kugou lite catalog route={} status={} code={}", path, root.number("status"), code)
+        return checked(root, code)
+    }
+
+    private fun checked(root: JsonObject, code: Long): JsonObject {
         if (root.number("status") != 1L) throw SourceAccessException(when (code) {
             30020L -> "Kugou requires additional security verification. Please try again later."
             20017L -> "Kugou login is no longer valid. Please log in again."

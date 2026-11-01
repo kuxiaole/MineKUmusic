@@ -7,6 +7,8 @@ import me.sorihiko.dango.music.CoverCache
 import me.sorihiko.dango.music.MusicPlayer
 import me.sorihiko.dango.music.ServerMusic
 import me.sorihiko.dango.music.MusicScreen
+import me.sorihiko.dango.music.MusicSource
+import me.sorihiko.dango.music.MusicSources
 import me.sorihiko.dango.music.NeteaseApi
 import me.sorihiko.dango.music.NeteaseTrack
 import me.sorihiko.dango.platform.Keys
@@ -99,7 +101,8 @@ internal class TracksPage(private val screen: MusicScreen) {
         Page.QUEUE -> I18n.text("Now Playing") to MusicPlayer.queue
         Page.PLAYLIST -> {
             val p = ScreenState.opened
-            (p?.name ?: "") to (if (p != null) Library.tracks(p.id) else null)
+            // 私人 FM 正在放时显示真正的队列（放着放着会接上新歌）
+            (p?.name ?: "") to (if (p == null) null else if (p.id == NeteaseApi.FM_ID && MusicPlayer.radio != null) MusicPlayer.queue else Library.tracks(p.id))
         }
         else -> "" to null
     }
@@ -129,8 +132,14 @@ internal class TracksPage(private val screen: MusicScreen) {
 
     /** 播放：队列始终是完整歌单（筛选只影响显示），从点的那首开始 */
     private fun playFrom(all: List<NeteaseTrack>, index: Int) {
-        ServerMusic.playPersonal(all, index)
+        if (ScreenState.page == Page.QUEUE && !ServerMusic.joined) MusicPlayer.playIndex(index)
+        else ServerMusic.playPersonal(all, index, radio())
     }
+
+    /** 私人 FM 的页面：放完接着要新的歌 */
+    private fun radio(): (() -> List<NeteaseTrack>)? =
+        if (ScreenState.page == Page.PLAYLIST && ScreenState.opened?.id == NeteaseApi.FM_ID && MusicSources.selected == MusicSource.NETEASE)
+            NeteaseApi::personalFm else null
 
     /** 跳到正在播放的那首：列表滚到它居中，封面墙转到它，并闪一下 */
     private fun locateCurrent() {
@@ -221,6 +230,10 @@ internal class TracksPage(private val screen: MusicScreen) {
         if (cover) drawCoverflow(area, tracks, list) else drawTrackList(area, tracks, list)
     }
 
+    /** 当前打开的歌单已经显示了一部分，后面还在加载 */
+    private fun partiallyLoaded(): Boolean =
+        ScreenState.page == Page.PLAYLIST && ScreenState.opened?.id?.let { Library.loadingTracks(it) } == true
+
     /** 当前打开的歌单的加载进度（[已拿到, 总数]） */
     private fun loadingProgress(): IntArray? = ScreenState.opened?.id?.let { Library.trackProgress(it) }
 
@@ -249,7 +262,7 @@ internal class TracksPage(private val screen: MusicScreen) {
         val p = state.opened
         if (state.page == Page.PLAYLIST && p != null) {
             val cv = LayoutBounds(x, y, 96f, 96f)
-            ui.drawCover(cv, CoverCache.playlist(p), 12f)
+            ui.drawCover(cv, CoverCache.playlistRounded(p, 0.1f), 12f)
             x = cv.right + 18f
             headerH = 112f
         }
@@ -266,13 +279,15 @@ internal class TracksPage(private val screen: MusicScreen) {
             state.page == Page.SEARCH && tracks.isNullOrEmpty() ->
                 if (Library.searchError.isNotEmpty()) I18n.text("Search failed: ") + I18n.message(Library.searchError) else I18n.text("No results")
             state.page == Page.QUEUE && tracks.isNullOrEmpty() -> I18n.text("Nothing in the queue yet")
-            tracks == null -> loadingProgress()?.takeIf { it[1] > 0 }?.let { I18n.format("Loaded %d of %d songs", it[0], it[1]) } ?: I18n.text("Loading...")
+            tracks == null || partiallyLoaded() -> loadingProgress()?.takeIf { it[1] > 0 }?.let { I18n.format("Loaded %d of %d songs", it[0], it[1]) } ?: I18n.text("Loading...")
             filterText.isNotEmpty() -> I18n.format("%d of %d songs", shown(tracks).size, tracks.size)
             else -> I18n.format("%d songs", tracks.size)
         }
         ui.text(sub, x, y + 34f, 11f, Theme.TEXT_SECONDARY, Theme.FONT_SEMIBOLD)
         // 歌单还在加载：知道总数就按比例走（平滑地追上去），不知道就来回滑，表示没卡住
-        if (tracks == null && state.page != Page.SEARCH && state.page != Page.QUEUE) {
+        // 已经先显示了一部分时，进度条挪到"播放全部"右边，不和按钮重叠
+        val partial = tracks != null && partiallyLoaded()
+        if ((tracks == null || partial) && state.page != Page.SEARCH && state.page != Page.QUEUE) {
             val pr = loadingProgress()
             val key = state.opened?.id ?: 0L
             if (key != loadKey) {
@@ -281,7 +296,9 @@ internal class TracksPage(private val screen: MusicScreen) {
             }
             val target = pr?.takeIf { it[1] > 0 }?.let { (it[0].toFloat() / it[1]).coerceIn(0f, 1f) }
             val shownFraction = target?.let { loadBar.tick(it) }
-            ui.progressBar(LayoutBounds(x, y + 54f, 220f, 4f), shownFraction)
+            val barX = if (partial) x + ui.width(I18n.text("Play all"), 12f, Theme.FONT_SEMIBOLD) + 44f + 14f else x
+            val barY = if (partial) y + (if (headerH > 100f) 64f else 52f) + 7f else y + 54f
+            ui.progressBar(LayoutBounds(barX, barY, 180f, 4f), shownFraction)
         }
 
         // 播放全部
@@ -291,7 +308,7 @@ internal class TracksPage(private val screen: MusicScreen) {
             ctx.drawShape(pb, ShapeStyle(if (ui.hover(pb)) RED.copy(a = 0.85f) else RED, 15f))
             ui.icon("▶", pb.x + 17f, pb.y + 15f, 11f, Theme.TEXT_PRIMARY)
             ui.text(label, pb.x + 30f, pb.y + 9f, 12f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
-            ui.hits += pb to { ServerMusic.playPersonal(tracks, if (MusicPlayer.shuffle) (tracks.indices).random() else 0) }
+            ui.hits += pb to { ServerMusic.playPersonal(tracks, if (MusicPlayer.shuffle && radio() == null) (tracks.indices).random() else 0, radio()) }
             if (headerH < 100f) headerH = 92f
         }
 
@@ -463,7 +480,7 @@ internal class TracksPage(private val screen: MusicScreen) {
                     ui.text("${i + 1}", row.x + 12f, row.y + 15f, 11f, Theme.TEXT_TERTIARY)
                 }
                 val thumb = LayoutBounds(row.x + 46f, row.y + 4f, row.height - 8f, row.height - 8f)
-                ui.drawCover(thumb, CoverCache.track(t), 6f)
+                ui.drawCover(thumb, CoverCache.trackRounded(t, 0.15f), 6f)
                 val tx = thumb.right + 12f
                 val durW = if (ServerMusic.available) 84f else 44f
                 val avail = row.right - durW - 12f - tx
@@ -527,7 +544,7 @@ internal class TracksPage(private val screen: MusicScreen) {
             val a = (1f - min(ad, 4f) * 0.2f).coerceAtLeast(0.15f) * edgeFade(item.b)
             if (a < 0.01f) continue
             ui.ctx.pushOpacity(a)
-            ui.drawCover(item.b, CoverCache.track(tracks[item.i]), 12f)
+            ui.drawCover(item.b, CoverCache.trackRounded(tracks[item.i], 0.08f), 12f)
             if (ad > 0.5f) ui.card(item.b, Color(0f, 0f, 0f, min(0.45f, ad * 0.18f)), 2f)
             ui.ctx.popOpacity()
         }

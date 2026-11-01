@@ -1,11 +1,14 @@
 package me.sorihiko.dango.modern
 
 import me.sorihiko.dango.DangoMusic
+import me.sorihiko.dango.platform.ListenerEnvironment
 import me.sorihiko.dango.platform.Platform
 import me.sorihiko.dango.platform.PlayerPose
 import me.sorihiko.dango.platform.PlayerKeyBinding
 
 import net.minecraft.client.Minecraft
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.block.SoundType
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.client.gui.screens.TitleScreen
 
@@ -78,6 +81,46 @@ object ModernPlatform : Platform {
 
     override val skyDarken: Int? get() = mc.level?.getSkyDarken()
 
+    override val environment: ListenerEnvironment?
+        get() {
+            val p = mc.player ?: return null
+            val level = mc.level ?: return null
+            val eye = BlockPos.containing(p.x, p.eyeY, p.z)
+            // 闭塞程度：往 14 个方向各看 ENCLOSURE_RANGE 格，碰到实心方块（不算空气和水）的比例
+            var hits = 0
+            for (d in RAY_DIRECTIONS) {
+                for (step in 1..ENCLOSURE_RANGE) {
+                    val state = level.getBlockState(BlockPos.containing(p.x + d[0] * step, p.eyeY + d[1] * step, p.z + d[2] * step))
+                    if (!state.isAir && state.fluidState.isEmpty) {
+                        hits++
+                        break
+                    }
+                }
+            }
+            val rain = when {
+                !level.isRainingAt(eye) -> 0f
+                level.isThundering -> 1f
+                else -> 0.5f
+            }
+            return ListenerEnvironment(p.isUnderWater, level.canSeeSky(eye), hits / RAY_DIRECTIONS.size.toFloat(), rain)
+        }
+
+    private val probe = BlockPos.MutableBlockPos()
+    private val absorptionCache = java.util.IdentityHashMap<net.minecraft.world.level.block.state.BlockState, Float>()
+
+    override fun soundAbsorption(x: Int, y: Int, z: Int): Float {
+        val level = mc.level ?: return -1f
+        probe.set(x, y, z)
+        val state = level.getBlockState(probe)
+        return absorptionCache.getOrPut(state) {
+            if (state.isAir || !state.fluidState.isEmpty || state.getCollisionShape(level, probe).isEmpty) -1f
+            else soundAbsorptionOf(state.soundType)
+        }
+    }
+
+    override fun openAudioOutput(sampleRate: Int, channels: Int): me.sorihiko.dango.music.AudioOutput? =
+        GameAudioOutput.open(sampleRate, channels)
+
     override val player: PlayerPose?
         get() {
             val p = mc.player ?: return null
@@ -87,4 +130,36 @@ object ModernPlatform : Platform {
     override fun openMusicScreen() {
         if (McCompat.glAvailable) McCompat.setScreen(ModernMusicScreen(McCompat.currentScreen())) else McCompat.notifyNoGl(again = true)
     }
+}
+
+/**
+ * 方块按脚步声的材质分几类，吸音系数参考常见建筑材料（中频）：
+ * 石头、砖约 2~3%，金属 4%，玻璃 5%，木头约 12%，泥土、草约 30%，沙砾 35%，苔藓 45%，雪 50%，羊毛约 70%
+ */
+private fun soundAbsorptionOf(sound: SoundType): Float = when (sound) {
+    SoundType.STONE, SoundType.DEEPSLATE, SoundType.TUFF, SoundType.CALCITE, SoundType.BASALT,
+    SoundType.NETHER_BRICKS, SoundType.NETHERRACK -> 0.03f
+    SoundType.METAL, SoundType.COPPER -> 0.04f
+    SoundType.GLASS -> 0.05f
+    SoundType.WOOD, SoundType.BAMBOO_WOOD, SoundType.CHERRY_WOOD, SoundType.NETHER_WOOD -> 0.12f
+    SoundType.GRASS, SoundType.ROOTED_DIRT, SoundType.MUD -> 0.3f
+    SoundType.GRAVEL, SoundType.SAND, SoundType.SOUL_SAND -> 0.35f
+    SoundType.MOSS -> 0.45f
+    SoundType.SNOW, SoundType.POWDER_SNOW -> 0.5f
+    SoundType.WOOL -> 0.7f
+    else -> 0.1f
+}
+
+/** 环境音效看周围闭塞程度时，每个方向最多看几格 */
+private const val ENCLOSURE_RANGE = 6
+
+/** 上下左右前后 + 8 个斜对角 */
+private val RAY_DIRECTIONS: List<DoubleArray> = run {
+    val d = 0.57735
+    listOf(
+        doubleArrayOf(1.0, 0.0, 0.0), doubleArrayOf(-1.0, 0.0, 0.0), doubleArrayOf(0.0, 1.0, 0.0),
+        doubleArrayOf(0.0, -1.0, 0.0), doubleArrayOf(0.0, 0.0, 1.0), doubleArrayOf(0.0, 0.0, -1.0),
+        doubleArrayOf(d, d, d), doubleArrayOf(d, d, -d), doubleArrayOf(-d, d, d), doubleArrayOf(-d, d, -d),
+        doubleArrayOf(d, -d, d), doubleArrayOf(d, -d, -d), doubleArrayOf(-d, -d, d), doubleArrayOf(-d, -d, -d),
+    )
 }

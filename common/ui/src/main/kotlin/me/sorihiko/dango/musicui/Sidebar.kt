@@ -214,7 +214,10 @@ internal class Sidebar(private val screen: MusicScreen) {
                 ui.card(row, Theme.CARD_HOVER, 9f)
             }
             val liked = i == firstOwned   // 第一个自己的歌单就是"我喜欢的音乐"
-            ui.icon(if (liked) "♥" else "≡", row.x + 18f, row.y + 14f, 12f, if (liked || active) RED else Theme.TEXT_SECONDARY)
+            // 歌单封面的小缩略图；"我喜欢的音乐"和还没加载出封面的照旧画图标
+            val thumb = if (liked || p.coverUrl.isEmpty()) null else CoverCache.playlistRounded(p, 0.25f)
+            if (thumb != null) ui.drawCover(LayoutBounds(row.x + 9f, row.y + 5f, 18f, 18f), thumb)
+            else ui.icon(if (liked) "♥" else "≡", row.x + 18f, row.y + 14f, 12f, if (liked || active) RED else Theme.TEXT_SECONDARY)
             val c = if (active) Theme.TEXT_PRIMARY else if (p.owned) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY
             ui.text(ui.trim(p.name, row.right - 8f - (row.x + 34f), 12f), row.x + 34f, row.y + 9f, 12f, c)
             ui.hits += row.intersect(listShown) to { screen.openPlaylist(p, null) }
@@ -295,7 +298,12 @@ internal class Sidebar(private val screen: MusicScreen) {
             ui.drawCover(av, if (aurl.isNotEmpty()) CoverCache.get(avatarKey, aurl) else null, 14f)
             val who = if (native) account!!.nickname.ifEmpty { I18n.text(source.label) + " · " + account.userId }
                 else NeteaseApi.nickname.ifEmpty { I18n.text("Logged in") }
-            ui.text(ui.trim(who, textW, 12f), av.right + 10f, ub.y + 14f, 12f, Theme.TEXT_PRIMARY)
+            // 酷狗概念版：名字太长时先缩名字，"· 概念版"一直留着
+            val badge = if (native && account!!.concept) " · " + I18n.text("Lite") else ""
+            val badgeW = if (badge.isEmpty()) 0f else ui.width(badge, 12f)
+            val shown = ui.trim(who, textW - badgeW, 12f)
+            ui.text(shown, av.right + 10f, ub.y + 14f, 12f, Theme.TEXT_PRIMARY)
+            if (badge.isNotEmpty()) ui.text(badge, av.right + 10f + ui.width(shown, 12f), ub.y + 14f, 12f, Theme.TEXT_SECONDARY)
         } else {
             // 没登录：只有头像 + "登录"这一块是按钮，不是整行
             val label = ui.trim(I18n.text("Log in"), textW, 12f, Theme.FONT_SEMIBOLD)

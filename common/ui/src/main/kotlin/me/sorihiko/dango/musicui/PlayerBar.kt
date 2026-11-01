@@ -7,6 +7,8 @@ import me.sorihiko.dango.music.CoverCache
 import me.sorihiko.dango.music.MusicPlayer
 import me.sorihiko.dango.music.ServerMusic
 import me.sorihiko.dango.music.MusicScreen
+import me.sorihiko.dango.music.MusicSource
+import me.sorihiko.dango.music.NeteaseApi
 import me.sorihiko.dango.ui.LayoutBounds
 import me.sorihiko.dango.ui.ShapeStyle
 import me.sorihiko.dango.ui.Theme
@@ -34,6 +36,7 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
     private val queueA = Anim()
     private val shuffleA = Anim()
     private val repeatA = Anim()
+    private val likeA = Anim()
     /** 播放 ↔ 暂停图标的过渡 */
     private val playMorph = Spring(320f, 26f)
     /** 进度条上的圆钮：鼠标移上去时渐显 */
@@ -47,7 +50,7 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         // 左：封面 + 歌名 / 歌手
         val cs = 48f
         val coverBox = LayoutBounds(bar.x + 13f, bar.y + (bar.height - cs) / 2f, cs, cs)
-        ui.drawCover(coverBox, t?.let { CoverCache.track(it) }, 8f)
+        ui.drawCover(coverBox, t?.let { CoverCache.trackRounded(it, 0.17f) }, 8f)
         val infoX = coverBox.right + 12f
         val infoW = 220f
         val title = t?.name ?: I18n.text(if (ServerMusic.joined) "Waiting for song requests" else "Not playing")
@@ -58,6 +61,16 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
             else -> t.artists.joinToString(" / ")
         }
         ui.text(ui.trim(sub, infoW, 11f), infoX, coverBox.y + 28f, 11f, Theme.TEXT_SECONDARY)
+
+        // 网易云：红心（登录了才有）
+        if (t != null && t.source == MusicSource.NETEASE && NeteaseApi.loggedIn) {
+            Library.ensureLiked()
+            val likeB = LayoutBounds(infoX + infoW + 8f, coverBox.y + cs / 2f - 14f, 28f, 28f)
+            val k = button(likeB, likeA)
+            val on = likeA.on.tick(if (NeteaseApi.isLiked(t.id)) 1f else 0f).coerceIn(0f, 1f)
+            ui.icon("♥", likeB.x + 14f, likeB.y + 14f, 15f * k, mixColor(Theme.TEXT_SECONDARY, RED, on))
+            ui.hits += likeB to { likeA.press.v -= 7f; Library.toggleLike(t) }
+        }
 
         // 中：上一首 / 播放 / 下一首 / 队列。点击区域固定，动画只改画出来的样子
         val cx = bar.x + bar.width / 2f

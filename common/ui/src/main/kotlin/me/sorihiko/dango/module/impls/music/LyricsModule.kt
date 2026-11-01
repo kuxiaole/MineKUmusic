@@ -15,6 +15,8 @@ import me.sorihiko.dango.module.Category
 import me.sorihiko.dango.module.Module
 import me.sorihiko.dango.module.ModuleMeta
 import me.sorihiko.dango.module.values.BooleanValue
+import me.sorihiko.dango.module.values.TextValue
+import me.sorihiko.dango.music.LyricFonts
 import me.sorihiko.dango.module.values.ColorValue
 import me.sorihiko.dango.module.values.FloatValue
 import me.sorihiko.dango.module.values.IntValue
@@ -68,10 +70,10 @@ class LyricsModule : Module() {
     /** 快捷键"开关歌词"用 */
     fun toggleLyrics() = worldMode.toggle()
 
-    @ModuleValue("Now playing", "Show the current song in the top left")
+    @ModuleValue("Top-left song info", "Show the current song in the top left")
     private val nowPlaying = BooleanValue(false)
 
-    @ModuleValue("Cover", "Show the album cover in the top left")
+    @ModuleValue("Show cover", "Show the album cover in the top left")
     private val showCover = BooleanValue(true)
 
     @ModuleValue("Scale", "Lyrics size")
@@ -86,17 +88,18 @@ class LyricsModule : Module() {
     @ModuleValue("Night glow only", "Turn glow off in daylight and back on when it gets dark")
     private val glowNightOnly = BooleanValue(false)
 
-    @ModuleValue("Glow color", "Glow tint: text color, pink, blue or gold")
-    private val glowColor = IntValue(0, 3, 0)
-
     @ModuleValue("Glow strength", "Glow brightness")
     private val glowStrength = FloatValue(0f, 3f, 0.3f, 2)
 
     @ModuleValue("Glow radius", "Halo spread: higher is wider and softer")
     private val glowRadius = FloatValue(0f, 1f, 0.5f, 2)
 
+    /** 平滑字体还是原版像素字体：设置页里和"歌词字体"合成一项，不单独显示 */
     @ModuleValue("Smooth font", "Smooth font instead of the Minecraft pixel font")
     private val smoothFont = BooleanValue(false)
+
+    @ModuleValue("Lyric font", "Pixel font, smooth font, or a .ttf / .otf font from config/dangomusic/fonts")
+    private val lyricFont = TextValue("")
 
     @ModuleValue("Wiggle", "Low-fps jitter on every letter, like hand-drawn animation")
     private val wiggle = BooleanValue(true)
@@ -155,16 +158,22 @@ class LyricsModule : Module() {
     @ModuleValue("Spin", "Creatures also spin around steadily")
     private val danceSpin = BooleanValue(false)
 
-    @ModuleValue("Dance amount", "How much creatures squash and stretch")
+    @ModuleValue("Bounce amount", "How much creatures squash and stretch")
     private val danceAmount = FloatValue(0.2f, 2f, 1.3f, 1)
 
     @ModuleValue("Beat offset", "Move the bounce earlier or later if it doesn't land on the beat")
     private val danceOffset = IntValue(-300, 300, 0)
 
-    @ModuleValue("Lyric color", "Color of the 3D lyrics")
+    @ModuleValue("Lyric colors", "Where the lyric and translation colors come from")
+    private val lyricColors = IntValue(COLORS_CUSTOM, COLORS_RAINBOW, COLORS_CUSTOM)
+
+    @ModuleValue("Rainbow speed", "How fast the rainbow flows across the lyrics")
+    private val rainbowSpeed = FloatValue(0.05f, 1f, 0.25f, 2)
+
+    @ModuleValue("Custom lyric color", "Used when Lyric colors is set to Custom color")
     private val textColor = ColorValue(0xF7E1D7)
 
-    @ModuleValue("Translation color", "Color of the translation")
+    @ModuleValue("Custom translation color", "Used when Lyric colors is set to Custom color")
     private val translationColor = ColorValue(0x803D66)
 
     // ---------------------------------------------------------------- 状态
@@ -320,10 +329,13 @@ class LyricsModule : Module() {
         val platform = DangoClient.platform
         Dance.tapTick(platform.inGame && platform.isMouseDown(0), platform.inGame)
         if (!enabled) return
+        rainbowPhase = ((System.nanoTime() / 1_000_000_000.0 * rainbowSpeed.value) % 1.0).toFloat()
+        // 歌词字体：选了就换（同一个文件不会重复加载）
+        DangoClient.gfx.text.lyricFont(if (smoothFont.get()) LyricFonts.file(lyricFont.value) else null)
         updateClock()
         val s = current
         // 小柱子的颜色取自封面，所以只开 Now playing 也要加载封面
-        if (s != null && (showCover.get() || nowPlaying.get())) {
+        if (s != null && (showCover.get() || nowPlaying.get() || lyricColors.value == COLORS_COVER || lyricColors.value == COLORS_GRADIENT)) {
             s.track.coverUrl.takeIf { it.isNotEmpty() }?.let { cover.requestUrl(s.key, it) }
         }
         cover.upload()
@@ -382,8 +394,8 @@ class LyricsModule : Module() {
                             } finally {
                                 glowPass = false
                             }
-                            val (r, g, b) = glowTint()
-                            deepGlow.end(r, g, b, glowAmount * 4f, glowRadius.value)
+                            // 光晕是字本身的颜色扩散出去，不另外染色
+                            deepGlow.end(1f, 1f, 1f, glowAmount * 4f, glowRadius.value)
                         }
                     } catch (t: Throwable) {
                         // 发光出任何错都不影响歌词本身：关掉发光，下面照常画字
@@ -537,8 +549,62 @@ class LyricsModule : Module() {
     }
 
     // 默认暖白偏粉；翻译默认比原文稍灰一点（设置里可以改）
-    private val textRgb: Int get() = textColor.value
-    private val translationRgb: Int get() = translationColor.value
+    private fun coverColors(): List<Int>? =
+        if ((lyricColors.value == COLORS_COVER || lyricColors.value == COLORS_GRADIENT) && currentKey != null && cover.shownKey == currentKey)
+            cover.palette.takeIf { it.isNotEmpty() } else null
+
+    /** 每个字要不要单独算颜色（封面渐变、彩虹） */
+    private fun perGlyphColor(): Boolean =
+        lyricColors.value == COLORS_RAINBOW || (lyricColors.value == COLORS_GRADIENT && coverColors() != null)
+
+    /** 彩虹的相位：每帧算一次，发光层和本体用同一个值，颜色才对得上 */
+    private var rainbowPhase = 0f
+
+    /** 彩虹色：色相按字在句子里的位置铺开，再随时间往后流；饱和度不拉满，看着柔和、也看得清 */
+    private fun rainbowRgb(position: Float): Int {
+        var hue = (position * RAINBOW_SPAN + rainbowPhase) % 1f
+        if (hue < 0f) hue += 1f
+        return java.awt.Color.HSBtoRGB(hue, 0.55f, 1f) and 0xFFFFFF
+    }
+
+    private val textRgb: Int get() = coverColors()?.firstOrNull()?.and(0xFFFFFF) ?: textColor.value
+    private val translationRgb: Int get() = coverColors()?.firstOrNull()?.and(0xFFFFFF) ?: translationColor.value
+
+    /** 原始水平排版决定颜色，动画和抖动不改变同一个字的颜色。 */
+    private fun gradientRgb(colors: List<Int>, position: Float): Int {
+        if (colors.size == 1) return colors[0] and 0xFFFFFF
+        val at = position.coerceIn(0f, 1f) * (colors.size - 1)
+        val index = at.toInt().coerceAtMost(colors.size - 2)
+        val t = at - index
+        val a = colors[index]
+        val b = colors[index + 1]
+        fun channel(shift: Int): Int = (((a shr shift and 255) * (1f - t) + (b shr shift and 255) * t) + 0.5f).toInt()
+        return (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+    }
+
+    private fun glyphRgb(position: Float, fallback: Int): Int {
+        if (lyricColors.value == COLORS_RAINBOW) return rainbowRgb(position)
+        val colors = if (lyricColors.value == COLORS_GRADIENT) coverColors() else null
+        return if (colors != null) gradientRgb(colors, position) else fallback
+    }
+
+    private data class TranslationLayoutKey(val text: String, val smooth: Boolean)
+    private data class TranslationGlyph(val c: Char, val x: Float, val position: Float)
+    private val translationLayouts = object : LinkedHashMap<TranslationLayoutKey, List<TranslationGlyph>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<TranslationLayoutKey, List<TranslationGlyph>>?): Boolean = size > 32
+    }
+
+    /** 仅普通译文渐变拆字，换色时复用排版。 */
+    private fun translationLayout(text: String): List<TranslationGlyph> =
+        translationLayouts.getOrPut(TranslationLayoutKey(text, smoothFont.get())) {
+            val widths = text.map { charW(it) }
+            val width = strW(text)
+            val span = (widths.sum() - (widths.lastOrNull() ?: 0f)).coerceAtLeast(0f)
+            var offset = 0f
+            text.mapIndexed { i, c ->
+                TranslationGlyph(c, offset - width / 2f, if (span > 0f) offset / span else 0f).also { offset += widths[i] }
+            }
+        }
 
     // ---------------------------------------------------------------- 歌词文字（平滑字体 / MC 字体 + 发光）
 
@@ -546,10 +612,10 @@ class LyricsModule : Module() {
     private val lyricSize = 10f
 
     private fun strW(s: String): Float =
-        if (smoothFont.get()) DangoClient.gfx.text.smoothWidth(s, lyricSize, CjkStyle.PLAIN) else DangoClient.gfx.text.pixelWidth(s)
+        if (smoothFont.get()) DangoClient.gfx.text.smoothWidth(s, lyricSize, CjkStyle.LYRIC) else DangoClient.gfx.text.pixelWidth(s)
 
     private fun charW(c: Char): Float =
-        if (smoothFont.get()) DangoClient.gfx.text.smoothWidth(c.toString(), lyricSize, CjkStyle.PLAIN) else DangoClient.gfx.text.pixelCharWidth(c)
+        if (smoothFont.get()) DangoClient.gfx.text.smoothWidth(c.toString(), lyricSize, CjkStyle.LYRIC) else DangoClient.gfx.text.pixelCharWidth(c)
 
     /** 光晕颜色（乘在字本身的颜色上）：0 = 跟随字色 */
     /** 只在晚上发光时：天黑（含下雨天变暗）慢慢亮起来，天亮慢慢灭掉。返回 0..1 */
@@ -569,14 +635,7 @@ class LyricsModule : Module() {
         return nightLevel
     }
 
-    private fun glowTint(): Triple<Float, Float, Float> = when (glowColor.value) {
-        1 -> Triple(1f, 0.38f, 0.62f)
-        2 -> Triple(0.32f, 0.66f, 1f)
-        3 -> Triple(1f, 0.74f, 0.30f)
-        else -> Triple(1f, 1f, 1f)
-    }
-
-    private class Glyph(val c: Char, val x: Float, val y: Float, val a: Float, val k: Int, val pop: Float = 1f)
+    private class Glyph(val c: Char, val x: Float, val y: Float, val a: Float, val k: Int, val pop: Float = 1f, val position: Float = 0f)
 
     /** 由 (字序号, 第几帧, 种类) 得到一个固定的 -1..1 随机数：同一帧里不管画几遍（发光层、本体）结果都一样 */
     private fun hashRand(k: Int, frame: Long, salt: Int, seed: Int): Float {
@@ -626,10 +685,10 @@ class LyricsModule : Module() {
             val baseline = y + 7.6f
             if (shadow) {
                 pen.color(0f, 0f, 0f, 0.45f * a)
-                pen.smoothText(c.toString(), x + 0.6f, baseline + 0.6f, lyricSize, CjkStyle.PLAIN)
+                pen.smoothText(c.toString(), x + 0.6f, baseline + 0.6f, lyricSize, CjkStyle.LYRIC)
             }
             pen.color(r, g, b, a)
-            pen.smoothText(c.toString(), x, baseline, lyricSize, CjkStyle.PLAIN)
+            pen.smoothText(c.toString(), x, baseline, lyricSize, CjkStyle.LYRIC)
         } else {
             val alpha = (a * 255f).toInt()
             if (alpha < 5) return                          // FontRenderer 会把 alpha<4 当成不透明
@@ -651,8 +710,12 @@ class LyricsModule : Module() {
         var k = 0
         val glyphs = ArrayList<Glyph>()
         for (line in lines) {
-            var x = -strW(line) / 2f
+            val lineWidth = strW(line)
+            val startX = -lineWidth / 2f
+            val span = if (perGlyphColor()) (line.sumOf { charW(it).toDouble() }.toFloat() - (line.lastOrNull()?.let { charW(it) } ?: 0f)).coerceAtLeast(0f) else 0f
+            var x = startX
             for (c in line) {
+                val position = if (span > 0f) (x - startX) / span else 0f
                 if (flashMode && !c.isWhitespace()) {
                     // 按词闪出：到了这个词的时间，整个词一下子出现，先放大再弹回原大小
                     val at = charTimes!![min(n, charTimes.size - 1)]
@@ -662,14 +725,14 @@ class LyricsModule : Module() {
                         val a = (t * 3f).coerceIn(0f, 1f) * alphaMul
                         val back = (1f - t).coerceIn(0f, 1f)
                         val pop = 1f + 0.55f * back * back
-                        if (a > 0.02f) glyphs += Glyph(c, x, y, a, k, pop)
+                        if (a > 0.02f) glyphs += Glyph(c, x, y, a, k, pop, position)
                     }
                 } else if (!flashMode) {
                     val appearAt = k.toFloat() / total * revealMs
                     var a = ((elapsedMs - appearAt) / 180f).coerceIn(0f, 1f)
                     a = a * a * (3f - 2f * a)                 // smoothstep
                     val alpha = a * alphaMul
-                    if (alpha > 0.02f && !c.isWhitespace()) glyphs += Glyph(c, x, y + (1f - a) * 5f, alpha, k)
+                    if (alpha > 0.02f && !c.isWhitespace()) glyphs += Glyph(c, x, y + (1f - a) * 5f, alpha, k, position = position)
                 }
                 x += charW(c)
                 k++
@@ -682,7 +745,7 @@ class LyricsModule : Module() {
 
         val seed = lines.hashCode()
         val frame = System.currentTimeMillis() * wiggleFps.value.coerceAtLeast(1) / 1000L
-        for (g in glyphs) withWiggle(g, seed, frame) { drawGlyph(g.c, g.x, g.y, textRgb, g.a, smooth, !glowPass) }
+        for (g in glyphs) withWiggle(g, seed, frame) { drawGlyph(g.c, g.x, g.y, glyphRgb(g.position, textRgb), g.a, smooth, !glowPass) }
 
         if (smooth) DangoClient.gfx.text.endSmooth()
     }
@@ -710,7 +773,13 @@ class LyricsModule : Module() {
             if (alpha > 0.02f) {
                 var y = 0f
                 for (line in lines) {
-                    drawLine(line, -strW(line) / 2f, y, translationRgb, alpha, smooth, !glowPass)
+                    if (perGlyphColor()) {
+                        for (g in translationLayout(line)) if (!g.c.isWhitespace()) {
+                            drawGlyph(g.c, g.x, y, glyphRgb(g.position, translationRgb), alpha, smooth, !glowPass)
+                        }
+                    } else {
+                        drawLine(line, -strW(line) / 2f, y, translationRgb, alpha, smooth, !glowPass)
+                    }
                     y += lineH
                 }
             }
@@ -721,8 +790,12 @@ class LyricsModule : Module() {
             var k = 0
             var y = 0f
             for (line in lines) {
-                var x = -strW(line) / 2f
+                val lineWidth = strW(line)
+                val startX = -lineWidth / 2f
+                val span = if (perGlyphColor()) (line.sumOf { charW(it).toDouble() }.toFloat() - (line.lastOrNull()?.let { charW(it) } ?: 0f)).coerceAtLeast(0f) else 0f
+                var x = startX
                 for (c in line) {
+                    val position = if (span > 0f) (x - startX) / span else 0f
                     val a: Float
                     val lift: Float
                     if (animate) {
@@ -738,7 +811,7 @@ class LyricsModule : Module() {
                         lift = 0f
                     }
                     val alpha = a * alphaMul * 0.85f
-                    if (alpha > 0.02f && !c.isWhitespace()) glyphs += Glyph(c, x, y + lift, alpha, 1000 + k)
+                    if (alpha > 0.02f && !c.isWhitespace()) glyphs += Glyph(c, x, y + lift, alpha, 1000 + k, position = position)
                     x += charW(c)
                     k++
                 }
@@ -746,7 +819,7 @@ class LyricsModule : Module() {
             }
             val seed = lines.hashCode()
             val frame = System.currentTimeMillis() * wiggleFps.value.coerceAtLeast(1) / 1000L
-            for (g in glyphs) withWiggle(g, seed, frame, wig) { drawGlyph(g.c, g.x, g.y, translationRgb, g.a, smooth, !glowPass) }
+            for (g in glyphs) withWiggle(g, seed, frame, wig) { drawGlyph(g.c, g.x, g.y, glyphRgb(g.position, translationRgb), g.a, smooth, !glowPass) }
         }
         if (smooth) pen.endSmooth()
         pen.pop()
@@ -762,10 +835,10 @@ class LyricsModule : Module() {
             val baseline = y + 7.6f
             if (shadow) {
                 pen.color(0f, 0f, 0f, 0.45f * a)
-                pen.smoothText(text, x + 0.6f, baseline + 0.6f, lyricSize, CjkStyle.PLAIN)
+                pen.smoothText(text, x + 0.6f, baseline + 0.6f, lyricSize, CjkStyle.LYRIC)
             }
             pen.color(r, g, b, a)
-            pen.smoothText(text, x, baseline, lyricSize, CjkStyle.PLAIN)
+            pen.smoothText(text, x, baseline, lyricSize, CjkStyle.LYRIC)
         } else {
             val alpha = (a * 255f).toInt()
             if (alpha < 5) return
@@ -1054,3 +1127,11 @@ class LyricsModule : Module() {
         hud.end()
     }
 }
+
+/** 歌词配色：自定义颜色 / 封面主色 / 封面渐变 / 彩虹 */
+private const val COLORS_CUSTOM = 0
+private const val COLORS_COVER = 1
+private const val COLORS_GRADIENT = 2
+private const val COLORS_RAINBOW = 3
+/** 一句歌词从头到尾跨过多少色相（1 = 整个色环） */
+private const val RAINBOW_SPAN = 0.6f

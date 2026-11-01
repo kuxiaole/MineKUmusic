@@ -1,6 +1,7 @@
 package me.sorihiko.dango.music
 
 import com.google.gson.JsonObject
+import me.sorihiko.dango.DangoLogger
 import java.net.CookieManager
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -48,11 +49,16 @@ internal object KugouWeb {
         val random = SecureRandom()
         val key = (0 until 16).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
         val encrypted = encryptToken(qrToken, key, now)
-        val params = mapOf("clientver" to "1000", "clienttime" to (now / 1000).toString(), "dev" to "web", "userid" to userId,
+        // 较新的酷狗账号拒绝 clientver=1000（error 34102 "当前版本太低"，#22），用和其他网页接口一样的 20000
+        val params = mapOf("clientver" to "20000", "clienttime" to (now / 1000).toString(), "dev" to "web", "userid" to userId,
             "plat" to "4", "clienttime_ms" to now.toString(), "pk" to encrypted.first, "params" to encrypted.second)
         val url = "https://loginservice.kugou.com/v1/login_by_token_get?" + AuthHttp.form(signed(params, device))
         val response = AuthHttp.request(MusicSource.KUGOU, url, cookies, "").json()
-        check(response.number("status") == 1L) { "Kugou web session exchange failed" }
+        if (response.number("status") != 1L) {
+            val code = response.number("error_code")
+            DangoLogger.warn("Kugou web session exchange failed: error {} {}", code, response.text("data"))
+            throw SourceAccessException("Kugou rejected the login (error $code). Refresh the QR code and try again.")
+        }
         return response
     }
 

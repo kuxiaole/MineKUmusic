@@ -82,7 +82,7 @@ object ServerMusic {
     private var lastSync = 0L
     private var searchRequest = ""
     private var lastQuery = ""
-    private data class Personal(val queue: List<NeteaseTrack>, val index: Int, val position: Long, val paused: Boolean, val active: Boolean)
+    private data class Personal(val queue: List<NeteaseTrack>, val index: Int, val position: Long, val paused: Boolean, val active: Boolean, val radio: (() -> List<NeteaseTrack>)?)
     private var personal: Personal? = null
 
     fun connectionOpened() {
@@ -306,14 +306,14 @@ object ServerMusic {
     }
     private fun enter() {
         if (joined) return
-        personal = Personal(MusicPlayer.queue.toList(), MusicPlayer.index, MusicPlayer.positionMs, MusicPlayer.state == MusicPlayer.State.PAUSED, MusicPlayer.active)
+        personal = Personal(MusicPlayer.queue.toList(), MusicPlayer.index, MusicPlayer.positionMs, MusicPlayer.state == MusicPlayer.State.PAUSED, MusicPlayer.active, MusicPlayer.radio)
         MusicPlayer.stop(); MusicPlayer.followMode = true; joined = true; locallyPaused = false
     }
     private fun restorePersonal(pause: Boolean = false) {
         val saved = personal; personal = null
         if (joined) {
             MusicPlayer.stop(); MusicPlayer.followMode = false
-            if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, pause || saved.paused, saved.active)
+            if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, pause || saved.paused, saved.active, saved.radio)
         }
         joined = false; locallyPaused = false; lyrics = null; playingInstance = ""; pendingPersonal = null
         pendingRequest = null; quoteRequest = ""; requestingSong = false
@@ -400,8 +400,8 @@ object ServerMusic {
     fun next() { if (joined) vote() else MusicPlayer.next() }
     fun previous() { if (!joined) MusicPlayer.prev() }
     fun seek(ms: Long) { if (!joined) MusicPlayer.seek(ms) }
-    fun playPersonal(tracks: List<NeteaseTrack>, index: Int) {
-        val action = { MusicPlayer.playQueue(tracks, index) }
+    fun playPersonal(tracks: List<NeteaseTrack>, index: Int, radio: (() -> List<NeteaseTrack>)? = null) {
+        val action = { MusicPlayer.playQueue(tracks, index, radio) }
         if (joined) pendingPersonal = action else action()
     }
     fun confirmPersonal() { val action = pendingPersonal ?: return; leave(); action() }

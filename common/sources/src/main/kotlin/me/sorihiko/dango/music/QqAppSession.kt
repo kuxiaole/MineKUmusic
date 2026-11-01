@@ -31,13 +31,10 @@ class QqAppSession @JvmOverloads constructor(
         val user = values.getAsJsonObject("qqmusic_uin")?.text("value").orEmpty()
         val ticket = values.getAsJsonObject("qqmusic_key")?.text("value").orEmpty()
         val original = candidate(user, ticket, JsonObject(), CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER))
+        val retry = setOf(1000L, 104400L, 104401L)
 
-        // Some App sessions push a usable music key directly. Re-exchanging such a key
-        // can fail with 1000/104401 even though phone authorization already succeeded.
-        val first = verify(original, active)
-        if (first.code == 0L) return original.accountWithProfile(first.data)
-        if (first.code !in setOf(1000L, 104400L, 104401L)) reject(first.code)
-
+        // 先换一次票：换到的登录信息里带着续期用的 refresh_key。手机推过来的 key 虽然也能直接用，
+        // 但没有续期凭证，三天后就只能重新扫码。
         ensureActive(active)
         val params = JsonObject().apply {
             addProperty("musicid", user.toLong()); addProperty("qrCodeID", qrId); addProperty("token", ticket)
@@ -50,27 +47,66 @@ class QqAppSession @JvmOverloads constructor(
         // ticket installed as authst. Keep that cookie jar separate from verification.
         val exchangedCookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
         val exchanged = call("exchange", request, exchangedCookies, active)
-        if (exchanged.code == 0L) {
-            val data = exchanged.data ?: reject(-1)
+        if (exchanged.code == 0L && exchanged.data != null) {
+            val data = exchanged.data
             val id = data.text("musicid").ifEmpty { data.text("str_musicid") }
-            val converted = candidate(id, data.text("musickey"), data, exchangedCookies)
-            var confirmed = verify(converted, active)
-            if (confirmed.code in setOf(1000L, 104400L, 104401L)) {
-                pause(); confirmed = verify(converted, active)
+            val converted = try { candidate(id, data.text("musickey"), data, exchangedCookies) } catch (_: SourceAccessException) { null }
+            if (converted != null) {
+                var confirmed = verify(converted, active)
+                if (confirmed.code in retry) {
+                    pause(); confirmed = verify(converted, active)
+                }
+                if (confirmed.code == 0L) {
+                    java.util.logging.Logger.getLogger("MineKUmusic.sources").info("QQ Music App session renewable=" + (converted.account.renewal != null))
+                    return converted.accountWithProfile(confirmed.data)
+                }
             }
-            if (confirmed.code == 0L) return converted.accountWithProfile(confirmed.data)
-            reject(confirmed.code)
         }
 
-        if (exchanged.code in setOf(1000L, 104400L, 104401L)) {
-            // A read-only recheck tolerates short propagation delays without repeating
-            // the login mutation or claiming an unverified ticket was successful.
-            pause()
-            val rechecked = verify(original, active)
-            if (rechecked.code == 0L) return original.accountWithProfile(rechecked.data)
-            reject(rechecked.code)
+        // 换票没成功：手机推过来的 key 本身能用也行（只是到期后要重新扫码）。
+        // A read-only recheck tolerates short propagation delays without repeating the login mutation.
+        var first = verify(original, active)
+        if (first.code in retry) {
+            pause(); first = verify(original, active)
         }
-        reject(exchanged.code)
+        if (first.code == 0L) {
+            java.util.logging.Logger.getLogger("MineKUmusic.sources").info("QQ Music App session renewable=false")
+            return original.accountWithProfile(first.data)
+        }
+        reject(if (exchanged.code != 0L && exchanged.code !in retry) exchanged.code else first.code)
+    }
+
+    /** 用存下来的 refresh_key 换一把新的 musickey；续不了（没有续期凭证、被拒）时返回 null，原来的登录不动 */
+    fun renew(account: NativeAccount): NativeAccount? {
+        require(account.source == MusicSource.QQ)
+        val key = CookieValues.cookie(account.cookies, "qqmusic_key")
+        if (key.isEmpty() || account.renewal == null) return null
+        val request = request("music.login.LoginServer", "Login", QqRenewal.params(account, key)).apply {
+            getAsJsonObject("comm").apply {
+                addProperty("uin", account.userId); addProperty("authst", key)
+                addProperty("g_tk", CookieValues.hash33(key)); addProperty("tmeLoginType", account.loginType)
+            }
+        }
+        val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
+        AuthHttp.acceptCookies(MusicSource.QQ, URI("https://y.qq.com/"), cookies, mapOf("Set-Cookie" to listOf(
+            "qqmusic_uin=${account.userId}; Domain=.qq.com; Path=/; Secure", "qqmusic_key=$key; Domain=.qq.com; Path=/; Secure")))
+        val reply = call("renew", request, cookies) { true }
+        val data = reply.data
+        if (reply.code != 0L || data == null) return null
+        val id = data.text("musicid").ifEmpty { data.text("str_musicid") }.ifEmpty { account.userId }
+        if (id != account.userId) return null
+        val fresh = data.text("musickey")
+        if (fresh.isEmpty()) return null
+        if (!data.has("loginType")) data.addProperty("loginType", account.loginType)
+        val renewed = candidate(id, fresh, data, CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER))
+        // 续期回包可能不再带 refresh_token 之类：缺的沿用旧的
+        val fields = renewed.account.renewal ?: return null
+        for ((name, value) in account.renewal.entrySet()) if (!fields.has(name)) fields.add(name, value)
+        val confirmed = verify(renewed, { true })
+        if (confirmed.code != 0L) return null
+        java.util.logging.Logger.getLogger("MineKUmusic.sources").info("QQ Music login renewed")
+        return NativeAccount(account.source, account.userId, account.nickname, account.token, account.deviceId, renewed.account.cookies,
+            renewed.account.loginType, account.avatarUrl, renewal = fields)
     }
 
     private fun verify(candidate: Candidate, active: () -> Boolean): Reply {
@@ -126,13 +162,14 @@ class QqAppSession @JvmOverloads constructor(
         AuthHttp.acceptCookies(MusicSource.QQ, URI("https://y.qq.com/"), cookies, mapOf("Set-Cookie" to listOf(
             "qqmusic_uin=$id; Domain=.qq.com; Path=/; Secure", "qqmusic_key=$key; Domain=.qq.com; Path=/; Secure",
             "login_type=${if (type == 1) 2 else 1}; Domain=.qq.com; Path=/; Secure")))
-        return Candidate(NativeAccount(MusicSource.QQ, id, nickname(data), "", "", cookies, type, avatar(data)), key)
+        return Candidate(NativeAccount(MusicSource.QQ, id, nickname(data), "", "", cookies, type, avatar(data), renewal = QqRenewal.fields(data)), key)
     }
 
     private fun Candidate.accountWithProfile(profile: JsonObject?): NativeAccount {
         val name = profile?.let(::nickname).orEmpty().ifEmpty { account.nickname }
         val image = profile?.let(::avatar).orEmpty().ifEmpty { account.avatarUrl }
-        return NativeAccount(account.source, account.userId, name, account.token, account.deviceId, account.cookies, account.loginType, image)
+        return NativeAccount(account.source, account.userId, name, account.token, account.deviceId, account.cookies, account.loginType, image,
+            renewal = account.renewal)
     }
 
     private fun nickname(data: JsonObject) = profileField(data, listOf("nick", "nickname", "nickName"))

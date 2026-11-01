@@ -60,5 +60,6 @@ object I18n {
         Regex("加入失败（(.*)）") to "Failed to join room: %s",
         Regex("设置失败（(.*)）") to "Failed to change the setting: %s",
         Regex("操作没发出去（(.*)）") to "Couldn't send your action to the host: %s",
+        Regex("""Kugou rejected the login \(error (-?\d+)\)\. Refresh the QR code and try again\.""") to "Kugou rejected the login (error %s). Refresh the QR code and try again.",
     )
 }

@@ -12,6 +12,8 @@ import me.sorihiko.dango.module.values.BooleanValue
 import me.sorihiko.dango.module.values.ColorValue
 import me.sorihiko.dango.module.values.FloatValue
 import me.sorihiko.dango.module.values.IntValue
+import me.sorihiko.dango.module.values.TextValue
+import me.sorihiko.dango.music.LyricFonts
 import me.sorihiko.dango.module.values.ModuleValue
 import me.sorihiko.dango.music.MusicScreen
 import me.sorihiko.dango.platform.Keys
@@ -33,26 +35,24 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
     private val ui = screen.ui
     private val about = AboutPage(screen)
 
-    private enum class Ctl { TOGGLE, SLIDER, SWATCH, KEY, LANGUAGE, COLOR }
+    private enum class Ctl { TOGGLE, SLIDER, KEY, LANGUAGE, COLOR, FONT, CHOICE }
 
     /** scale：显示值 = 实际值 × scale（百分比的选项是 100），手动输入时按显示值换算回去 */
     private class Row(
         val label: String, val desc: String, val value: Any, val ctl: Ctl,
-        val dep: BooleanValue?, val fmt: (Any) -> String, val scale: Float = 1f,
+        val dep: BooleanValue?, val fmt: (Any) -> String, val scale: Float = 1f, val key: String = "",
     )
 
     /** owner：所属模块（模块关掉时整组变暗）；toggle：组标题右边显示模块总开关 */
     private class Group(val title: String, val sub: String, val owner: Module, val toggle: Boolean, val rows: List<Row>)
 
+    /** 用 ◀ ▶ 切换的选项：设置名 → 每个值的显示名（从最小值开始） */
+    private val choiceLabels = mapOf(
+        "lyricColors" to listOf("Custom color", "Cover color", "Cover gradient", "Rainbow"),
+    )
+
     /** 显示成百分比的选项 */
     private val percentKeys = setOf("volume", "glowRadius", "posX", "posY")
-
-    private val swatchColors = listOf(
-        Color(1f, 1f, 1f, 1f),            // 跟随字色
-        Color(1f, 0.38f, 0.62f, 1f),      // 粉
-        Color(0.32f, 0.66f, 1f, 1f),      // 蓝
-        Color(1f, 0.74f, 0.30f, 1f),      // 金
-    )
 
     private val tabs: List<List<Group>> by lazy { buildSettings() }
 
@@ -108,10 +108,6 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
 
     /** 每个设置项的亮度（变暗 / 变亮的渐变） */
     private val rowFade = HashMap<Row, Spring>()
-    /** 发光颜色：每个色块自己的选中圈（选中时长出来、取消时缩回去） */
-    private val swatchRing = HashMap<Pair<IntValue, Int>, Spring>()
-    /** 发光颜色：每个色块的悬停放大 / 点击弹跳 */
-    private val swatchPop = HashMap<Pair<IntValue, Int>, Pair<Spring, Spring>>()
     /** 语言：红色选中块的位置 */
     private val langPill = HashMap<IntValue, Spring>()
 
@@ -220,15 +216,18 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                 val (ann, v) = left.remove(k) ?: return@mapNotNull null
                 val ctl = when {
                     k == "language" -> Ctl.LANGUAGE
+                    k == "lyricFont" -> Ctl.FONT
+                    k in choiceLabels -> Ctl.CHOICE
                     v is BooleanValue -> Ctl.TOGGLE
-                    k == "glowColor" -> Ctl.SWATCH
                     k == "openKey" || (k.startsWith("key") && v is IntValue) -> Ctl.KEY
                     v is ColorValue -> Ctl.COLOR
                     v is IntValue || v is FloatValue -> Ctl.SLIDER
                     else -> return@mapNotNull null
                 }
                 val dep = deps[k]?.let { all[it]?.second as? BooleanValue }
-                Row(ann.name.ifEmpty { k }, ann.desc, v, ctl, dep, fmts[k] ?: ::fmtValue, if (k in percentKeys) 100f else 1f)
+                // 歌词字体这一行同时管"平滑字体"开关（像素字体 = 关）
+                val value = if (ctl == Ctl.FONT) FontChoice(v as TextValue, all.getValue("smoothFont").second as BooleanValue) else v
+                Row(ann.name.ifEmpty { k }, ann.desc, value, ctl, dep, fmts[k] ?: ::fmtValue, if (k in percentKeys) 100f else 1f, k)
             }
         }
 
@@ -236,7 +235,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
             mm.get(LyricsModule::class.java),
             deps = mapOf(
                 "distance" to "worldMode", "facePlayer" to "worldMode", "keepAway" to "worldMode", "stayOnScreen" to "worldMode", "aboveGround" to "worldMode", "spread" to "worldMode",
-                "glowNightOnly" to "glow", "glowColor" to "glow", "glowStrength" to "glow", "glowRadius" to "glow",
+                "glowNightOnly" to "glow", "glowStrength" to "glow", "glowRadius" to "glow",
                 "wiggleFps" to "wiggle", "wiggleAmount" to "wiggle",
                 "flashSize" to "textFlash",
                 "danceAuto" to "dance", "danceTap" to "dance", "danceSpin" to "dance", "danceAmount" to "dance", "danceOffset" to "dance",
@@ -248,18 +247,22 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                 "danceOffset" to { v: Any -> "${(v as IntValue).value} ms" },
             ),
         )
+        ly.left.remove("smoothFont")   // 合进了"歌词字体"那一行
         val lyrics = mutableListOf(
-            Group("Placement", "In the world", ly.m, false, ly.take(listOf("worldMode", "distance", "facePlayer", "keepAway", "stayOnScreen", "aboveGround", "spread", "scale", "smoothFont", "textColor", "splitLines"))),
+            Group("Appearance", "Font and colors", ly.m, false, ly.take(listOf("worldMode", "scale", "lyricFont", "lyricColors", "textColor", "rainbowSpeed", "splitLines"))),
+            Group("Position", "Where the lyrics float", ly.m, false, ly.take(listOf("distance", "facePlayer", "keepAway", "stayOnScreen", "aboveGround", "spread"))),
             Group("Translation", "Under each line", ly.m, false, ly.take(listOf("translation", "translationColor", "translationAnimation", "translationWiggle"))),
-            Group("Glow", "Deep Glow", ly.m, false, ly.take(listOf("glow", "glowNightOnly", "glowColor", "glowStrength", "glowRadius"))),
+            Group("Glow", "Deep Glow", ly.m, false, ly.take(listOf("glow", "glowNightOnly", "glowStrength", "glowRadius"))),
             Group("Motion", "Animation", ly.m, false, ly.take(listOf("wiggle", "wiggleFps", "wiggleAmount", "textFlash", "wordPop", "flashSize"))),
             Group("Dance", "Mobs on the beat", ly.m, false, ly.take(listOf("dance", "danceAuto", "danceTap", "danceSpin", "danceAmount", "danceOffset"))),
         )
         // 左上角的原版风格"正在播放"和 Song card 是同一类东西，放到 Music & HUD 里
-        val nowPlaying = Group("Now playing", "Classic overlay", ly.m, false, ly.take(listOf("nowPlaying", "showCover")))
+        val nowPlaying = Group("Song info", "Top left, classic style", ly.m, false, ly.take(listOf("nowPlaying", "showCover")))
         ly.take().let { if (it.isNotEmpty()) lyrics += Group("Other", "More", ly.m, false, it) }
 
-        val player = Src(module, fmts = mapOf("volume" to ::percent))
+        val player = Src(module,
+            deps = mapOf("envRain" to "envAudio", "envStrength" to "envAudio", "envRays" to "envAudio"),
+            fmts = mapOf("volume" to ::percent, "envStrength" to ::percent))
         player.left.remove("shuffle")   // 随机播放用播放栏上的按钮就够了，设置页不再显示（状态照样保存）
         player.left.remove("repeatOne") // 单曲循环同样通过播放栏控制
         player.left.remove("musicSource") // 音源通过侧栏切换。
@@ -267,8 +270,10 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         val island = Src(mm.get(DynamicIslandModule::class.java), fmts = mapOf("notifyTime" to { v: Any -> I18n.format("%.1f s", (v as FloatValue).value) }))
         // 先取走，免得落进下面的 Hotkeys 组
         val updates = player.take(listOf("checkUpdates"))
+        val environment = player.take(listOf("envAudio", "envRain", "envStrength", "envRays"))
         val music = listOf(
-            Group("Player", "Playback", player.m, false, player.take(listOf("volume", "language", "reducedChannelMotion"))),
+            Group("Player", "Playback", player.m, false, player.take(listOf("volume", "normalize", "language", "reducedChannelMotion"))),
+            Group("Environment audio", "Sound around you", player.m, false, environment),
             Group("Hotkeys", "Click, then press a key · Backspace clears", player.m, false, player.take()),
             Group("Song card", "Overlay", card.m, true, card.take()),
             nowPlaying,
@@ -626,10 +631,11 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         val ctlW = when (r.ctl) {
             Ctl.TOGGLE -> 34f
             Ctl.SLIDER -> 166f
-            Ctl.SWATCH -> 16f * 4 + 8f * 3
             Ctl.KEY -> 130f
             Ctl.LANGUAGE -> 142f
             Ctl.COLOR -> 92f
+            Ctl.FONT -> 166f
+            Ctl.CHOICE -> 144f
         }
         val textW = b.width - ctlW - 14f
         ui.text(ui.trim(I18n.text(r.label), textW, 12f, Theme.FONT_MEDIUM), b.x, b.y + 8f, 12f, Theme.TEXT_PRIMARY, Theme.FONT_MEDIUM)
@@ -642,29 +648,6 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                 ui.toggleSwitch(LayoutBounds(cx, cy - 10f, 34f, 20f), v.get(), clip, key = v) { v.toggle() }
             }
             Ctl.SLIDER -> drawSlider(b, r, clip, cx, cy)
-            Ctl.SWATCH -> {
-                // 每个色块有自己的选中圈：选中的从色块边上放大长出来（稍微冲过一点再回来），
-                // 原来选中的那个圈缩回色块里消失；色块悬停时放大一点，点一下弹一下
-                val v = r.value as IntValue
-                swatchColors.forEachIndexed { i, col ->
-                    if (i > v.maxRange) return@forEachIndexed
-                    val sb = LayoutBounds(cx + i * 24f, cy - 8f, 16f, 16f)
-                    val target = if (v.value == i) 1f else 0f
-                    val ring = swatchRing.getOrPut(v to i) { Spring(300f, 17f, target) }.tick(target)
-                    if (ring > 0.01f) {
-                        val grow = 3f * ring
-                        ui.ctx.drawShape(sb.expand(grow, grow), ShapeStyle(Color(0f, 0f, 0f, 0f), 8f + grow, 1.5f,
-                            Theme.TEXT_PRIMARY.copy(a = Theme.TEXT_PRIMARY.a * ring.coerceIn(0f, 1f))))
-                    }
-                    val (hover, pop) = swatchPop.getOrPut(v to i) { Spring(300f, 24f) to Spring(420f, 13f) }
-                    val k = 1f + hover.tick(if (ui.hover(sb.expand(4f, 4f))) 1f else 0f) * 0.15f + pop.tick(0f) * 0.12f
-                    ui.ctx.drawShape(sb.scaled(k), ShapeStyle(col, 8f * k))
-                    ui.hits += sb.expand(4f, 4f).intersect(clip) to {
-                        pop.v += 6f
-                        v.setValue(i)
-                    }
-                }
-            }
             Ctl.KEY -> drawKeyButton(r.value as IntValue, clip, cx, cy)
             Ctl.COLOR -> {
                 // 颜色块 + 十六进制值，点一下弹出取色器
@@ -678,6 +661,14 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                 val hit = box.intersect(clip)
                 pickerHits += hit
                 ui.hits += hit to { if (picker === v) closePicker() else openPicker(v) }
+            }
+            Ctl.FONT -> drawFontPicker(r.value as FontChoice, clip, cx, cy)
+            Ctl.CHOICE -> {
+                val v = r.value as IntValue
+                val labels = choiceLabels.getValue(r.key)
+                stepper(clip, cx, cy, I18n.text(labels[(v.value - v.minRange).coerceIn(0, labels.size - 1)]), labels.size > 1) { delta ->
+                    v.setValue(v.minRange + Math.floorMod(v.value - v.minRange + delta, labels.size))
+                }
             }
             Ctl.LANGUAGE -> {
                 // 红色选中块用弹簧滑到另一个语言上
@@ -698,6 +689,54 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
                     }
                 }
             }
+        }
+    }
+
+    /** 选项按钮：◀ 当前选项 ▶，点箭头往前 / 往后切 */
+    private fun stepper(clip: LayoutBounds, cx: Float, cy: Float, label: String, enabled: Boolean, step: (Int) -> Unit) {
+        val prev = LayoutBounds(cx, cy - 11f, 22f, 22f)
+        val next = LayoutBounds(cx + 122f, cy - 11f, 22f, 22f)
+        for ((button, glyph, delta) in listOf(Triple(prev, "◀", -1), Triple(next, "▶", 1))) {
+            ui.card(button, if (ui.hover(button)) Theme.CARD_HOVER else Theme.CARD, 6f)
+            ui.icon(glyph, button.x + 11f, cy, 8f, if (enabled) Theme.TEXT_PRIMARY else Theme.TEXT_TERTIARY)
+            ui.hits += button.intersect(clip) to { step(delta) }
+        }
+        val shown = ui.trim(label, 94f, 11f, Theme.FONT_MEDIUM)
+        ui.text(shown, cx + 72f - ui.width(shown, 11f, Theme.FONT_MEDIUM) / 2f, cy - 11f * 0.39f - 0.5f, 11f, Theme.TEXT_PRIMARY, Theme.FONT_MEDIUM)
+    }
+
+    /** 歌词字体这一行的值：字体文件名 + 平滑字体开关 */
+    private class FontChoice(val font: TextValue, val smooth: BooleanValue)
+
+    /** 歌词字体：◀ 像素字体 / 平滑字体 / fonts 文件夹里的字体 ▶，左边的小文件夹按钮打开那个文件夹 */
+    private fun drawFontPicker(choice: FontChoice, clip: LayoutBounds, cx: Float, cy: Float) {
+        val files = LyricFonts.list()
+        // 0 = 像素字体，1 = 平滑字体（默认），之后是文件
+        val index = when {
+            !choice.smooth.get() -> 0
+            choice.font.value.isEmpty() || choice.font.value !in files -> 1
+            else -> 2 + files.indexOf(choice.font.value)
+        }
+        val name = when (index) {
+            0 -> I18n.text("Pixel font")
+            1 -> I18n.text("Smooth font")
+            else -> LyricFonts.label(files[index - 2])
+        }
+        // 文件夹按钮放在最左边，后面的 ◀ ▶ 和其他选项行右对齐
+        stepper(clip, cx + 22f, cy, name, true) { delta ->
+            val next = Math.floorMod(index + delta, files.size + 2)
+            if (choice.smooth.get() != (next != 0)) choice.smooth.toggle()
+            choice.font.value = if (next >= 2) files[next - 2] else ""
+        }
+        // 文件夹图标：一个小标签 + 一个圆角方块
+        val folder = LayoutBounds(cx, cy - 11f, 18f, 22f)
+        val tint = if (ui.hover(folder)) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY
+        ui.card(LayoutBounds(folder.x + 2f, cy - 5f, 6f, 3f), tint, 1f)
+        ui.card(LayoutBounds(folder.x + 2f, cy - 3f, 14f, 9f), tint, 2f)
+        ui.hits += folder.intersect(clip) to {
+            // 打不开文件夹（安卓等）：在底部提示栏告诉玩家往哪放
+            if (!LyricFonts.openFolder())
+                Library.showStatus(I18n.text("Fonts folder: ") + LyricFonts.folder.absolutePath + I18n.text(" (put .ttf / .otf files here)"))
         }
     }
 

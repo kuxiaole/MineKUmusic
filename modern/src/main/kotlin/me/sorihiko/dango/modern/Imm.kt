@@ -92,9 +92,14 @@ object Imm {
         draw(false)
     }
 
-    /** 一共交了几次要画的东西（26.x 选 Vulkan 时据此判断这一帧有没有画东西，没画就不用读回） */
+    /** 一共交了几次要画的东西（26.x 的透明图层据此判断这一帧有没有画东西，没画就不交给原版 / 不用读回） */
     var draws = 0
         private set
+
+    /** 不经过 Imm 画的东西（26.x 直接用原版字形画的字）也记一次 */
+    fun countDraw() {
+        draws++
+    }
 
     /** 真正调了几次 glDrawArrays（合批之后，性能测量用） */
     var glDraws = 0

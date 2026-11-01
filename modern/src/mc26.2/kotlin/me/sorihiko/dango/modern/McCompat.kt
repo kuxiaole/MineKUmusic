@@ -6,6 +6,7 @@ import me.sorihiko.dango.platform.PlayerAction
 
 import me.sorihiko.dango.platform.Keys
 
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.KeyMapping
 
 import me.sorihiko.dango.DangoLogger
@@ -313,12 +314,15 @@ internal object McCompat {
             val previous = GL11.glGetInteger(GL31.GL_COPY_READ_BUFFER)
             GL15.glBindBuffer(GL31.GL_COPY_READ_BUFFER, field.getInt(buffer))
             matrixData.clear()
+            for (i in 0 until 16) matrixData.put(i, 0f)
             GL15.glGetBufferSubData(GL31.GL_COPY_READ_BUFFER, slice.offset(), matrixData)
             GL15.glBindBuffer(GL31.GL_COPY_READ_BUFFER, previous)
             dest.set(matrixData)
-        } else {
-            dest.set(mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.projectionMatrix)
+            // 安卓上（MobileGlues 等把 OpenGL 转成 OpenGL ES）没有 glGetBufferSubData，读出来是全 0，
+            // 3D 歌词就整个缩没了：读到的不像投影矩阵就改用原版自己存的那份
+            if (dest.isFinite && kotlin.math.abs(dest.determinant()) > 1e-20f) return
         }
+        dest.set(mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState.projectionMatrix)
     }
 
     // ------------------------------------------------------------ 帧缓冲
@@ -468,6 +472,8 @@ internal object McCompat {
             else PixelTextFallback.draw(text, x, y, argb, pose, mc.font.width(text))
             return
         }
+        // 字是直接用原版字形画的，不经过 Imm：也算一次绘制，HUD 那一层才知道"画了东西"、要交给原版
+        if (text.isNotEmpty()) Imm.countDraw()
         GlyphQuads.reset()
         val prepared = mc.font.prepareText(text, x, y, argb, false, 0)
         prepared.visit(object : Font.GlyphVisitor {
@@ -930,6 +936,32 @@ private val hudLayer = ScreenLayer("hud_layer")
 
 /** 界面基类：把原版界面的各种事件统一成简单的几个方法（1.21.9 起鼠标 / 键盘事件都包成了对象） */
 abstract class CompatScreen(title: Component) : Screen(title) {
+
+    /**
+     * 我们自己画的输入框在打字时，让一个看不见的原版输入框也拿到焦点：
+     * IMBlocker 这类模组只在原版输入框有焦点时才打开系统输入法，否则只能打英文（#19）。
+     * 按键和打字照旧由我们自己处理（下面的事件都不往下传），这个输入框不显示、也收不到输入。
+     */
+    private var imeSink: EditBox? = null
+
+    fun setImeFocus(active: Boolean) {
+        val sink = imeSink ?: EditBox(font, 1, 1, Component.empty()).also { imeSink = it }
+        if (active) {
+            if (sink !in children()) addWidget(sink)
+            if (focused !== sink) {
+                focused = sink
+                me.sorihiko.dango.DangoLogger.info("Dango Music: text input on (system IME allowed)")
+            }
+            // IMBlocker 只认"最近画过"的输入框：它在原版画输入框时（会问一次 isFocused）记下时间。
+            // 隐藏的输入框不画，就每帧在我们画界面时替它问一次，让 IMBlocker 当它在屏幕上
+            sink.isFocused
+        } else if (focused === sink) {
+            focused = null
+            me.sorihiko.dango.DangoLogger.info("Dango Music: text input off")
+            Minecraft.getInstance().textInputManager().startTextInput()
+        }
+    }
+
     abstract fun onRender()
     abstract fun onMouseClicked(button: Int)
     abstract fun onMouseDragged()
@@ -946,6 +978,7 @@ abstract class CompatScreen(title: Component) : Screen(title) {
     }
 
     override fun removed() {
+        if (focused === imeSink) focused = null
         Minecraft.getInstance().textInputManager().stopTextInput()
         super.removed()
     }
@@ -956,6 +989,8 @@ abstract class CompatScreen(title: Component) : Screen(title) {
     /** 收集阶段只交一张贴图，真正的内容在原版画界面之前才画（见 ScreenLayer） */
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, a: Float) {
         screenLayer.submit(graphics)
+        // 别删：26.x 的 IMBlocker 只认收集阶段问过 isFocused 的输入框
+        imeSink?.let { if (focused === it) it.isFocused }
     }
 
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {

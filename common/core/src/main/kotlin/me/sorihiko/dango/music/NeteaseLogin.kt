@@ -113,7 +113,7 @@ object NeteaseLogin {
         return parts.joinToString("; ")
     }
 
-    private fun makeQr(text: String, size: Int): BufferedImage {
+    internal fun makeQr(text: String, size: Int): BufferedImage {
         val hints = mapOf(EncodeHintType.MARGIN to 1, EncodeHintType.CHARACTER_SET to "UTF-8")
         val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, hints)
         val img = BufferedImage(m.width, m.height, BufferedImage.TYPE_INT_ARGB)

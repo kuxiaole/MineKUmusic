@@ -75,6 +75,8 @@ object NeteaseApi {
         userId = 0L
         nickname = ""
         avatarUrl = ""
+        liked = null
+        likedAt = 0L
     }
 
     /** 第一次运行时创建一个带说明的空 cookie 文件，方便用户找到位置 */
@@ -147,7 +149,8 @@ object NeteaseApi {
 
     /** 歌单里的全部歌曲：详情接口给出全部 ID，前一部分直接带歌曲信息，剩下的分批补齐 */
     fun playlistTracks(playlistId: Long): List<NeteaseTrack> {
-        val o = getJson("https://music.163.com/api/v6/playlist/detail?id=$playlistId&n=1000&s=0") ?: return emptyList()
+        // 详情只要前 200 首的完整信息：回包小、来得快，界面能马上先显示；剩下的按 ID 分批补
+        val o = getJson("https://music.163.com/api/v6/playlist/detail?id=$playlistId&n=200&s=0") ?: return emptyList()
         val pl = o.get("playlist") as? JsonObject ?: return emptyList()
         val known = LinkedHashMap<Long, NeteaseTrack>()
         pl.getAsJsonArray("tracks")?.forEach { el ->
@@ -159,6 +162,14 @@ object NeteaseApi {
 
         val missing = ids.filter { it !in known }
         TrackLoadProgress.report(ids.size - missing.size, ids.size)
+        // 先把开头已经齐了的那段交给界面（到第一首还没拿到的为止），后面每补一批就再交一次
+        var ready = 0
+        fun publishReady() {
+            if (!TrackLoadProgress.wantsPartial) return
+            while (ready < ids.size && ids[ready] in known) ready++
+            if (ready < ids.size) TrackLoadProgress.partial(ids.subList(0, ready).map { known.getValue(it) })
+        }
+        publishReady()
         for (batch in missing.chunked(200)) {
             try {
                 val res = getJson("https://music.163.com/api/song/detail?ids=" + enc(batch.joinToString(",", "[", "]")))
@@ -168,6 +179,7 @@ object NeteaseApi {
             } catch (_: Exception) {
             }
             TrackLoadProgress.report(ids.count { it in known }, ids.size)
+            publishReady()
         }
         return ids.mapNotNull { known[it] }
     }
@@ -202,6 +214,80 @@ object NeteaseApi {
                 owned = false,
             )
         }
+    }
+
+    // ---------------------------------------------------------------- 每日推荐 / 私人 FM / 红心（都要登录）
+
+    /** 首页上"每日推荐""私人 FM"两张卡片用的歌单 ID（负数，不会和真的歌单撞） */
+    const val DAILY_ID = -163_001L
+    const val FM_ID = -163_002L
+
+    /** 带登录信息的 weapi 请求；返回整个回包（code 不是 200 时为 null） */
+    private fun account(url: String, body: JsonObject): JsonObject? {
+        if (!loggedIn) return null
+        body.addProperty("csrf_token", csrf())
+        val res = NeteaseLogin.weapi(url, body.toString(), cookieHeader()) ?: return null
+        val root = JsonParser().parse(res.first)
+        val o = if (root.isJsonObject) root.asJsonObject else return null
+        if (o.get("code")?.takeIf { it.isJsonPrimitive }?.asInt != 200) {
+            DangoLogger.warn("NetEase {} failed: code {}", url.substringAfter("/weapi/").substringBefore('?'), codeOf(o))
+            return null
+        }
+        return o
+    }
+
+    private fun csrf() = cookie().split(';').map { it.trim() }.firstOrNull { it.startsWith("__csrf=") }?.substringAfter('=').orEmpty()
+
+    private fun tracksOf(arr: com.google.gson.JsonArray?): List<NeteaseTrack> =
+        arr?.mapNotNull { if (it.isJsonObject) NeteaseTrack.parse(it.asJsonObject) else null } ?: emptyList()
+
+    /** 每日推荐的 30 首（每天早上 6 点换） */
+    fun dailySongs(): List<NeteaseTrack> {
+        val o = account("https://music.163.com/weapi/v3/discovery/recommend/songs", JsonObject()) ?: return emptyList()
+        return tracksOf((o.get("data") as? JsonObject)?.getAsJsonArray("dailySongs"))
+    }
+
+    /** 私人 FM：每次给几首，放完再要 */
+    fun personalFm(): List<NeteaseTrack> {
+        val o = account("https://music.163.com/weapi/v1/radio/get", JsonObject()) ?: return emptyList()
+        return tracksOf(o.getAsJsonArray("data"))
+    }
+
+    /** 首页的两张卡片（没登录时没有） */
+    fun personalCards(): List<NeteasePlaylist> {
+        if (!loggedIn) return emptyList()
+        val daily = dailySongs()
+        val cards = ArrayList<NeteasePlaylist>()
+        if (daily.isNotEmpty()) cards += NeteasePlaylist(DAILY_ID, "每日推荐", daily.size, daily.first().coverUrl, false)
+        cards += NeteasePlaylist(FM_ID, "私人 FM", 0, daily.getOrNull(1)?.coverUrl ?: daily.firstOrNull()?.coverUrl.orEmpty(), false)
+        return cards
+    }
+
+    @Volatile private var liked: Set<Long>? = null
+    @Volatile private var likedAt = 0L
+
+    /** 这首歌是不是红心（按缓存的列表，过期了在后台重新拉） */
+    fun isLiked(id: Long): Boolean = liked?.contains(id) ?: false
+
+    /** 拉一次红心列表（10 分钟内不重复拉） */
+    fun loadLiked() {
+        if (System.currentTimeMillis() - likedAt < 10 * 60_000L && liked != null) return
+        likedAt = System.currentTimeMillis()
+        val uid = resolveUser()
+        if (uid == 0L) return
+        val o = account("https://music.163.com/weapi/song/like/get", JsonObject().apply { addProperty("uid", uid.toString()) }) ?: return
+        liked = o.getAsJsonArray("ids")?.mapNotNull { el -> el.takeIf { it.isJsonPrimitive }?.asString?.toLongOrNull() }?.toHashSet() ?: emptySet()
+    }
+
+    /** 加 / 取消红心；成功返回 true */
+    fun setLiked(id: Long, like: Boolean): Boolean {
+        val o = account("https://music.163.com/weapi/radio/like?alg=itembased&trackId=$id&time=3",
+            JsonObject().apply { addProperty("trackId", id.toString()); addProperty("like", like) }) ?: return false
+        if (o.get("code")?.asInt != 200) return false
+        val now = HashSet(liked ?: emptySet())
+        if (like) now.add(id) else now.remove(id)
+        liked = now
+        return true
     }
 
     private fun JsonObject.str(key: String): String =
@@ -303,24 +389,54 @@ object NeteaseApi {
 
     // ---------------------------------------------------------------- 播放地址
 
-    class SongUrl(val url: String, val trialOnly: Boolean)
+    /**
+     * @param gainDb  音源给的响度增益（分贝，0 = 没给），用来把不同歌调到差不多响
+     * @param peak    音源给的峰值（线性，0 = 没给），增益不能把它推过 1，不然会破音
+     * @param replaced 原来那首放不了，换成了平台推荐的另一个版本
+     */
+    class SongUrl(val url: String, val trialOnly: Boolean, val gainDb: Float = 0f, val peak: Float = 0f, val replaced: Boolean = false)
 
     /**
      * 播放地址。登录后能拿到账号有权限的完整音频；拿不到时退回网易云外链（只对免费歌曲有效）。
      * 只要 mp3（内置解码器只支持 mp3）。
      */
     fun songUrl(id: Long): SongUrl? {
+        playerUrl(id)?.let { return it }
+        // 这首被下架 / 变灰了：网易云自己会推荐同一首歌的另一个版本，能放就换过去
+        alternativeVersion(id)?.let { alt ->
+            playerUrl(alt)?.let { found ->
+                DangoLogger.info("NetEase song {} unavailable, playing alternative version {}", id, alt)
+                return SongUrl(found.url, found.trialOnly, found.gainDb, found.peak, replaced = true)
+            }
+        }
+        return SongUrl("https://music.163.com/song/media/outer/url?id=$id.mp3", false)
+    }
+
+    private fun playerUrl(id: Long): SongUrl? {
         try {
             val o = getJson("https://music.163.com/api/song/enhance/player/url?ids=" + enc("[$id]") + "&br=192000")
             val d = o?.getAsJsonArray("data")?.firstOrNull() as? JsonObject
             val url = d?.get("url")?.let { if (it.isJsonNull) null else it.asString }
             val type = d?.get("type")?.let { if (it.isJsonNull) "" else it.asString.lowercase() } ?: ""
             val trial = d?.get("freeTrialInfo")?.let { !it.isJsonNull } ?: false
-            if (!url.isNullOrEmpty() && (type.isEmpty() || type == "mp3")) return SongUrl(url, trial)
+            fun number(key: String) = d?.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.toFloatOrNull()?.takeIf { it.isFinite() } ?: 0f
+            if (!url.isNullOrEmpty() && (type.isEmpty() || type == "mp3")) return SongUrl(url, trial, number("gain"), number("peak"))
         } catch (e: Exception) {
             DangoLogger.warn("NetEase song url failed: {}", e.toString())
         }
-        return SongUrl("https://music.163.com/song/media/outer/url?id=$id.mp3", false)
+        return null
+    }
+
+    /** 变灰的歌（privileges.st < 0）里网易云推荐的替代版本 id；没有就是 null */
+    private fun alternativeVersion(id: Long): Long? = try {
+        val o = getJson("https://music.163.com/api/v3/song/detail?c=" + enc("[{\"id\":$id}]"))
+        val st = (o?.getAsJsonArray("privileges")?.firstOrNull() as? JsonObject)?.get("st")?.takeIf { it.isJsonPrimitive }?.asInt ?: 0
+        val rcmd = (o?.getAsJsonArray("songs")?.firstOrNull() as? JsonObject)?.get("noCopyrightRcmd")
+        val alt = if (rcmd != null && rcmd.isJsonObject) rcmd.asJsonObject.get("songId")?.takeIf { it.isJsonPrimitive }?.asString?.toLongOrNull() else null
+        alt?.takeIf { st < 0 && it > 0 && it != id }
+    } catch (e: Exception) {
+        DangoLogger.warn("NetEase alternative version lookup failed: {}", e.toString())
+        null
     }
 
     // ---------------------------------------------------------------- HTTP
@@ -334,7 +450,17 @@ object NeteaseApi {
     }
 
     /** 下载（跟随重定向，包括 http↔https）；只对 music.163.com 带 cookie */
-    fun request(url: String, accept: String = "*/*", maxBytes: Int = 64 * 1024 * 1024): ByteArray? {
+    fun request(url: String, accept: String = "*/*", maxBytes: Int = 64 * 1024 * 1024): ByteArray? = try {
+        requestOnce(url, accept, maxBytes)
+    } catch (e: java.net.SocketException) {
+        // 网易云偶尔直接把连接断掉（Connection reset）：等一下再试一次，大多就好了
+        if (!(e.message ?: "").contains("reset", ignoreCase = true)) throw e
+        DangoLogger.warn("NetEase connection reset, retrying once")
+        Thread.sleep(400)
+        requestOnce(url, accept, maxBytes)
+    }
+
+    private fun requestOnce(url: String, accept: String, maxBytes: Int): ByteArray? {
         var current = url
         repeat(6) {
             val conn = URL(current).openConnection() as HttpURLConnection

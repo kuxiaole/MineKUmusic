@@ -68,11 +68,42 @@ interface Platform {
     /** 天黑的程度（原版的 sky darken：0 = 白天，11 = 半夜，下雨也会变暗）；不在世界里时是 null */
     val skyDarken: Int? get() = null
 
+    /** 玩家周围的环境（环境音效用）；不在世界里时是 null。在游戏线程上调用 */
+    val environment: ListenerEnvironment? get() = null
+
+    /**
+     * 这一格的方块吸音多少（环境音效的房间回声用）：0 = 全反射（石头），1 = 全吸收；
+     * 声音能直接穿过去的（空气、水、花草、火把）返回 -1。在游戏线程上调用
+     */
+    fun soundAbsorption(x: Int, y: Int, z: Int): Float = -1f
+
     // ---------------------------------------------------------------- 界面
 
     /** 打开内置播放器 */
     fun openMusicScreen()
+
+    // ---------------------------------------------------------------- 声音
+
+    /**
+     * 用游戏自己的声音系统（OpenAL）放歌：Java Sound 用不了（安卓等）时用。
+     * 声音是 16 位有符号小端 PCM；打不开返回 null。
+     */
+    fun openAudioOutput(sampleRate: Int, channels: Int): me.sorihiko.dango.music.AudioOutput? = null
 }
+
+/**
+ * 玩家周围的环境。
+ * @param underwater 眼睛在水里
+ * @param skyVisible 头顶能看到天空
+ * @param enclosure  周围多闭塞：从眼睛往各个方向看几格，碰到方块的比例 0..1
+ * @param rain       0 = 没下雨，0.5 = 下雨，1 = 打雷（只算玩家所在位置真的在下雨时）
+ */
+class ListenerEnvironment(
+    val underwater: Boolean,
+    val skyVisible: Boolean,
+    val enclosure: Float,
+    val rain: Float,
+)
 
 /** yaw / pitch 和原版一致（角度） */
 class PlayerPose(

@@ -202,6 +202,48 @@ class ServerMusicTest {
         welcome(); assertTrue(ServerMusic.joined)
         ServerMusic.disconnected(); assertFalse(ServerMusic.joined); assertFalse(ServerMusic.available)
     }
+    @Test fun oldFmResponseCannotChangeServerPlaybackOrPausedRestoredQueue() = withMusicLoaderBlocked {
+        val started = CountDownLatch(1); val release = CountDownLatch(1)
+        val track = NeteaseTrack(101, "Synthetic FM", emptyList(), 180000, "")
+        val extra = NeteaseTrack(102, "Stale FM result", emptyList(), 180000, "")
+        val radio: () -> List<NeteaseTrack> = {
+            started.countDown(); check(release.await(10, TimeUnit.SECONDS)); listOf(extra)
+        }
+        val worker = MusicPlayer::class.java.getDeclaredField("radioWorker").apply { isAccessible = true }.get(null) as ExecutorService
+        try {
+            MusicPlayer.playQueue(listOf(track), 0, radio)
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            welcome(); join(); assertNull(MusicPlayer.radio)
+            MusicPlayer.playServerTrack(extra, "https://fixture.invalid/song.mp3", { 0L }, { false })
+            assertNull(MusicPlayer.radio)
+            ServerMusic.disconnected()
+            assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state); assertSame(radio, MusicPlayer.radio)
+            release.countDown(); worker.submit {}.get(5, TimeUnit.SECONDS)
+            assertEquals(listOf(track), MusicPlayer.queue); assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state)
+            MusicPlayer.togglePause()
+            assertSame(radio, MusicPlayer.radio); assertEquals(MusicPlayer.State.LOADING, MusicPlayer.state)
+        } finally { release.countDown(); worker.submit {}.get(5, TimeUnit.SECONDS) }
+    }
+    @Test fun fmAppendsUniqueTracksAndStopsFetchingWhenStopped() = withMusicLoaderBlocked {
+        val track = NeteaseTrack(101, "Synthetic FM", emptyList(), 180000, "")
+        val extra = NeteaseTrack(102, "Next FM track", emptyList(), 180000, "")
+        MusicPlayer.playQueue(listOf(track), 0) { listOf(track, extra, extra) }
+        val worker = MusicPlayer::class.java.getDeclaredField("radioWorker").apply { isAccessible = true }.get(null) as ExecutorService
+        worker.submit {}.get(5, TimeUnit.SECONDS)
+        assertEquals(listOf(track, extra), MusicPlayer.queue)
+        MusicPlayer.stop(); assertNull(MusicPlayer.radio)
+    }
+    @Test fun partialPlaylistCanGrowWithoutRestartingOrReplacingAnotherQueue() {
+        val tracks = listOf(101L, 102L).map { NeteaseTrack(it, "Fixture $it", emptyList(), 180000, "") }
+        val partial = listOf(tracks.first())
+        MusicPlayer.restoreQueue(partial, 0, 42000, true)
+        MusicPlayer.growQueue(partial, tracks)
+        assertSame(tracks, MusicPlayer.queue); assertEquals(42000L, MusicPlayer.positionMs)
+        assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state)
+        MusicPlayer.growQueue(partial, tracks + tracks.first())
+        MusicPlayer.growQueue(tracks, listOf(tracks.last()) + tracks)
+        assertSame(tracks, MusicPlayer.queue)
+    }
     @Test fun personalSelectionRequiresConfirmation() {
         welcome(); join()
         ServerMusic.playPersonal(emptyList(), 0)

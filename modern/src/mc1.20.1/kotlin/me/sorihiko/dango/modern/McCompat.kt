@@ -6,6 +6,7 @@ import me.sorihiko.dango.platform.PlayerAction
 
 import me.sorihiko.dango.platform.Keys
 
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.KeyMapping
 
 import com.mojang.blaze3d.platform.NativeImage
@@ -57,7 +58,13 @@ internal object McCompat {
     /** 原版画完暗角：先把原版排好的界面画掉，再直接画我们的 HUD（这样暗角压不到它） */
     fun hudOverlay(graphics: Any, block: () -> Unit) {
         (graphics as GuiGraphics).flush()
-        block()
+        try {
+            block()
+        } finally {
+            // 我们用自己的 VAO 画过：让原版下次重新绑定它的顶点缓冲（它记着"已经绑好了"会跳过），
+            // 不然后面的准星、快捷栏、按钮背景都画不出来
+            com.mojang.blaze3d.vertex.BufferUploader.invalidate()
+        }
     }
 
     fun mainMenuNowPlaying(graphics: Any) {
@@ -180,6 +187,8 @@ internal object McCompat {
             text, x, y, argb, false, pose, buffers,
             Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT,
         )
+        // 前面可能刚用自己的 VAO 画过：原版的顶点缓冲缓存作废，重新绑定再画字
+        com.mojang.blaze3d.vertex.BufferUploader.invalidate()
         vanillaDraw { buffers.endBatch() }
     }
 
@@ -211,6 +220,37 @@ internal object McCompat {
 
 /** 界面基类：把原版界面的各种事件统一成简单的几个方法（1.20.1 的滚轮事件只有一个方向） */
 abstract class CompatScreen(title: Component) : Screen(title) {
+
+    /**
+     * 我们自己画的输入框在打字时，让一个看不见的原版输入框也拿到焦点：
+     * IMBlocker 这类模组只在原版输入框有焦点时才打开系统输入法，否则只能打英文（#19）。
+     * 按键和打字照旧由我们自己处理（下面的事件都不往下传），这个输入框不显示、也收不到输入。
+     */
+    private var imeSink: EditBox? = null
+
+    /** 关界面时还在打字：先让隐藏的原版输入框失去焦点，不然原版以为还在打字，回到游戏后输入法关不掉 */
+    override fun removed() {
+        if (focused === imeSink) focused = null
+        super.removed()
+    }
+
+    fun setImeFocus(active: Boolean) {
+        val sink = imeSink ?: EditBox(font, 0, 0, 1, 1, Component.empty()).also { imeSink = it }
+        if (active) {
+            if (sink !in children()) addWidget(sink)
+            if (focused !== sink) {
+                focused = sink
+                me.sorihiko.dango.DangoLogger.info("Dango Music: text input on (system IME allowed)")
+            }
+            // IMBlocker 只认"最近画过"的输入框：它在原版画输入框时（会问一次 isFocused）记下时间。
+            // 隐藏的输入框不画，就每帧在我们画界面时替它问一次，让 IMBlocker 当它在屏幕上
+            sink.isFocused
+        } else if (focused === sink) {
+            focused = null
+            me.sorihiko.dango.DangoLogger.info("Dango Music: text input off")
+        }
+    }
+
     abstract fun onRender()
     abstract fun onMouseClicked(button: Int)
     abstract fun onMouseDragged()

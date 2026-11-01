@@ -45,15 +45,28 @@ object KugouMusicSource : MusicSourceApi {
         require(track.source == source && track.nativeId.matches(Regex("[A-Fa-f0-9]{32}")))
         val account = NativeAccounts.get(source)
         if (account != null) {
-            val response = KugouWeb.songInfo(track, account)
-            val data = response.get("data")?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
-            val cover = data.text("sizable_cover").ifEmpty { data.text("img") }.replace("{size}", "300")
-            if (cover.isNotEmpty()) track.coverUrl = cover
-            val url = data.text("play_url")
-            if (response.number("status") != 1L || url.isEmpty()) return null
-            val duration = data.number("timelength")
-            return NeteaseApi.SongUrl(url, duration in 1 until track.durationMs - 5000)
+            // 登录了还拿不到（新接口偶尔把能放的歌标成不可用）：最后再试一次旧的手机接口
+            return accountUrl(track, account) ?: guestUrl(track)?.also {
+                me.sorihiko.dango.DangoLogger.info("Kugou: logged-in URL unavailable, using the mobile fallback")
+            }
         }
+        return guestUrl(track)
+    }
+
+    private fun accountUrl(track: NeteaseTrack, account: NativeAccount): NeteaseApi.SongUrl? {
+        if (account.concept) return KugouLite.songUrl(track, account)
+        val response = KugouWeb.songInfo(track, account)
+        val data = response.get("data")?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val cover = data.text("sizable_cover").ifEmpty { data.text("img") }.replace("{size}", "300")
+        if (cover.isNotEmpty()) track.coverUrl = cover
+        val url = data.text("play_url")
+        if (response.number("status") != 1L || url.isEmpty()) return null
+        val duration = data.number("timelength")
+        return NeteaseApi.SongUrl(url, duration in 1 until track.durationMs - 5000)
+    }
+
+    /** 不用登录的手机接口（会员歌只给试听片段） */
+    private fun guestUrl(track: NeteaseTrack): NeteaseApi.SongUrl? {
         val data = SourceHttp.json("https://m.kugou.com/app/i/getSongInfo.php?cmd=playInfo&hash=${track.nativeId}&album_id=${SourceHttp.enc(track.albumId)}", REFERER)
         if (track.coverUrl.isEmpty()) {
             track.coverUrl = data.text("album_img").ifEmpty { data.text("imgUrl") }.replace("{size}", "300")

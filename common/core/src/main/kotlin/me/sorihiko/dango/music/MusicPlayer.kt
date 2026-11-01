@@ -11,13 +11,11 @@ import java.util.concurrent.Executors
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
-import javax.sound.sampled.FloatControl
 import javax.sound.sampled.SourceDataLine
-import kotlin.math.log10
 import kotlin.math.max
 
 /**
- * 内置网易云播放器：下载 mp3 → JLayer 解码 → Java Sound 输出。
+ * 内置网易云播放器：下载 mp3 → JLayer 解码 → Java Sound 输出（安卓等不带声音库的 Java 改用游戏的 OpenAL，见 [AudioOutput]）。
  * 播放进度 = 起始偏移 + 声卡实际已经播放的时长，所以歌词同步是精确的，拖动进度条也没问题。
  */
 object MusicPlayer {
@@ -43,12 +41,18 @@ object MusicPlayer {
     @Volatile var volume = 0.2f
 
     private val loader = Executors.newSingleThreadExecutor { r -> Thread(r, "Dango-MusicLoader").apply { isDaemon = true } }
+    private val radioWorker = Executors.newSingleThreadExecutor { r -> Thread(r, "Dango-MusicRadio").apply { isDaemon = true } }
+
+    /** 电台式的队列（私人 FM）：快放完时用它再要几首接在后面；普通歌单是 null */
+    @Volatile var radio: (() -> List<NeteaseTrack>)? = null
+        private set
+    private var radioRevision = 0L
     private val random = Random()
 
     /** 每次换歌 / 拖动都 +1，旧的解码线程看到代数变了就自己退出 */
     @Volatile private var generation = 0
     @Volatile private var audio: ByteArray? = null
-    @Volatile private var line: SourceDataLine? = null
+    @Volatile private var line: AudioOutput? = null
     @Volatile private var seekBaseMs = 0L
     @Volatile private var pausedAtMs = 0L
 
@@ -85,7 +89,7 @@ object MusicPlayer {
 
     val positionMs: Long
         get() = when (state) {
-            State.PLAYING -> seekBaseMs + (line?.microsecondPosition ?: 0L) / 1000
+            State.PLAYING -> seekBaseMs + (line?.positionMicros ?: 0L) / 1000
             State.PAUSED -> pausedAtMs
             else -> 0L
         }
@@ -94,12 +98,14 @@ object MusicPlayer {
 
     // ---------------------------------------------------------------- 队列控制
 
-    fun playQueue(tracks: List<NeteaseTrack>, startIndex: Int) {
+    @Synchronized @JvmOverloads fun playQueue(tracks: List<NeteaseTrack>, startIndex: Int, radio: (() -> List<NeteaseTrack>)? = null) {
+        radioRevision++
         queue = tracks
+        this.radio = radio
         playIndex(startIndex)
     }
 
-    fun playIndex(i: Int) {
+    @Synchronized fun playIndex(i: Int) {
         val q = queue
         if (q.isEmpty()) return
         val idx = ((i % q.size) + q.size) % q.size
@@ -112,6 +118,43 @@ object MusicPlayer {
         state = State.LOADING
         message = "加载中…"
         loader.execute { load(gen, track) }
+        if (radio != null && idx >= q.size - 2) extendRadio(null)
+    }
+
+    /** 电台：再要几首接到队列后面（去掉已经在队列里的），然后执行 [then] */
+    private fun extendRadio(then: (() -> Unit)?) {
+        val fetch = radio ?: return
+        val revision = radioRevision
+        radioWorker.execute {
+            val needsMore = synchronized(this) {
+                if (radioRevision != revision || radio !== fetch) return@execute
+                queue.size - index <= 2
+            }
+            // 已经有好几首没放的就不用再要了（连续调用时只要一次）
+            val more = if (needsMore) {
+                try { fetch() } catch (e: Exception) {
+                    DangoLogger.warn("Radio fetch failed: {}", e.toString())
+                    emptyList()
+                }
+            } else emptyList()
+            synchronized(this) {
+                if (radioRevision != revision || radio !== fetch) return@execute
+                val have = queue.mapTo(HashSet()) { it.key }
+                val fresh = more.filter { have.add(it.key) }
+                if (fresh.isNotEmpty()) queue = queue + fresh
+                then?.invoke()
+            }
+        }
+    }
+
+    /**
+     * 歌单还在加载时就开始放了：加载出更多后把队列换成更长的版本。
+     * 只在队列还是 [from] 本身、并且 [to] 以它为开头时才换，当前这首和播放位置都不变。
+     */
+    @Synchronized fun growQueue(from: List<NeteaseTrack>, to: List<NeteaseTrack>) {
+        if (queue !== from || radio != null || to.size <= from.size) return
+        for (i in from.indices) if (from[i].key != to[i].key) return
+        queue = to
     }
 
     /** 一起听：正在跟随房主（歌放完不自动下一首，等房主切） */
@@ -121,8 +164,10 @@ object MusicPlayer {
      * 一起听：跟随房主播放某首歌。
      * 起始位置在下载完成、真正开始播放前才计算（下载要好几秒，提前算会落后）。
      */
-    fun playTrackAt(track: NeteaseTrack, startAt: () -> Long, paused: Boolean) {
+    @Synchronized fun playTrackAt(track: NeteaseTrack, startAt: () -> Long, paused: Boolean) {
+        radioRevision++
         queue = listOf(track)
+        radio = null
         index = 0
         val gen = ++generation
         stopLine()
@@ -133,7 +178,9 @@ object MusicPlayer {
         loader.execute { load(gen, track, startAt, paused) }
     }
 
-    fun playServerTrack(track: NeteaseTrack, url: String, startAt: () -> Long, paused: () -> Boolean) {
+    @Synchronized fun playServerTrack(track: NeteaseTrack, url: String, startAt: () -> Long, paused: () -> Boolean) {
+        radioRevision++
+        radio = null
         followMode = true
         queue = listOf(track)
         index = 0
@@ -146,7 +193,9 @@ object MusicPlayer {
         loader.execute { load(gen, track, startAt, directUrl = url, pauseAtStart = paused) }
     }
 
-    fun restoreQueue(tracks: List<NeteaseTrack>, savedIndex: Int, position: Long, paused: Boolean, active: Boolean = true) {
+    @Synchronized fun restoreQueue(tracks: List<NeteaseTrack>, savedIndex: Int, position: Long, paused: Boolean, active: Boolean = true, radio: (() -> List<NeteaseTrack>)? = null) {
+        radioRevision++
+        this.radio = radio
         followMode = false
         queue = tracks
         if (tracks.isEmpty() || savedIndex !in tracks.indices) { stop(); return }
@@ -179,9 +228,15 @@ object MusicPlayer {
         startDecode(gen, bytes, target)
     }
 
-    fun next() {
+    @Synchronized fun next() {
         val q = queue
         if (q.isEmpty()) return
+        // 电台按顺序往下放；放到最后一首时先要几首新的再切
+        if (radio != null) {
+            if (index + 1 < q.size) playIndex(index + 1)
+            else { val from = index; extendRadio { if (index == from) playIndex(from + 1) } }
+            return
+        }
         playIndex(if (shuffle && q.size > 1) pickRandom(q.size) else index + 1)
     }
 
@@ -213,7 +268,7 @@ object MusicPlayer {
                     state = State.PLAYING
                     l.start()
                 } else if (audio == null) {
-                    restoreQueue(queue, index, pausedAtMs, false)
+                    restoreQueue(queue, index, pausedAtMs, false, radio = radio)
                 } else {
                     syncTo(pausedAtMs, true)
                 }
@@ -232,7 +287,9 @@ object MusicPlayer {
         startDecode(gen, bytes, target)
     }
 
-    fun stop() {
+    @Synchronized fun stop() {
+        radioRevision++
+        radio = null
         ++generation
         stopLine()
         audio = null
@@ -261,7 +318,13 @@ object MusicPlayer {
                     else if (NeteaseApi.loggedIn) "这首歌没有播放权限" else "需要登录才能播放（VIP 歌曲）")
             }
             audio = bytes
-            message = if (url.trialOnly) "仅试听片段" else ""
+            message = when {
+                url.trialOnly -> "Preview only: membership is needed for the full song"
+                url.replaced -> "The original was unavailable, playing another version"
+                else -> ""
+            }
+            trackGain = loudnessGain(url)
+            if (url.gainDb != 0f) DangoLogger.info("Loudness: {} gain {} dB, peak {}, applied x{}", track.source.key, url.gainDb, url.peak, trackGain)
             val start = (startAt?.invoke() ?: 0L).coerceIn(0L, max(0L, track.durationMs - 1000))
             if (pauseAtStart?.invoke() ?: paused) {
                 pausedAtMs = start
@@ -301,6 +364,37 @@ object MusicPlayer {
      * 打开声卡输出。默认设备打不开时（被别的程序独占、格式不支持等），
      * 依次试系统里其它能输出这个格式的设备。
      */
+    /** 测试用：-Ddangomusic.openal=true 时电脑上也用游戏的 OpenAL 放歌 */
+    private val forceOpenAl = java.lang.Boolean.getBoolean("dangomusic.openal")
+    private var loggedOutput = ""
+
+    /**
+     * 打开声音输出：Java 自己带声音库时用 Java Sound（电脑上都是这样）；
+     * 不带（安卓）或者强制时先用游戏的 OpenAL，打不开再退回 Java Sound；Java Sound 打不开也试一下 OpenAL。
+     */
+    private fun openOutput(format: AudioFormat, bufferBytes: Int): AudioOutput {
+        if (forceOpenAl || !AudioOutput.javaSoundNative) platformOutput(format)?.let { return it }
+        return try {
+            JavaSoundOutput(openLine(format, bufferBytes)).also { logOutput("Java Sound") }
+        } catch (e: Throwable) {
+            platformOutput(format) ?: throw e
+        }
+    }
+
+    private fun platformOutput(format: AudioFormat): AudioOutput? = try {
+        me.sorihiko.dango.DangoMusic.instance.platform.openAudioOutput(format.sampleRate.toInt(), format.channels)
+            ?.also { logOutput("game OpenAL") }
+    } catch (e: Throwable) {
+        DangoLogger.warn("Game audio output failed: {}", e.toString())
+        null
+    }
+
+    private fun logOutput(name: String) {
+        if (loggedOutput == name) return
+        loggedOutput = name
+        DangoLogger.info("Dango Music: playing through {}", name)
+    }
+
     private fun openLine(format: AudioFormat, bufferBytes: Int): SourceDataLine {
         var last: Throwable? = null
         try {
@@ -331,6 +425,19 @@ object MusicPlayer {
         throw last ?: IllegalStateException("没有可用的声音输出设备")
     }
 
+    /** 音量均衡（设置里开关）：按音源给的响度把每首歌调到差不多响 */
+    @Volatile var normalize = true
+    /** 这首歌要乘的倍数（1 = 原样） */
+    @Volatile private var trackGain = 1f
+
+    private fun loudnessGain(url: NeteaseApi.SongUrl): Float {
+        if (!normalize || url.gainDb == 0f) return 1f
+        var gain = Math.pow(10.0, url.gainDb / 20.0).toFloat()
+        // 有峰值就别把峰值推过 1（会破音）
+        if (url.peak > 0f) gain = minOf(gain, 0.98f / url.peak)
+        return gain.coerceIn(0.25f, 2f)
+    }
+
     private fun startDecode(gen: Int, bytes: ByteArray, startMs: Long) {
         Thread({ decodeLoop(gen, bytes, startMs) }, "Dango-MusicDecode").apply {
             isDaemon = true
@@ -339,7 +446,7 @@ object MusicPlayer {
     }
 
     private fun decodeLoop(gen: Int, bytes: ByteArray, startMs: Long) {
-        var out: SourceDataLine? = null
+        var out: AudioOutput? = null
         var finished = false
         try {
             val bitstream = Bitstream(ByteArrayInputStream(bytes))
@@ -355,6 +462,7 @@ object MusicPlayer {
             if (gen != generation) return
             seekBaseMs = skipped.toLong()
             clearBeats()
+            EnvironmentAudio.reset()
             var decodedMs = skipped
             var lowPass = 0f
             var avgEnergy = 0f
@@ -375,7 +483,7 @@ object MusicPlayer {
                 }
                 if (out == null) {
                     val format = AudioFormat(header.frequency().toFloat(), 16, sb.channelCount, true, false)
-                    out = openLine(format, header.frequency() * sb.channelCount * 2 / 4)   // 约 0.25 秒缓冲
+                    out = openOutput(format, header.frequency() * sb.channelCount * 2 / 4)   // 约 0.25 秒缓冲
                     if (gen != generation) return
                     line = out
                     if (state == State.PAUSED) {
@@ -394,7 +502,7 @@ object MusicPlayer {
                 }
                 if (gen != generation) break
                 if (volume != appliedVolume) {
-                    applyVolume(out, volume)
+                    out.setVolume(volume)
                     appliedVolume = volume
                 }
                 val len = sb.bufferLength
@@ -424,6 +532,10 @@ object MusicPlayer {
                 }
                 avgEnergy = if (avgEnergy == 0f) energy else avgEnergy + (energy - avgEnergy) * (frameMs / 1000f).coerceAtMost(1f)
                 decodedMs += frameMs
+                // 音量均衡、环境音效（水下变闷、洞穴回声……）在鼓点检测之后加，不影响节奏判断
+                val gain = trackGain
+                if (gain != 1f) for (idx in 0 until len) pcm[idx] = (pcm[idx] * gain).toInt().coerceIn(-32768, 32767).toShort()
+                EnvironmentAudio.process(pcm, len, ch, header.frequency(), frameMs)
                 val data = ByteArray(len * 2)
                 for (k in 0 until len) {
                     val v = pcm[k].toInt()
@@ -461,15 +573,6 @@ object MusicPlayer {
             } else {
                 next()
             }
-        }
-    }
-
-    private fun applyVolume(out: SourceDataLine, v: Float) {
-        try {
-            val gain = out.getControl(FloatControl.Type.MASTER_GAIN) as FloatControl
-            val db = if (v <= 0.0001f) gain.minimum else (20.0 * log10(v.toDouble())).toFloat()
-            gain.value = db.coerceIn(gain.minimum, gain.maximum)
-        } catch (_: Exception) {
         }
     }
 
