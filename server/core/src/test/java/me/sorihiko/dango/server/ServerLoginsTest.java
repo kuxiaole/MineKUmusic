@@ -56,4 +56,25 @@ class ServerLoginsTest {
             assertEquals("[]", Files.readString(directory.resolve("qq-cookie.json")));
         } finally { owner.shutdown(); assertTrue(owner.awaitTermination(5, TimeUnit.SECONDS)); }
     }
+    @Test void cancellingDuringMembershipVerificationFencesItsLateSuccess() throws Exception {
+        var owner = Executors.newSingleThreadExecutor(); var events = new CopyOnWriteArrayList<JsonObject>();
+        var verifying = new CountDownLatch(1); var cancelled = new CountDownLatch(1); var checked = new CompletableFuture<Void>();
+        var gate = new java.util.concurrent.atomic.AtomicReference<java.util.function.BooleanSupplier>();
+        UUID player = UUID.randomUUID();
+        try (var logins = new ServerLogins(directory, owner::execute, (id, body) -> {
+            events.add(body); if (body.get("state").getAsString().equals("cancelled")) cancelled.countDown();
+        }, source -> new ProviderQrLogin() {
+            @Override public NativeAccount run(Observer observer) { return account(); }
+            @Override public void close() {}
+        }, (request, account, begin) -> { gate.set(begin); verifying.countDown(); return checked; })) {
+            owner.submit(() -> logins.start(new ServerLogins.Request(player, "Fixture", "qq", true, ""))).get(5, TimeUnit.SECONDS);
+            assertTrue(verifying.await(5, TimeUnit.SECONDS));
+            owner.submit(() -> logins.cancel(player, "qq", "")).get(5, TimeUnit.SECONDS);
+            assertTrue(cancelled.await(5, TimeUnit.SECONDS)); assertFalse(gate.get().getAsBoolean());
+            checked.complete(null); owner.submit(() -> {}).get(5, TimeUnit.SECONDS);
+            assertTrue(events.stream().noneMatch(e -> e.get("state").getAsString().equals("success")));
+            assertFalse(Files.exists(directory.resolve("qq-cookie.json")));
+            assertThrows(ExecutionException.class, () -> owner.submit(() -> logins.start(player, "netease")).get(5, TimeUnit.SECONDS));
+        } finally { owner.shutdown(); assertTrue(owner.awaitTermination(5, TimeUnit.SECONDS)); }
+    }
 }

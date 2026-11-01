@@ -33,8 +33,12 @@ object ServerMusic {
     var admin = false; private set
     var sources: List<MusicSource> = listOf(MusicSource.NETEASE); private set
     var searchSource = MusicSource.NETEASE; private set
-    data class ServerLogin(val sessionId: String, val source: String, val state: String, val image: String, val expiresAt: Long)
+    data class ServerLogin(val sessionId: String, val source: String, val state: String, val image: String, val expiresAt: Long, val shared: Boolean = false)
     var serverLogin: ServerLogin? = null; private set
+    data class SharedAccount(val source: String, val generation: String, val state: String, val contributor: String,
+                             val own: Boolean, val canShare: Boolean, val canRemove: Boolean, val free: Boolean, val graceUntil: Long, val busy: Boolean)
+    var accountSharing = false; private set
+    var accounts: List<SharedAccount> = emptyList(); private set
     private val dismissedLogins = LinkedHashSet<String>()
     var status = "Not connected to a server"; private set
     var current: MusicProtocol.Entry? = null; private set
@@ -52,7 +56,8 @@ object ServerMusic {
     var lyrics: Lyrics? = null; private set
     var pendingPersonal: (() -> Unit)? = null; private set
     data class RequestConfirmation(val quoteId: String, val songId: Long, val songName: String, val amount: String,
-                                   val currency: String, val expiresAt: Long, val remote: Boolean, val source: String = "netease", val nativeId: String = songId.toString())
+                                   val currency: String, val expiresAt: Long, val remote: Boolean, val source: String = "netease", val nativeId: String = songId.toString(),
+                                   val contribution: Boolean = false, val updated: Boolean = false)
     var pendingRequest: RequestConfirmation? = null; private set
     var requestingSong = false; private set
     var requestFeedback = ""; private set
@@ -99,6 +104,7 @@ object ServerMusic {
         restorePersonal(pause = true)
         connected = false; available = false; desired = false; transport = null
         serverLogin = null; dismissedLogins.clear(); admin = false; sources = listOf(MusicSource.NETEASE)
+        accountSharing = false; accounts = emptyList()
         assembler.clear(); pending.clear(); current = null; queue = emptyList(); searchResults = emptyList()
         searching = false; serverId = ""; revision = -1; queueRevision = -1; instance = ""
         pendingRequest = null; requestingSong = false; quoteRequest = ""; remoteConfirmation = false
@@ -123,6 +129,7 @@ object ServerMusic {
                         pendingRequest = null; requestingSong = false; quoteRequest = ""
                         restorePersonal(); revision = -1; queueRevision = -1; instance = ""; queue = emptyList()
                         serverLogin = null; dismissedLogins.clear(); searchResults = emptyList(); searchRequest = ""; searching = false
+                        accounts = emptyList(); accountSharing = false
                         serverId = nextServer
                         epoch = nextEpoch
                         desired = settings.getProperty(serverId, "false").toBoolean()
@@ -133,6 +140,8 @@ object ServerMusic {
                     canRequest = MusicProtocol.bool(body, "canRequest", false)
                     canVote = MusicProtocol.bool(body, "canVote", false)
                     admin = MusicProtocol.bool(body, "admin", false)
+                    accountSharing = MusicProtocol.bool(body, "accountSharing", false)
+                    if (!accountSharing) accounts = emptyList()
                     sources = body.getAsJsonArray("sources")?.mapNotNull { item -> MusicSource.values().firstOrNull { it.key == item.asString && it != MusicSource.KUGOU } }
                         ?.takeIf { it.isNotEmpty() } ?: listOf(MusicSource.NETEASE)
                     searchSource = sources.firstOrNull { it.key == settings.getProperty("source.$serverId", "netease") } ?: sources.first()
@@ -141,20 +150,29 @@ object ServerMusic {
                     if (desired) send("subscribe")
                     requestQueue(queuePage)
                 }
-                "serverLogin" -> if (admin) {
+                "serverLogin" -> if (admin || accountSharing && MusicProtocol.bool(body, "shared", false)) {
                     val id = MusicProtocol.string(body, "sessionId", "")
                     val source = MusicProtocol.string(body, "source", "")
                     val state = MusicProtocol.string(body, "state", "")
                     val image = MusicProtocol.string(body, "image", "")
                     if (id.isNotEmpty() && id !in dismissedLogins && source in listOf("netease", "qq") && image.length <= 512 * 1024)
                         serverLogin = ServerLogin(id, source, state, image,
-                            System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 0).coerceIn(0, 180000) * 1_000_000L)
+                            System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 0).coerceIn(0, 180000) * 1_000_000L, MusicProtocol.bool(body, "shared", false))
                 }
                 "joinChannel" -> {
                     if (available && transport != null && MusicProtocol.string(body, "epoch", "") == epoch &&
                         !joined && pending.values.none { it.first == "subscribe" }) join()
                 }
                 "snapshot" -> {
+                    if (accountSharing) accounts = body.getAsJsonArray("accounts")?.take(2)?.mapNotNull { item ->
+                        val row = item.asJsonObject
+                        val source = MusicProtocol.string(row, "source", "")
+                        if (source !in listOf("netease", "qq")) null else SharedAccount(source, MusicProtocol.string(row, "generation", ""),
+                            MusicProtocol.string(row, "state", "checking"), MusicProtocol.string(row, "contributorName", "").take(64),
+                            MusicProtocol.bool(row, "ownContribution", false), MusicProtocol.bool(row, "canShare", false),
+                            MusicProtocol.bool(row, "canRemove", false), MusicProtocol.bool(row, "free", false),
+                            System.nanoTime() + MusicProtocol.number(row, "graceRemainingMs", 0).coerceIn(0, 300000) * 1_000_000L, MusicProtocol.bool(row, "busy", false))
+                    } ?: emptyList()
                     val sent = MusicProtocol.number(body, "sentNanos", 0)
                     if (sent > 0) oneWayMs = ((System.nanoTime() - sent) / 2_000_000L).coerceIn(0, 2000)
                     applyState(body)
@@ -189,14 +207,16 @@ object ServerMusic {
                     searchPage = MusicProtocol.number(body, "page", 0).toInt()
                     searchHasNext = MusicProtocol.bool(body, "hasNext", false); searching = false
                 }
-                "requestQuote" -> if (joined && (rid == quoteRequest || rid.startsWith("cmd:"))) {
+                "requestQuote" -> if (joined && (rid == quoteRequest || rid.startsWith("cmd:") ||
+                        MusicProtocol.bool(body, "updated", false) && pending[rid]?.first in listOf("confirmRequest", "request"))) {
                     val songId = MusicProtocol.number(body, "songId", 0)
                     val song = MusicProtocol.songRef(body)
                     pendingRequest = RequestConfirmation(
                         MusicProtocol.string(body, "quoteId", ""), songId,
-                        if (song == quotedSongRef && rid == quoteRequest) quotedSongName else "",
+                        if (song == quotedSongRef) quotedSongName else "",
                         MusicProtocol.string(body, "amount", "0"), MusicProtocol.string(body, "currencyName", "KU\u5e01"),
-                        System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 60000).coerceIn(0, 60000) * 1_000_000L, true, song.source, song.nativeId)
+                        System.nanoTime() + MusicProtocol.number(body, "expiresInMs", 60000).coerceIn(0, 60000) * 1_000_000L, true, song.source, song.nativeId,
+                        MusicProtocol.string(body, "discountReason", "") == "contribution", MusicProtocol.bool(body, "updated", false))
                     quoteRequest = ""; requestingSong = false
                     requestFeedback = ""
                     pendingPersonal = null
@@ -310,7 +330,7 @@ object ServerMusic {
             catch (e: Exception) { DangoLogger.warn("Could not save channel preference: {}", e.toString()) }
         }
     }
-    private fun hello() { send("hello", JsonObject().apply { addProperty("chatJoin", true); addProperty("multiSource", true); addProperty("serverLogin", true) }) }
+    private fun hello() { send("hello", JsonObject().apply { addProperty("chatJoin", true); addProperty("multiSource", true); addProperty("serverLogin", true); addProperty("accountSharing", true) }) }
     private fun send(type: String, body: JsonObject = JsonObject()): String {
         val sender = transport ?: return ""
         val id = UUID.randomUUID().toString()
@@ -391,6 +411,14 @@ object ServerMusic {
         serverLogin = null; dismissedLogins.add(login.sessionId)
         while (dismissedLogins.size > 8) dismissedLogins.remove(dismissedLogins.first())
         send("cancelLogin", JsonObject().apply { addProperty("sessionId", login.sessionId); addProperty("source", login.source) })
+    }
+    fun shareAccount(account: SharedAccount) {
+        if (!accountSharing || !account.canShare || account.busy || serverLogin != null) return
+        send("contributeAccount", JsonObject().apply { addProperty("source", account.source); addProperty("generation", account.generation) })
+    }
+    fun withdrawAccount(account: SharedAccount) {
+        if (!accountSharing || !account.canRemove || account.busy) return
+        send("withdrawAccount", JsonObject().apply { addProperty("source", account.source); addProperty("generation", account.generation) })
     }
     fun toTrack(track: MusicProtocol.Track): NeteaseTrack {
         val song = track.ref()

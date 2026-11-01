@@ -18,14 +18,16 @@ internal class PartyPage(private val screen: MusicScreen) {
     var codeFocused = false
     var codeRect = LayoutBounds(); private set
     var area = LayoutBounds(); private set
-    private var searchTab = false
+    private var selectedTab = 0
+    private val searchTab get() = selectedTab == 1
     private var tabBlend = 0f
-    private val tabHover = FloatArray(2)
+    private val tabHover = FloatArray(3)
     private val sourcePosition = Spring(320f, 26f)
-    private val scrollOffsets = IntArray(2)
+    private val scrollOffsets = IntArray(3)
+    private var pendingRemoval = ""
     private var scrollOffset: Int
-        get() = scrollOffsets[if (searchTab) 1 else 0]
-        set(value) { scrollOffsets[if (searchTab) 1 else 0] = value }
+        get() = scrollOffsets[selectedTab]
+        set(value) { scrollOffsets[selectedTab] = value }
 
     fun draw(bounds: LayoutBounds) {
         val channel = ServerMusic
@@ -56,25 +58,29 @@ internal class PartyPage(private val screen: MusicScreen) {
                 I18n.format("Skip vote %d/%d", channel.votes, channel.votesRequired), "▶") { channel.vote() }
         }
         val toolbarY = nowY + 86f
-        val tabs = LayoutBounds(bounds.x, toolbarY, 230f, 30f)
+        val tabCount = if (channel.accountSharing) 3 else 2
+        if (selectedTab >= tabCount) selectedTab = 0
+        val tabWidth = minOf(115f, bounds.width / tabCount)
+        val tabs = LayoutBounds(bounds.x, toolbarY, tabWidth * tabCount, 30f)
         ui.card(tabs, Theme.CARD, 8f)
-        val target = if (searchTab) 1f else 0f
+        val target = selectedTab.toFloat()
         tabBlend = ui.approach(tabBlend, target, 70f)
         if (abs(tabBlend - target) < 0.002f) tabBlend = target
         val indicator = if (screen.reducedChannelMotion) target else tabBlend
-        ui.ctx.drawGlass(LayoutBounds(tabs.x + indicator * 115f, toolbarY, 115f, 30f), Theme.GLASS_SELECTION)
-        for (index in 0..1) {
-            val tab = LayoutBounds(tabs.x + index * 115f, toolbarY, 115f, 30f)
-            val selected = searchTab == (index == 1)
+        ui.ctx.drawGlass(LayoutBounds(tabs.x + indicator * tabWidth, toolbarY, tabWidth, 30f), Theme.GLASS_SELECTION)
+        for (index in 0 until tabCount) {
+            val tab = LayoutBounds(tabs.x + index * tabWidth, toolbarY, tabWidth, 30f)
+            val selected = selectedTab == index
             tabHover[index] = ui.approach(tabHover[index], if (!selected && ui.hover(tab)) 1f else 0f, 70f)
             ui.card(tab, Theme.CARD_HOVER.copy(a = Theme.CARD_HOVER.a * tabHover[index]), 8f)
-            val label = I18n.text(if (index == 0) "Channel queue" else "Request a song")
+            val label = I18n.text(when (index) { 0 -> "Channel queue"; 1 -> "Request a song"; else -> "Music accounts" })
             ui.text(label, tab.x + (tab.width - ui.width(label, 11f)) / 2, tab.y + 10f, 11f,
                 if (selected) Theme.TEXT_PRIMARY else Theme.TEXT_SECONDARY)
             ui.hits += tab to {
-                if (searchTab != (index == 1)) {
-                    searchTab = index == 1
+                if (selectedTab != index) {
+                    selectedTab = index
                     scrollOffset = 0
+                    pendingRemoval = ""
                 }
                 codeFocused = searchTab
                 screen.sidebar.searchFocused = false
@@ -82,14 +88,64 @@ internal class PartyPage(private val screen: MusicScreen) {
             }
         }
         if (!searchTab) { codeRect = LayoutBounds(); codeFocused = false }
-        for (index in 0..1) {
-            val alpha = if (index == 1) tabBlend else 1f - tabBlend
+        for (index in 0 until tabCount) {
+            val alpha = (1f - abs((if (screen.reducedChannelMotion) target else tabBlend) - index)).coerceIn(0f, 1f)
             if (alpha <= 0f) continue
             val firstHit = ui.hits.size
-            ui.shifted(0f, 0f, alpha) { drawPanel(bounds, tabs, index == 1) }
+            ui.shifted(0f, 0f, alpha) { if (index == 2) drawAccounts(bounds, tabs) else drawPanel(bounds, tabs, index == 1) }
             // Both panels remain visible during the fade; only the selected one accepts clicks.
-            if (searchTab != (index == 1)) ui.hits.subList(firstHit, ui.hits.size).clear()
+            if (selectedTab != index) ui.hits.subList(firstHit, ui.hits.size).clear()
         }
+    }
+    private fun drawAccounts(bounds: LayoutBounds, tabs: LayoutBounds) {
+        val channel = ServerMusic
+        val top = tabs.bottom + 14f
+        val panel = LayoutBounds(bounds.x, top, bounds.width, max(0f, bounds.bottom - top - 30f))
+        if (selectedTab == 2) { area = panel; codeRect = LayoutBounds(); codeFocused = false }
+        if (channel.accounts.none { it.source + it.generation == pendingRemoval }) pendingRemoval = ""
+        val contentHeight = channel.accounts.size * 140f
+        scrollOffsets[2] = scrollOffsets[2].coerceIn(0, max(0, kotlin.math.ceil((contentHeight - panel.height) / 20f).toInt()))
+        ui.beginClip(panel)
+        channel.accounts.forEachIndexed { index, account ->
+            val card = LayoutBounds(panel.x, panel.y + index * 140f - scrollOffsets[2] * 20f, panel.width, 130f)
+            val firstHit = ui.hits.size
+            ui.card(card, Theme.CARD, 10f)
+            val source = I18n.text(if (account.source == "qq") "QQ Music" else "NetEase")
+            val state = I18n.text(when (account.state) {
+                "valid" -> "Available"; "missing" -> "Not configured"; "invalid" -> "Login expired"
+                "nonMember" -> "No active music membership"; "unavailable" -> "Temporarily unable to verify"; else -> "Checking account..."
+            })
+            ui.text(source, card.x + 16f, card.y + 16f, 15f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+            ui.text(ui.trim(state, card.width - 155f, 11f), card.x + 140f, card.y + 19f, 11f, Theme.TEXT_SECONDARY)
+            val owner = if (account.contributor.isNotEmpty()) I18n.format("This %s account is shared by %s.", source, account.contributor)
+                else I18n.text(if (account.state == "missing") "Share a membership to help everyone listen." else "Provided by the server")
+            ui.text(ui.trim(owner, card.width - 32f, 12f), card.x + 16f, card.y + 44f, 12f, Theme.TEXT_PRIMARY)
+            val seconds = ((account.graceUntil - System.nanoTime()) / 1_000_000_000L).coerceAtLeast(0)
+            val note = if (account.free && account.state == "unavailable" && seconds > 0) I18n.format("Your free requests are retained for %s more seconds.", seconds)
+                else I18n.text(if (account.free && account.state == "valid") "Your requests on this platform are free."
+                    else if (account.own) "Free requests resume when this account is verified again."
+                    else "Contributors receive free requests on the shared platform.")
+            ui.text(ui.trim(note, card.width - 32f, 10f), card.x + 16f, card.y + 65f, 10f, Theme.TEXT_SECONDARY)
+            val removing = pendingRemoval == account.source + account.generation
+            if (removing && account.canRemove && !account.busy) {
+                ui.pill(LayoutBounds(card.right - 244f, card.y + 92f, 100f, 27f), Theme.CARD_HOVER, I18n.text("Cancel")) { pendingRemoval = "" }
+                ui.pill(LayoutBounds(card.right - 136f, card.y + 92f, 120f, 27f), RED, I18n.text("Confirm stop sharing")) {
+                    channel.withdrawAccount(account); pendingRemoval = ""
+                }
+            } else {
+                if (account.canRemove && !account.busy) ui.pill(LayoutBounds(card.x + 16f, card.y + 92f, 120f, 27f), Theme.CARD_HOVER,
+                    I18n.text(if (account.own) "Stop sharing" else "Remove account")) { pendingRemoval = account.source + account.generation }
+                if (account.canShare && !account.busy) ui.pill(LayoutBounds(card.right - 136f, card.y + 92f, 120f, 27f), RED, I18n.text("Scan to share")) { channel.shareAccount(account) }
+                else if (account.busy) ui.text(I18n.text("Account login in progress..."), card.x + 16f, card.y + 100f, 11f, Theme.TEXT_SECONDARY)
+            }
+            // Clipped buttons must not accept clicks above/below the visible account list.
+            for (i in ui.hits.lastIndex downTo firstHit) {
+                val hit = ui.hits[i].first
+                if (hit.y < panel.y || hit.bottom > panel.bottom) ui.hits.removeAt(i)
+            }
+        }
+        ui.endClip()
+        ui.text(ui.trim(I18n.message(channel.status), bounds.width, 10f), bounds.x, bounds.bottom - 16f, 10f, Theme.TEXT_TERTIARY)
     }
 
     private fun drawPanel(bounds: LayoutBounds, tabs: LayoutBounds, search: Boolean) {

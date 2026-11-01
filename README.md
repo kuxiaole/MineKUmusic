@@ -28,14 +28,14 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.4+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.4+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.4+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.4+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.4+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.4+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.4.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.4-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.5+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.5+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.5+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.5+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.5+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.5+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.5.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.5-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 替换客户端和对应插件 JAR 后完整重启，保留配置、账号、队列、交易记录和 `server-id`。群组服需同时更新代理与后端插件。详细部署、账号配置与权限说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
@@ -43,6 +43,7 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
 - 在“全服音乐”中自行加入频道，搜索点歌、查看队列、撤回自己的待播歌曲和投票切歌。
+- “全服音乐 → 音乐账号”显示网易云、QQ 音乐账号状态。账号不可用时，玩家可扫码共享有效会员账号；贡献者享受对应平台免费点歌，并可随时撤回共享。
 - 管理员执行 `/music login netease` 或 `/music login qq`，在客户端扫码登录对应音源。搜索和扫码免费。
 - 有人成功点歌时，所有在线玩家都会收到聊天公告，可点击“加入全服音乐”或输入 `/music join` 免费收听；收到公告不会自动加入。群组服由 Velocity 统一公告。
 - 聊天中输入 `/music search <关键词>` 可查看彩色搜索结果，每页 10 首，支持点击点歌、上一页、下一页与悬停查看完整歌曲信息。搜索和翻页免费，点击点歌后仍在客户端确认费用。

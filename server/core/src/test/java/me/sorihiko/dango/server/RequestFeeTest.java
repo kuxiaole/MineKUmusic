@@ -2,6 +2,7 @@ package me.sorihiko.dango.server;
 
 import com.google.gson.*;
 import me.sorihiko.dango.protocol.MusicProtocol;
+import me.sorihiko.dango.music.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import org.junit.jupiter.api.*;
@@ -28,6 +29,8 @@ class RequestFeeTest {
     private CompletableFuture<EconomyService.Result> delayed;
     private volatile String route = "fixture-backend-a";
     private MusicServer server;
+    private volatile AccountMembership.Result membership = new AccountMembership.Result(AccountMembership.Status.VALID, "123", System.currentTimeMillis() + 3_600_000);
+    private volatile Runnable onResolve = () -> {};
     private final EconomyService economy = new EconomyService() {
         @Override public String route(UUID id) { return route; }
         @Override public CompletionStage<Result> charge(Payment payment) {
@@ -46,11 +49,15 @@ class RequestFeeTest {
         @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(track(101)), false); }
         @Override public Audio resolve(long id) {
             if (id == 404) throw new IllegalArgumentException("Synthetic unavailable song");
+            onResolve.run();
             return new Audio(track(id), "https://example.invalid/synthetic-fee-test.mp3", "", "");
         }
     };
     private static MusicProtocol.Track track(long id) { return new MusicProtocol.Track(id, "Synthetic paid song " + id, List.of("Fixture artist"), 180000, ""); }
     private void start(boolean paid) throws Exception {
+        start(paid, false);
+    }
+    private void start(boolean paid, boolean sharing) throws Exception {
         MusicProtocol.Assembler assembler = new MusicProtocol.Assembler();
         var endpoint = new MusicServer.Endpoint() {
             @Override public void send(UUID id, List<byte[]> frames) {
@@ -64,8 +71,13 @@ class RequestFeeTest {
             @Override public void log(String text, Throwable error) { errors.add(error); }
         };
         server = new MusicServer(directory, new ServerConfig("synthetic-network", "Fixture", 3, 100, 0, 1,
-                paid, new BigDecimal("12.50"), "KU\u5e01", false, ""), provider, endpoint, economy);
-        send("hello", new JsonObject()); send("subscribe", new JsonObject());
+                paid, new BigDecimal("12.50"), "KU\u5e01", false, ""), provider, endpoint, economy, MusicMessages.defaults(),
+                account -> membership, source -> new ProviderQrLogin() {
+                    @Override public NativeAccount run(Observer observer) { return ServerAccountsTest.account(source, "synthetic-sharing-cookie"); }
+                    @Override public void close() {}
+                }, System::currentTimeMillis);
+        JsonObject hello = new JsonObject(); hello.addProperty("multiSource", true); hello.addProperty("serverLogin", sharing); hello.addProperty("accountSharing", sharing);
+        send("hello", hello); send("subscribe", new JsonObject());
         await(() -> !of("snapshot").isEmpty() && last("snapshot").get("subscribed").getAsBoolean());
     }
     @AfterEach void stop() throws Exception {
@@ -92,6 +104,49 @@ class RequestFeeTest {
     }
     private JsonObject confirmation(String quote) { JsonObject body = new JsonObject(); body.addProperty("quoteId", quote); return body; }
     private void awaitResult(String rid) throws Exception { await(() -> of("result").stream().anyMatch(m -> m.get("requestId").getAsString().equals(rid))); }
+    private JsonObject account(String source) {
+        return last("snapshot").getAsJsonArray("accounts").asList().stream().map(JsonElement::getAsJsonObject)
+                .filter(row -> row.get("source").getAsString().equals(source)).findFirst().orElseThrow();
+    }
+    private void contribute(String source) throws Exception {
+        await(() -> account(source).get("canShare").getAsBoolean());
+        JsonObject body = new JsonObject(); body.addProperty("source", source); body.addProperty("generation", account(source).get("generation").getAsString());
+        send("contributeAccount", body);
+        await(() -> !of("serverLogin").isEmpty() && last("serverLogin").get("state").getAsString().equals("success"));
+        await(() -> account(source).get("free").getAsBoolean());
+    }
+    @Test void sharedAccountMakesOnlyItsPlatformFreeAndNeverExposesCredentials() throws Exception {
+        start(true, true); contribute("netease");
+        String free = quote(101); assertEquals("0", last("requestQuote").get("amount").getAsString());
+        assertEquals("contribution", last("requestQuote").get("discountReason").getAsString());
+        String rid = send("confirmRequest", confirmation(free)); awaitResult(rid); assertTrue(payments.isEmpty());
+        JsonObject qq = new JsonObject(); qq.addProperty("source", "qq"); qq.addProperty("nativeId", "syntheticQqId");
+        int count = of("requestQuote").size(); send("quoteRequest", qq); await(() -> of("requestQuote").size() > count);
+        assertEquals("12.50", last("requestQuote").get("amount").getAsString());
+        String paid = send("confirmRequest", confirmation(last("requestQuote").get("quoteId").getAsString())); awaitResult(paid);
+        assertEquals(1, payments.size()); assertFalse(messages.toString().contains("synthetic-sharing-cookie"));
+    }
+    @Test void lostEligibilityBeforeConfirmationRequotesWithoutAutomaticCharging() throws Exception {
+        start(true, true); contribute("netease"); String free = quote(101); int count = of("requestQuote").size();
+        membership = new AccountMembership.Result(AccountMembership.Status.NON_MEMBER, "123", 0);
+        JsonObject original = confirmation(free); String rid = send("confirmRequest", original); awaitResult(rid);
+        assertEquals(count + 1, of("requestQuote").size()); assertTrue(last("requestQuote").get("updated").getAsBoolean());
+        assertEquals("12.50", last("requestQuote").get("amount").getAsString()); assertTrue(payments.isEmpty());
+        send("confirmRequest", rid, original); awaitResult(rid); assertTrue(payments.isEmpty());
+        String accepted = send("confirmRequest", confirmation(last("requestQuote").get("quoteId").getAsString())); awaitResult(accepted); assertEquals(1, payments.size());
+    }
+    @Test void lossDuringAudioResolutionIsCheckedBeforeEnqueue() throws Exception {
+        start(true, true); contribute("netease"); String free = quote(101);
+        onResolve = () -> membership = AccountMembership.Result.invalid();
+        String rid = send("confirmRequest", confirmation(free)); awaitResult(rid);
+        assertTrue(last("requestQuote").get("updated").getAsBoolean()); assertTrue(payments.isEmpty());
+        assertTrue(of("audio").isEmpty());
+    }
+    @Test void newContributionAlsoRequotesAnExistingPaidConfirmationToZero() throws Exception {
+        start(true, true); String paid = quote(101); contribute("netease");
+        String rid = send("confirmRequest", confirmation(paid)); awaitResult(rid);
+        assertEquals("0", last("requestQuote").get("amount").getAsString()); assertTrue(payments.isEmpty());
+    }
 
     @Test void searchAndCancelledQuotesAreFreeAndConfirmedRequestsChargeOnce() throws Exception {
         start(true);

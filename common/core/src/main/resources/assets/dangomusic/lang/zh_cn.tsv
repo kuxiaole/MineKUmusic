@@ -425,3 +425,40 @@ Tap BPM	自己点 BPM
 Left-click 16 times on the beat to set the BPM yourself; counting starts with your first click (recommended, most accurate)	跟着节拍左键点 16 下自己定 BPM，点第一下才开始算（最推荐，最准）
 Night glow only	只在晚上发光
 Turn glow off in daylight and back on when it gets dark	白天关掉发光，天黑了自动打开
+Music accounts	音乐账号
+Share a music account	共享音乐账号
+Scan to share	扫码共享
+Stop sharing	撤回共享
+Remove account	移除账号
+Confirm stop sharing	确认停止共享
+Available	可用
+Not configured	未配置
+Login expired	登录已失效
+No active music membership	音乐会员未开通或已到期
+Temporarily unable to verify	暂时无法验证
+Checking account...	正在检查账号…
+This %s account is shared by %s.	该%s账号由%s玩家贡献共享
+Share a membership to help everyone listen.	共享会员账号，让大家一起听歌
+Provided by the server	服务器提供
+Your free requests are retained for %s more seconds.	你的免费点歌资格还保留 %s 秒
+Your requests on this platform are free.	你在该平台点歌免费
+Free requests resume when this account is verified again.	账号重新验证可用后，恢复该平台免费点歌资格
+Contributors receive free requests on the shared platform.	贡献者在共享账号可用期间享受该平台免费点歌
+Account login in progress...	正在登录或保存账号…
+Your shared account makes this platform's song requests free.	感谢你共享账号，本次该平台点歌免费
+Price changed — confirm again	费用已变化，请重新确认
+Checking login and music membership...	正在验证登录和音乐会员资格…
+Account shared. Requests on this platform are now free for you.	共享成功，你现在可以在该平台免费点歌
+An active music membership is required to share this account.	共享失败：需要有效的音乐会员账号
+Membership verification failed. Please retry.	会员资格验证失败，请重试
+Membership verification is temporarily unavailable. Please retry.	暂时无法验证会员资格，请稍后重试
+The server music account has changed. Please refresh.	服务器音乐账号已变化，请刷新后重试
+Scan to share your membership with this server. Only this platform becomes free for you; you can withdraw sharing anytime.	扫码后将账号共享给服务器，你可在该平台免费点歌，也可随时撤回共享
+The music account is changing. Please retry.	音乐账号正在变更，请稍后重试
+Could not save the shared music account. Please retry.	共享账号保存失败，请重试
+Could not remove the music account. Please retry.	音乐账号移除失败，请重试
+You can only withdraw your own shared music account.	你只能撤回自己共享的音乐账号
+Music account sharing stopped.	已停止共享音乐账号
+Please wait 30 seconds before starting another music login.	请间隔 30 秒后再发起音乐账号登录
+Update MineKU Music to share music accounts.	请更新 MineKU Music 后再共享音乐账号
+Your song request price changed. Please confirm the new price.	点歌费用已变化，请重新确认

@@ -604,3 +604,22 @@ result.song-withdrawn=<success>已撤回歌曲</success>
 
 # 业务提示：音源返回的音频地址不受支持。；无占位符。
 result.unsupported-audio-address=<error>音源返回的音频地址不受支持。</error>
+
+# 音乐账号共享与点歌费用变化；以下提示均无占位符。
+result.account-changed=<error>服务器音乐账号已变化，请刷新后重试</error>
+# 音乐账号正在变更；无占位符。
+result.account-changing=<error>音乐账号正在变更，请稍后重试</error>
+# 共享账号保存失败；无占位符。
+result.account-save=<error>共享账号保存失败，请重试</error>
+# 音乐账号移除失败；无占位符。
+result.account-remove=<error>音乐账号移除失败，请重试</error>
+# 非贡献者尝试撤回账号；无占位符。
+result.account-owner=<error>你只能撤回自己共享的音乐账号</error>
+# 账号已停止共享；无占位符。
+result.account-removed=<success>已停止共享音乐账号</success>
+# 扫码登录发起过于频繁；无占位符。
+result.account-cooldown=<error>请间隔 30 秒后再发起音乐账号登录</error>
+# 客户端需要升级以共享账号；无占位符。
+result.account-client=<error>请更新 MineKU Music 后再共享音乐账号</error>
+# 点歌报价变化，需要再次确认；无占位符。
+result.account-requote=<primary>点歌费用已变化，请重新确认</primary>

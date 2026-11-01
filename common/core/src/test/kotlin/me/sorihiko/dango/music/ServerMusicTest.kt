@@ -295,4 +295,35 @@ class ServerMusicTest {
         deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Synthetic completed receipt") }, rid)
         assertFalse(ServerMusic.requestingSong); assertEquals("Synthetic completed receipt", ServerMusic.requestFeedback)
     }
+    @Test fun ordinaryPlayersReceiveOnlyTheirSharedLoginAndAccountStateSurvivesBackendTransfer() {
+        welcome()
+        val info = JsonObject().apply { addProperty("epoch", "first"); addProperty("accountSharing", true); addProperty("admin", false) }
+        deliver("welcome", info)
+        val login = JsonObject().apply {
+            addProperty("sessionId", "shared-fixture"); addProperty("source", "qq"); addProperty("state", "waiting"); addProperty("expiresInMs", 180000)
+        }
+        deliver("serverLogin", login); assertNull(ServerMusic.serverLogin)
+        login.addProperty("shared", true); deliver("serverLogin", login); assertTrue(ServerMusic.serverLogin!!.shared)
+        val row = JsonObject().apply {
+            addProperty("source", "qq"); addProperty("generation", "fixture-generation"); addProperty("state", "valid")
+            addProperty("contributorName", "Fixture"); addProperty("ownContribution", true); addProperty("free", true)
+        }
+        deliver("snapshot", JsonObject().apply { add("accounts", com.google.gson.JsonArray().apply { add(row) }) })
+        assertTrue(ServerMusic.accounts.single().free)
+        ServerMusic.configurationPhase(); ServerMusic.playReady(transport); deliver("welcome", info)
+        assertEquals("fixture-generation", ServerMusic.accounts.single().generation)
+        ServerMusic.disconnected(); assertTrue(ServerMusic.accounts.isEmpty()); assertNull(ServerMusic.serverLogin); assertFalse(ServerMusic.accountSharing)
+    }
+    @Test fun changedPriceRequiresAnotherExplicitConfirmationAndShowsContributionDiscount() {
+        welcome(confirmation = true); join(); ServerMusic.requestSong(101, "Fixture song"); quote(); ServerMusic.confirmSongRequest()
+        val rid = sent.last { it.get("type").asString == "confirmRequest" }.get("requestId").asString
+        val count = sent.size
+        deliver("requestQuote", JsonObject().apply {
+            addProperty("quoteId", "replacement-quote"); addProperty("songId", 101); addProperty("amount", "0")
+            addProperty("expiresInMs", 60000); addProperty("updated", true); addProperty("discountReason", "contribution")
+        }, rid)
+        assertEquals(count, sent.size); assertFalse(ServerMusic.requestingSong)
+        assertEquals("Fixture song", ServerMusic.pendingRequest!!.songName); assertTrue(ServerMusic.pendingRequest!!.contribution); assertTrue(ServerMusic.pendingRequest!!.updated)
+        ServerMusic.confirmSongRequest(); assertEquals("replacement-quote", sent.last().getAsJsonObject("body").get("quoteId").asString)
+    }
 }

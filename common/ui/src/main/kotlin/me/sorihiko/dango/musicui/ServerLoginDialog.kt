@@ -48,14 +48,14 @@ internal class ServerLoginDialog(private val screen: MusicScreen) {
         ui.hits.clear()
         val fade = ui.easeOut(((System.currentTimeMillis() - openedAt) / 180f).coerceIn(0f, 1f))
         val width = min(370f, ui.lw - 32f)
-        val height = min(418f, ui.lh - 24f)
+        val height = min(if (login.shared) 466f else 418f, ui.lh - 24f)
         val box = LayoutBounds((ui.lw - width) / 2f, (ui.lh - height) / 2f, width, height)
         ui.ctx.pushOpacity(fade)
         ui.ctx.drawShape(LayoutBounds(0f, 0f, ui.lw, ui.lh), ShapeStyle(Color(0f, 0f, 0f, 0.45f)))
         ui.ctx.drawGlass(box, Theme.GLASS_WINDOW)
         val source = I18n.text(if (login.source == "qq") "QQ Music" else "NetEase")
-        ui.text(ui.trim(I18n.text("Server account login") + " · " + source, width - 40f, 16f), box.x + 20f, box.y + 20f, 16f, Theme.TEXT_PRIMARY)
-        val size = min(210f, height - 170f).coerceAtLeast(64f)
+        ui.text(ui.trim(I18n.text(if (login.shared) "Share a music account" else "Server account login") + " · " + source, width - 40f, 16f), box.x + 20f, box.y + 20f, 16f, Theme.TEXT_PRIMARY)
+        val size = min(210f, height - if (login.shared) 218f else 170f).coerceAtLeast(64f)
         val qrBox = LayoutBounds(box.x + (width - size) / 2f, box.y + 58f, size, size)
         ui.card(qrBox.expand(8f, 8f), Color.WHITE, 8f)
         val expired = System.nanoTime() >= login.expiresAt && login.state in listOf("loading", "waiting", "scanned", "verifying")
@@ -64,8 +64,11 @@ internal class ServerLoginDialog(private val screen: MusicScreen) {
         val message = I18n.text(when (state) {
             "waiting" -> if (login.source == "qq") "Scan with the QQ Music app" else "Scan with the NetEase Cloud Music app"
             "scanned" -> "Scanned. Confirm on your phone."
-            "verifying" -> "Verifying server login..."
-            "success" -> "Server account saved"
+            "verifying" -> if (login.shared) "Checking login and music membership..." else "Verifying server login..."
+            "success" -> if (login.shared) "Account shared. Requests on this platform are now free for you." else "Server account saved"
+            "notMember" -> "An active music membership is required to share this account."
+            "unavailable" -> "Membership verification failed. Please retry."
+            "changed" -> "The server music account has changed. Please refresh."
             "expired" -> "QR code expired"
             "cancelled" -> "Server login cancelled"
             "error" -> "Server login failed. Check the server and retry."
@@ -73,6 +76,9 @@ internal class ServerLoginDialog(private val screen: MusicScreen) {
         })
         ui.wrap2(message, width - 40f, 12f).forEachIndexed { index, line ->
             ui.text(line, box.x + 20f, qrBox.bottom + 24f + index * 18f, 12f, Theme.TEXT_PRIMARY)
+        }
+        if (login.shared) ui.wrap2(I18n.text("Scan to share your membership with this server. Only this platform becomes free for you; you can withdraw sharing anytime."), width - 40f, 10f).forEachIndexed { index, line ->
+            ui.text(line, box.x + 20f, box.bottom - 116f + index * 15f, 10f, Theme.TEXT_SECONDARY)
         }
         if (state in listOf("waiting", "scanned")) {
             val seconds = ((login.expiresAt - System.nanoTime()) / 1_000_000_000L).coerceAtLeast(0)

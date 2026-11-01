@@ -26,7 +26,8 @@ internal class RequestDialog(private val screen: MusicScreen) {
             request.songName.ifEmpty { I18n.format("Song ID: %s", request.nativeId) }
         val price = I18n.format("This request costs %s %s.", request.amount, request.currency)
         val priceLines = ui.wrap2(price, contentWidth, 16f)
-        val note = if (request.amount.toBigDecimalOrNull()?.signum() == 0) I18n.text("This song request is free.")
+        val note = if (request.contribution) I18n.text("Your shared account makes this platform's song requests free.")
+            else if (request.amount.toBigDecimalOrNull()?.signum() == 0) I18n.text("This song request is free.")
             else I18n.text("Paid requests are not refunded when withdrawn or skipped.")
         val noteLines = ui.wrap2(note, contentWidth, 12f)
         val height = 164f + priceLines.size * 22f + noteLines.size * 18f
@@ -35,7 +36,7 @@ internal class RequestDialog(private val screen: MusicScreen) {
         ui.ctx.pushOpacity(fade)
         ui.ctx.drawShape(LayoutBounds(0f, 0f, ui.lw, ui.lh), ShapeStyle(Color(0f, 0f, 0f, 0.45f)))
         ui.ctx.drawGlass(box, Theme.GLASS_WINDOW)
-        ui.text(I18n.text("Confirm song request"), box.x + 24f, box.y + 24f, 18f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+        ui.text(I18n.text(if (request.updated) "Price changed — confirm again" else "Confirm song request"), box.x + 24f, box.y + 24f, 18f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
         ui.text(ui.trim(song, contentWidth, 13f), box.x + 24f, box.y + 58f, 13f, Theme.TEXT_SECONDARY)
         priceLines.forEachIndexed { index, line -> ui.text(line, box.x + 24f, box.y + 90f + index * 22f, 16f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD) }
         val noteY = box.y + 100f + priceLines.size * 22f
