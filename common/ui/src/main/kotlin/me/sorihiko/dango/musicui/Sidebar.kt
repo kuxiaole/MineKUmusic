@@ -190,7 +190,7 @@ internal class Sidebar(private val screen: MusicScreen) {
         val footerH = 92f
         listArea = LayoutBounds(side.x + 6f, y, side.width - 12f, side.bottom - footerH - y)
         val rows = max(1, (listArea.height / rowH).toInt())
-        val list = Library.playlists
+        val list = playlists.filterNot { it.id == CloudDrives.id(MusicSources.selected) }
         scroll = scroll.coerceIn(0, max(0, list.size - rows))
         scrollPos = ui.easeScroll(scrollPos, scroll, rows * 3)
         val firstOwned = list.indexOfFirst { it.owned }

@@ -29,7 +29,7 @@ object ListenParty {
 
     enum class Role { NONE, HOST, MEMBER }
 
-    class Member(val uid: String, val name: String, val lastSeen: Long)
+    class Member(val uid: String, val name: String, val lastSeen: Long, val failedTrack: String = "")
 
     private class RemoteState(
         val trackId: Long, val name: String, val artists: List<String>, val cover: String, val duration: Long,
@@ -111,6 +111,10 @@ object ListenParty {
 
     fun create() {
         if (busy || role != Role.NONE) return
+        if (MusicPlayer.current?.let { me.sorihiko.dango.music.CloudDrives.privateTrack(it) } == true) {
+            status = "Switch away from the private Kugou cloud track before creating a room."
+            return
+        }
         busy = true
         status = "正在创建房间…"
         worker.execute {
@@ -215,6 +219,7 @@ object ListenParty {
         members = emptyList()
         remote = null
         MusicPlayer.followMode = false
+        reportedRoom = ""
     }
 
     /** 成员：重新和房主对齐（自己点了别的歌之后想回来时用） */
@@ -285,6 +290,25 @@ object ListenParty {
         } catch (_: Exception) {
             null
         }
+    }
+
+    @Volatile private var reportedRoom = ""
+    private var reportedFailure = ""
+    private var lastReport = 0L
+
+    /** 只同步歌曲引用和失败状态，不发送平台错误文本、账号或会员信息。 */
+    private fun reportPlayback() {
+        val c = code
+        if (role == Role.NONE || c.isEmpty()) { reportedRoom = ""; return }
+        if (reportedRoom != c) { reportedRoom = c; reportedFailure = ""; lastReport = 0L }
+        val failure = if (MusicPlayer.state == MusicPlayer.State.ERROR) MusicPlayer.current?.key.orEmpty() else ""
+        val now = System.currentTimeMillis()
+        if (failure == reportedFailure || now - lastReport < 5000) return
+        lastReport = now
+        val net = transport
+        val result = net.patch("rooms/$c/members/${net.uid}", JsonObject().apply { addProperty("failedTrack", failure) })
+        if (result != null && code == c) reportedFailure = failure
+        else lastReport = now + 55000 // 旧规则或网络故障时每分钟最多重试一次。
     }
 
     private fun heartbeat() {

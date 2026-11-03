@@ -1,11 +1,7 @@
 package me.sorihiko.dango.music
 
-import javazoom.jl.decoder.Bitstream
-import javazoom.jl.decoder.Decoder
-import javazoom.jl.decoder.SampleBuffer
 import me.sorihiko.dango.DangoLogger
 
-import java.io.ByteArrayInputStream
 import java.util.Random
 import java.util.concurrent.Executors
 import javax.sound.sampled.AudioFormat
@@ -218,7 +214,7 @@ object MusicPlayer {
     }
 
     /** 一起听：跳到 ms 并设成播放 / 暂停（当前这首已经下载好时用） */
-    fun syncTo(ms: Long, play: Boolean) {
+    @Synchronized fun syncTo(ms: Long, play: Boolean) {
         val bytes = audio ?: return
         val target = ms.coerceIn(0L, max(0L, durationMs - 500))
         pausedAtMs = target
@@ -317,14 +313,20 @@ object MusicPlayer {
                     else if (track.source != MusicSource.NETEASE) "Unable to download this guest MP3. Try another song."
                     else if (NeteaseApi.loggedIn) "这首歌没有播放权限" else "需要登录才能播放（VIP 歌曲）")
             }
+            // Cloud list duration units are not reliable. Use compressed audio timing before enabling seeking.
+            val measuredDuration = if (track.cloud) AudioAnalysis.duration(bytes) { gen == generation } else 0L
+            val measuredGain = if (normalize) AudioAnalysis.gain(bytes) { gen == generation } else null
+            if (gen != generation) return
+            if (measuredDuration > 0) track.durationMs = measuredDuration
             audio = bytes
             message = when {
                 url.trialOnly -> "Preview only: membership is needed for the full song"
                 url.replaced -> "The original was unavailable, playing another version"
                 else -> ""
             }
-            trackGain = loudnessGain(url)
-            if (url.gainDb != 0f) DangoLogger.info("Loudness: {} gain {} dB, peak {}, applied x{}", track.source.key, url.gainDb, url.peak, trackGain)
+            trackGain = if (normalize) measuredGain ?: loudnessGain(url) else 1f
+            DangoLogger.info("Audio analysis: source={} cloud={} durationMs={} localGain={} appliedGain={}",
+                track.source.key, track.cloud, measuredDuration, measuredGain != null, trackGain)
             val start = (startAt?.invoke() ?: 0L).coerceIn(0L, max(0L, track.durationMs - 1000))
             if (pauseAtStart?.invoke() ?: paused) {
                 pausedAtMs = start
@@ -334,8 +336,8 @@ object MusicPlayer {
         } catch (e: Throwable) {
             // 包括 NoClassDefFoundError 之类的 Error：不接住的话线程会悄悄退出，界面一直停在"加载中"
             if (track.source == MusicSource.NETEASE) {
-                DangoLogger.warn("Music load failed: {}", e.toString())
-                fail(gen, "加载失败：" + describe(e))
+                DangoLogger.warn("Music load failed: {}", e.javaClass.simpleName)
+                fail(gen, if (e is SourceAccessException) e.message.orEmpty() else "加载失败：" + describe(e))
             } else {
                 DangoLogger.warn("Source {} load failed: {}", track.source.key, e.javaClass.simpleName)
                 fail(gen, if (e is SourceAccessException) e.message.orEmpty() else "Playback request failed. Check your connection or log in again.")
@@ -343,8 +345,8 @@ object MusicPlayer {
         }
     }
 
-    /** 放不了就提示一下，1.5 秒后自动跳下一首 */
-    private fun fail(gen: Int, msg: String) {
+    /** 失败跳过独立计时，不占用加载线程；旧请求不能切掉用户新选的歌。 */
+    @Synchronized private fun fail(gen: Int, msg: String) {
         if (gen != generation) return
         state = State.ERROR
         message = msg
@@ -353,6 +355,19 @@ object MusicPlayer {
             Thread.sleep(1500)
             if (gen == generation && !followMode && queue.size > 1) next()
         }
+        failureTimer.schedule({
+            synchronized(this) {
+                if (gen == generation && state == State.ERROR && failedTracks.size < 10 && !followMode && party.role != me.sorihiko.dango.party.ListenParty.Role.MEMBER) {
+                    val candidates = queue.indices.filter { queue[it].key !in failedTracks }
+                    if (candidates.isNotEmpty()) {
+                        val next = if (shuffle) candidates[random.nextInt(candidates.size)]
+                            else candidates.firstOrNull { it > index } ?: candidates.first()
+                        skipNotice = System.nanoTime()
+                        playIndexInternal(next)
+                    }
+                }
+            }
+        }, 3, java.util.concurrent.TimeUnit.SECONDS)
     }
 
     private fun describe(e: Throwable): String {
@@ -448,17 +463,13 @@ object MusicPlayer {
     private fun decodeLoop(gen: Int, bytes: ByteArray, startMs: Long) {
         var out: AudioOutput? = null
         var finished = false
+        var source: AudioDecoder? = null
         try {
-            val bitstream = Bitstream(ByteArrayInputStream(bytes))
-            val decoder = Decoder()
-
-            // 跳到目标位置：只读帧头不解码，很快
-            var skipped = 0f
-            while (skipped < startMs) {
-                val h = bitstream.readFrame() ?: break
-                skipped += h.ms_per_frame()
-                bitstream.closeFrame()
-            }
+            val started = AudioDecoder.start(bytes, startMs) { gen == generation }
+            val decoder = started.decoder
+            source = decoder
+            val skipped = started.skippedMs
+            val first = started.first
             if (gen != generation) return
             seekBaseMs = skipped.toLong()
             clearBeats()
@@ -469,17 +480,13 @@ object MusicPlayer {
             var lastBeatMs = -1000f
 
             var appliedVolume = -1f
+            var pending = first
             while (gen == generation) {
-                val header = bitstream.readFrame()
-                if (header == null) {
+                val frame = pending ?: decoder.read()
+                pending = null
+                if (frame == null) {
                     finished = true
                     break
-                }
-                val sb = try {
-                    decoder.decodeFrame(header, bitstream) as SampleBuffer
-                } catch (_: Exception) {
-                    bitstream.closeFrame()
-                    continue
                 }
                 if (out == null) {
                     val format = AudioFormat(header.frequency().toFloat(), 16, sb.channelCount, true, false)
@@ -505,12 +512,12 @@ object MusicPlayer {
                     out.setVolume(volume)
                     appliedVolume = volume
                 }
-                val len = sb.bufferLength
-                val pcm = sb.buffer
+                val len = frame.length
+                val pcm = frame.samples
 
                 // 鼓点：低频（底鼓）能量比最近一秒的平均值突然高出很多
-                val frameMs = header.ms_per_frame()
-                val ch = sb.channelCount.coerceAtLeast(1)
+                val frameMs = frame.durationMs
+                val ch = frame.channels.coerceAtLeast(1)
                 var energy = 0f
                 var k = 0
                 while (k + ch - 1 < len) {
@@ -535,7 +542,7 @@ object MusicPlayer {
                 // 音量均衡、环境音效（水下变闷、洞穴回声……）在鼓点检测之后加，不影响节奏判断
                 val gain = trackGain
                 if (gain != 1f) for (idx in 0 until len) pcm[idx] = (pcm[idx] * gain).toInt().coerceIn(-32768, 32767).toShort()
-                EnvironmentAudio.process(pcm, len, ch, header.frequency(), frameMs)
+                EnvironmentAudio.process(pcm, len, ch, frame.rate, frameMs)
                 val data = ByteArray(len * 2)
                 for (k in 0 until len) {
                     val v = pcm[k].toInt()
@@ -543,18 +550,23 @@ object MusicPlayer {
                     data[k * 2 + 1] = ((v shr 8) and 0xFF).toByte()
                 }
                 out.write(data, 0, data.size)
-                bitstream.closeFrame()
+            }
+            if (finished && out == null && gen == generation) {
+                finished = false
+                fail(gen, "No decodable audio was found.")
             }
             if (finished && gen == generation) {
                 out?.drain()
+                synchronized(this) { if (gen == generation) failedTracks.clear() }
             }
         } catch (e: Throwable) {
+            finished = false
             DangoLogger.warn("Music decode failed: {}", e.toString())
             if (gen == generation) {
-                state = State.ERROR
-                message = "播放失败：" + describe(e)
+                fail(gen, "播放失败：" + describe(e))
             }
         } finally {
+            try { source?.close() } catch (_: Exception) {}
             if (line === out) line = null
             try {
                 out?.stop()
