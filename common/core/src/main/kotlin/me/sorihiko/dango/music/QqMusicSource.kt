@@ -16,7 +16,12 @@ object QqMusicSource : MusicSourceApi {
     override fun playlistTracks(id: Long) = if (id == CloudDrives.QQ_ID) {
         val account = NativeAccounts.get(source) ?: throw SourceAccessException("Log in to QQ Music to read your cloud drive.")
         QqCloud().tracks(account)
-    } else catalog.tracks(id)
+    } else QqArtists.albumTracksFor(id) ?: catalog.tracks(id)
+
+    override val hasArtists get() = true
+    override fun artist(id: String) = if (id.matches(Regex("[A-Za-z0-9]{1,64}"))) QqArtists.artist(id) else null
+    override fun artistAlbums(id: String) = if (id.matches(Regex("[A-Za-z0-9]{1,64}"))) QqArtists.artistAlbums(id) else emptyList()
+    override fun findArtist(name: String) = QqArtists.findArtist(name)
 
     internal fun profileId(account: NativeAccount): String {
         try {
