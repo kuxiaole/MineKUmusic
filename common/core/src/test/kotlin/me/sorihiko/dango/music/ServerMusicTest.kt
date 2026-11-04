@@ -4,6 +4,8 @@ import com.google.gson.JsonObject
 import me.sorihiko.dango.DangoMusic
 import me.sorihiko.dango.platform.Platform
 import me.sorihiko.dango.protocol.MusicProtocol
+import me.sorihiko.dango.party.ListenParty
+import me.sorihiko.dango.party.PartyRequest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.BeforeClass
@@ -201,6 +203,34 @@ class ServerMusicTest {
         assertTrue(ServerMusic.joined)
         welcome(); assertTrue(ServerMusic.joined)
         ServerMusic.disconnected(); assertFalse(ServerMusic.joined); assertFalse(ServerMusic.available)
+    }
+    @Test fun serverChannelDetachesListenTogetherAndIgnoresItsOldPlaybackRequests() = withMusicLoaderBlocked {
+        welcome(); syntheticPersonalPlayback(MusicPlayer.State.PAUSED)
+        synchronized(MusicPlayer) {
+            ListenParty::class.java.getDeclaredField("role").apply { isAccessible = true }.set(null, ListenParty.Role.MEMBER)
+            ListenParty::class.java.getDeclaredField("memberControl").apply { isAccessible = true }.set(null, false)
+            MusicPlayer.followMode = true
+            assertTrue(ListenParty.controlsLocked)
+            join()
+            assertEquals(ListenParty.Role.NONE, ListenParty.role)
+            assertFalse(ListenParty.controlsLocked)
+            assertFalse(ListenParty.canControl)
+            ListenParty.create(); ListenParty.join("D-TEST1")
+            assertEquals("Leave Server Music before joining Listen Together.", ListenParty.status)
+            assertFalse(ListenParty.busy)
+            val track = NeteaseTrack(999, "Old room song", emptyList(), 180000, "")
+            val request = PartyRequest("old", "fixture", "Fixture", PartyRequest.PLAY, 0, System.currentTimeMillis(), track)
+            ListenParty::class.java.getDeclaredMethod("runRequest", PartyRequest::class.java).apply { isAccessible = true }.invoke(ListenParty, request)
+            ListenParty::class.java.getDeclaredMethod("followTick").apply { isAccessible = true }.invoke(ListenParty)
+            assertTrue(MusicPlayer.followMode)
+            assertNotEquals(999L, MusicPlayer.current?.id)
+            ServerMusic.disconnected()
+            assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state)
+            MusicPlayer.seek(45000)
+            assertEquals(45000L, MusicPlayer.positionMs)
+            MusicPlayer.togglePause()
+            assertEquals(MusicPlayer.State.LOADING, MusicPlayer.state)
+        }
     }
     @Test fun oldFmResponseCannotChangeServerPlaybackOrPausedRestoredQueue() = withMusicLoaderBlocked {
         val started = CountDownLatch(1); val release = CountDownLatch(1)

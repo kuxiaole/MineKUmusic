@@ -569,3 +569,4 @@ The server rejected this Listen Together action.	服务器拒绝了这次一起�
 Cannot reach Listen Together on this server. Please retry.	连不上当前服务器的一起听，请重试
 This server supports Listen Together directly. No Firebase or proxy needed.	当前服务器可以直接一起听，不用 Firebase，也不用代理
 Syncing through the current server	经当前服务器同步
+Leave Server Music before joining Listen Together.	请先退出全服频道，再加入一起听。

@@ -14,6 +14,7 @@ import java.util.Properties
  * 文件格式见仓库里的 firebase.properties.example：
  *   apiKey=AIzaSy...
  *   databaseUrl=https://xxx-default-rtdb.firebaseio.com
+ *   relayUrl=https://party.example.com   （可选，一起听歌中转，见 relay/README.md）
  */
 object FirebaseConfig {
 
@@ -40,4 +41,16 @@ object FirebaseConfig {
 
     /** 实时数据库地址，形如 "https://xxx-default-rtdb.firebaseio.com"（或 ...firebasedatabase.app） */
     val DATABASE_URL: String get() = props.getProperty("databaseUrl", "").trim()
+
+    /** 一起听歌中转（Cloudflare Worker）地址；没填或格式不对时为空，表示直连 Firebase */
+    val RELAY_URL: String get() = relayUrl(props.getProperty("relayUrl", ""))
+
+    /** 只认 https（本机地址允许 http，方便测试）；去掉结尾的斜杠 */
+    @JvmStatic
+    fun relayUrl(raw: String): String {
+        val s = raw.trim().trimEnd('/')
+        val ok = Regex("https://[A-Za-z0-9.-]+(:[0-9]{1,5})?").matches(s) ||
+            Regex("""http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?""").matches(s)
+        return if (ok) s else ""
+    }
 }

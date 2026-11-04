@@ -7,7 +7,9 @@ import me.sorihiko.dango.DangoMusic
 import me.sorihiko.dango.music.CoverCache
 import me.sorihiko.dango.music.MusicScreen
 import me.sorihiko.dango.music.NeteaseApi
+import me.sorihiko.dango.party.ListenParty
 import me.sorihiko.dango.music.ServerMusic
+import me.sorihiko.dango.music.CloudDrives
 import me.sorihiko.dango.music.MusicSource
 import me.sorihiko.dango.music.MusicSources
 import me.sorihiko.dango.music.NativeAccounts
@@ -164,7 +166,7 @@ internal class Sidebar(private val screen: MusicScreen) {
         fun nav(glyph: String, label: String, active: Boolean, redIcon: Boolean, action: () -> Unit) {
             val row = LayoutBounds(side.x + 6f, y, side.width - 12f, 30f)
             if (active) {
-                newKey = "nav:$glyph"
+                newKey = "nav:$page:$glyph"
                 newTarget = row
             } else if (ui.hover(row)) {
                 ui.card(row, Theme.CARD_HOVER, 9f)
@@ -182,6 +184,16 @@ internal class Sidebar(private val screen: MusicScreen) {
         nav("♫", I18n.text("Now Playing"), page == Page.QUEUE, false) { screen.go(Page.QUEUE) }
         nav("♬", I18n.text("Server Music") + if (ServerMusic.joined) " · ${ServerMusic.listeners}" else "",
             page == Page.PARTY, ServerMusic.joined) { screen.go(Page.PARTY) }
+        nav("♬", if (ListenParty.role == ListenParty.Role.NONE) I18n.text("Listen Together") else I18n.text("Listen Together · ") + ListenParty.members.size,
+            page == Page.LISTEN, ListenParty.role != ListenParty.Role.NONE) { screen.go(Page.LISTEN) }
+        val netease = MusicSources.selected == MusicSource.NETEASE
+        val playlists = Library.playlists
+        // 云盘是固定入口，不跟着歌单滚动；列表未加载完时也允许直接打开。
+        CloudDrives.entry(MusicSources.selected)?.let { cloud ->
+            nav("☁", I18n.text("Cloud drive"), page == Page.PLAYLIST && ScreenState.opened?.id == cloud.id, false) {
+                screen.openPlaylist(cloud, null)
+            }
+        }
         y += 4f
         section(I18n.text("MY PLAYLISTS"))
 

@@ -71,7 +71,9 @@ class QqApi(private val account: NativeAccount?) {
                 if (album.isEmpty()) "" else "https://y.gtimg.cn/music/photo_new/T002R300x300M000$album.jpg",
                 MusicSource.QQ, mid, song.text("strMediaMid").ifEmpty { song.text("media_mid").ifEmpty {
                     song.obj("file")?.text("media_mid").orEmpty().ifEmpty { mid }
-                } }, album)
+                } }, album).apply {
+                    artistIds = song.array("singer").filter { it.isJsonObject }.map { it.asJsonObject.text("mid") }
+                }
         }
     }
 }

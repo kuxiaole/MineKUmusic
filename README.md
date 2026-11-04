@@ -30,20 +30,23 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.6+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.6+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.6+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.6+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.6+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.6+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.6.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.6-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.7+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.7+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.7+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.7+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.7+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.7+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.7.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.7-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 替换客户端和对应插件 JAR 后完整重启，保留配置、账号、队列、交易记录和 `server-id`。群组服需同时更新代理与后端插件。详细部署、账号配置与权限说明见 [SERVER-MUSIC.md](SERVER-MUSIC.md)。
 
 ## 使用
 
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
+- 个人音乐支持歌手页、网易云 / QQ 音乐 / 酷狗云盘，以及 MP3、FLAC、Ogg Vorbis 播放；点击歌手名进入歌手页，云盘从侧栏打开。
+- 可拖动、缩放播放器窗口，并在设置中选择音频输出和音量均衡。
+- “一起听”支持房间码和局域网同步，每位成员使用自己的音乐账号；进入全服频道时会退出一起听房间。
 - 环境音效在“设置 → 音乐与 HUD”中开启；歌词字体放入 `config/dangomusic/fonts`，在“设置 → 歌词 → 歌词字体”中选择。
 - 在“全服音乐”中自行加入频道，搜索点歌、查看队列、撤回自己的待播歌曲和投票切歌。
 - “全服音乐 → 音乐账号”显示网易云、QQ 音乐账号状态。账号不可用时，玩家可扫码共享有效会员账号；贡献者享受对应平台免费点歌，并可随时撤回共享。

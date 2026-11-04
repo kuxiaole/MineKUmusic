@@ -65,9 +65,12 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         ui.drawCover(coverBox, t?.let { CoverCache.trackRounded(it, 0.27f) }, 13f)
         ctx.drawShape(coverBox, ShapeStyle(Color.TRANSPARENT, 13f, 1f, Color(1f, 1f, 1f, 0.10f)))
         val infoX = coverBox.right + 12f
-        val infoW = 220f
+        // 窗口窄时歌名区跟着缩短，别压到中间的按钮上（红心也要留位置）
+        val likeShown = t != null && t.source == MusicSource.NETEASE && NeteaseApi.loggedIn
+        val leftLimit = bar.x + bar.width / 2f - 96f
+        val infoW = (leftLimit - infoX - (if (likeShown) 44f else 8f)).coerceIn(40f, 220f)
         val title = t?.name ?: I18n.text(if (ServerMusic.joined) "Waiting for song requests" else "Not playing")
-        ui.text(ui.trim(title, infoW, 14f, Theme.FONT_SEMIBOLD), infoX, coverBox.y + 9f, 14f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
+        ui.text(ui.trim(title, infoW, 13f, Theme.FONT_SEMIBOLD), infoX, coverBox.y + 9f, 13f, Theme.TEXT_PRIMARY, Theme.FONT_SEMIBOLD)
         val sub = when {
             t == null -> "-"
             MusicPlayer.message.isNotEmpty() -> I18n.message(MusicPlayer.message)
@@ -285,8 +288,10 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
     /** 点在进度条 / 音量条上就处理掉，返回 true；按在进度条上开始拖动 */
     fun mouseDown(mx: Int, my: Int): Boolean {
         if (progRect.expand(0f, 6f).contains(mx, my)) {
-            val dur = MusicPlayer.durationMs
-            if (dur > 0) ServerMusic.seek(((mx - progRect.x) / progRect.width * dur).toLong())
+            if (!ServerMusic.joined && MusicPlayer.durationMs > 0) {
+                seeking = true
+                seekFraction = fractionAt(mx)
+            }
             return true
         }
         if (volRect.expand(6f, 8f).contains(mx, my)) {
@@ -310,7 +315,7 @@ internal class PlayerBar(private val screen: MusicScreen, private val module: Ne
         if (!seeking) return
         seeking = false
         val dur = MusicPlayer.durationMs
-        if (dur > 0) MusicPlayer.seek((seekFraction * dur).toLong())
+        if (dur > 0) ServerMusic.seek((seekFraction * dur).toLong())
     }
 
     private fun fractionAt(x: Int): Float =

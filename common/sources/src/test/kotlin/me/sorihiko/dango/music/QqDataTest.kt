@@ -5,6 +5,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class QqDataTest {
+    @Test fun artistIdsStayAlignedWithSingerNames() {
+        val song = QqApi.parseTrack(JsonParser().parse("""{"mid":"fixtureSong","name":"Fixture","singer":[{"name":"First","mid":"artistA"},{"name":"Unknown"},{"name":"Third","mid":"artistC"}]}""").asJsonObject)!!
+        assertEquals(listOf("artistA", "", "artistC"), song.artistIds)
+        assertEquals(listOf("First", "Unknown", "Third"), song.artists)
+    }
     @Test fun qqMetadataKeepsSongAndMediaIdsSeparate() {
         val song = QqApi.parseTrack(JsonParser().parse("""{"mid":"001FixtureSong","name":"Synthetic &amp; Song","interval":123,"file":{"media_mid":"002FixtureMedia"},"album":{"mid":"003FixtureAlbum"},"singer":[{"name":"Fixture Artist"}]}""").asJsonObject)!!
         assertEquals("qq:001FixtureSong", song.key)

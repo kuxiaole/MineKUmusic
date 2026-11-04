@@ -550,7 +550,7 @@ internal class TracksPage(private val screen: MusicScreen) {
                     ui.tooltip(add, I18n.text("Add to server queue"))
                     ui.hits += add.intersect(clipArea) to { ServerMusic.requestSong(t); if (!ServerMusic.joined) screen.go(Page.PARTY) }
                 }
-                ui.hits += row.intersect(clipArea) to { playFrom(all, i) }
+                ui.hits += row.intersect(clipArea) to { selPress.v -= 6f; playFrom(all, i) }
             }
         }
         ui.endClip()

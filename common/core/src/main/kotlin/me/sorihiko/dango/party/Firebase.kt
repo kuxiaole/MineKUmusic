@@ -9,24 +9,26 @@ import me.sorihiko.dango.DangoMusic
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Firebase 的最小客户端（不用官方 SDK，直接走 REST）：
  *   - 匿名登录（每台电脑一个固定身份，刷新令牌存在 config/dangomusic/firebase_auth.json）
  *   - 实时数据库的读 / 写 / 删
  *   - 实时监听（Server-Sent Events 长连接，有变化立刻推过来）
+ *   - 所有请求按一起听歌的连接方式（[PartyProxy]）走；配了中转时先走中转（[FirebaseEndpoints]）
  *   - 服务器时间（各人电脑时钟不一样，同步进度要用同一个时间）
+ * 是 [PartyTransport] 的第一个实现。
  */
-object Firebase {
+object Firebase : PartyTransport {
 
-    /** 配置填好了没有 */
-    val configured: Boolean
+    override val configured: Boolean
         get() = FirebaseConfig.API_KEY.isNotBlank() && FirebaseConfig.DATABASE_URL.startsWith("https://")
 
-    @Volatile var uid: String = ""
+    @Volatile override var uid: String = ""
         private set
     @Volatile private var idToken: String = ""
     @Volatile private var refreshToken: String = ""
@@ -35,19 +37,29 @@ object Firebase {
     @Volatile private var clockOffset = 0L
 
     private val authFile get() = DangoMusic.instance.clientDir.resolve("firebase_auth.json").toFile()
-    private val dbBase get() = FirebaseConfig.DATABASE_URL.trimEnd('/')
+    private val endpoints: FirebaseEndpoints by lazy {
+        FirebaseEndpoints(FirebaseConfig.RELAY_URL, FirebaseConfig.DATABASE_URL.trimEnd('/'))
+    }
 
-    fun serverNow(): Long = System.currentTimeMillis() + clockOffset
+    override val route: PartyTransport.Route get() = endpoints.route
+
+    override fun serverNow(): Long = System.currentTimeMillis() + clockOffset
+
+    override fun serverTimestamp(): JsonElement = JsonParser().parse("""{".sv":"timestamp"}""")
 
     // ---------------------------------------------------------------- 登录
 
     /** 确保已登录且令牌没过期；返回 false 表示连不上 Firebase */
     @Synchronized
-    fun ensureAuth(): Boolean {
+    override fun ensureAuth(): Boolean {
         if (!configured) return false
         if (idToken.isNotEmpty() && System.currentTimeMillis() < tokenExpiresAt - 5 * 60_000) return true
         if (refreshToken.isEmpty()) loadSaved()
-        if (refreshToken.isNotEmpty() && refresh()) return true
+        if (refreshToken.isNotEmpty()) {
+            if (refresh()) return true
+            // 网络不通时别去重新注册：注册一样连不上，白白多等一轮；网络恰好恢复时还会换掉这台电脑的身份
+            if (lastStatus == -1) return false
+        }
         return signUp()
     }
 
@@ -74,11 +86,10 @@ object Firebase {
     }
 
     private fun signUp(): Boolean {
-        val res = http(
-            "POST",
-            "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FirebaseConfig.API_KEY,
+        val res = request(
+            "POST", FirebaseEndpoints.Target.SIGN_UP, "", "key=" + FirebaseConfig.API_KEY,
             """{"returnSecureToken":true}""",
-        ) ?: return false
+        )?.json ?: return false
         val o = res.asJsonObject
         uid = o.get("localId")?.asString ?: return false
         idToken = o.get("idToken")?.asString ?: return false
@@ -90,12 +101,11 @@ object Firebase {
 
     private fun refresh(): Boolean {
         val body = "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(refreshToken, "UTF-8")
-        val res = http(
-            "POST",
-            "https://securetoken.googleapis.com/v1/token?key=" + FirebaseConfig.API_KEY,
+        val res = request(
+            "POST", FirebaseEndpoints.Target.REFRESH, "", "key=" + FirebaseConfig.API_KEY,
             body,
             form = true,
-        ) ?: return false
+        )?.json ?: return false
         val o = res.asJsonObject
         idToken = o.get("id_token")?.asString ?: return false
         refreshToken = o.get("refresh_token")?.asString ?: refreshToken
@@ -106,10 +116,10 @@ object Firebase {
     }
 
     /** 写一个服务器时间戳再读回来，算出本机和服务器的时差 */
-    fun syncClock() {
+    override fun syncClock() {
         if (!ensureAuth()) return
         val before = System.currentTimeMillis()
-        val res = put("clock/$uid", JsonParser().parse("""{".sv":"timestamp"}"""))
+        val res = put("clock/$uid", serverTimestamp())
         val after = System.currentTimeMillis()
         val server = try { res?.asLong } catch (_: Exception) { null } ?: return
         clockOffset = server - (before + after) / 2
@@ -117,106 +127,117 @@ object Firebase {
 
     // ---------------------------------------------------------------- 数据库
 
-    private fun url(path: String) = "$dbBase/${path.trim('/')}.json?auth=$idToken"
+    private fun authQuery() = "auth=$idToken"
 
-    fun get(path: String): JsonElement? {
+    private fun db(method: String, path: String, body: String?, headers: Map<String, String> = emptyMap()) =
+        request(method, FirebaseEndpoints.Target.DB, path, authQuery(), body, headers = headers)
+
+    override fun get(path: String): JsonElement? {
         if (!ensureAuth()) return null
-        return http("GET", url(path), null)
+        return db("GET", path, null)?.json
     }
 
-    /** 读到的数据 + 版本号（ETag），配合 [putIfUnchanged] 做"没被别人改过才写" */
-    class Snapshot(val value: JsonElement?, val etag: String)
-
-    fun getWithEtag(path: String): Snapshot? {
+    /** 版本号用 Firebase 的 ETag */
+    override fun getWithEtag(path: String): PartyTransport.Snapshot? {
         if (!ensureAuth()) return null
-        val res = request("GET", url(path), null, headers = mapOf("X-Firebase-ETag" to "true")) ?: return null
-        return Snapshot(res.json.takeUnless { it.isJsonNull }, res.etag ?: return null)
+        val res = db("GET", path, null, mapOf("X-Firebase-ETag" to "true")) ?: return null
+        return PartyTransport.Snapshot(res.json.takeUnless { it.isJsonNull }, res.etag ?: return null)
     }
 
     /**
      * 只有路径上的数据还是 [etag] 那个版本时才写入（路径不存在时 etag 是 "null_etag"）。
      * 期间被别人改过会失败，[lastStatus] 是 412。
      */
-    fun putIfUnchanged(path: String, value: JsonElement, etag: String): JsonElement? {
+    override fun putIfUnchanged(path: String, value: JsonElement, etag: String): JsonElement? {
         if (!ensureAuth()) return null
-        return request("PUT", url(path), value.toString(), headers = mapOf("if-match" to etag))?.json
+        return db("PUT", path, value.toString(), mapOf("if-match" to etag))?.json
     }
 
-    fun put(path: String, value: JsonElement): JsonElement? {
+    override fun put(path: String, value: JsonElement): JsonElement? {
         if (!ensureAuth()) return null
-        return http("PUT", url(path), value.toString())
+        return db("PUT", path, value.toString())?.json
     }
 
-    fun patch(path: String, value: JsonElement): JsonElement? {
+    override fun patch(path: String, value: JsonElement): JsonElement? {
         if (!ensureAuth()) return null
-        return http("PATCH", url(path), value.toString())
+        return db("PATCH", path, value.toString())?.json
     }
 
-    fun delete(path: String): Boolean {
+    override fun delete(path: String): Boolean {
         if (!ensureAuth()) return false
-        return http("DELETE", url(path), null) != null
+        return db("DELETE", path, null) != null
     }
 
-    /** 最近一次请求的 HTTP 状态码（界面上显示错误原因用） */
-    @Volatile var lastStatus = 0
+    @Volatile override var lastStatus = 0
         private set
+    @Volatile override var lastFailure = PartyTransport.Failure.NONE
+        private set
+
+    // ---------------------------------------------------------------- 流量统计（日志里对比瘦身前后用）
+
+    private val statRequests = AtomicInteger()
+    private val statPushes = AtomicInteger()
+    private val statBytesOut = AtomicLong()
+    private val statBytesIn = AtomicLong()
+    private val statSince = AtomicLong(System.currentTimeMillis())
+
+    /** 有流量时大约每分钟写一行日志：请求数（含登录、长连接）、收到的推送数、收发字节 */
+    private fun maybeReport() {
+        val since = statSince.get()
+        val now = System.currentTimeMillis()
+        if (now - since < 60_000 || !statSince.compareAndSet(since, now)) return
+        DangoLogger.info(
+            "Listen Together traffic in {}s: {} requests, {} pushes, {} B sent, {} B received",
+            (now - since) / 1000, statRequests.getAndSet(0), statPushes.getAndSet(0),
+            statBytesOut.getAndSet(0), statBytesIn.getAndSet(0),
+        )
+    }
 
     private class Response(val json: JsonElement, val etag: String?)
 
-    private fun http(method: String, url: String, body: String?, form: Boolean = false): JsonElement? =
-        request(method, url, body, form)?.json
-
     private fun request(
         method: String,
-        url: String,
+        target: FirebaseEndpoints.Target,
+        path: String,
+        query: String,
         body: String?,
         form: Boolean = false,
         headers: Map<String, String> = emptyMap(),
     ): Response? {
-        val conn = URL(url).openConnection() as HttpURLConnection
+        statRequests.incrementAndGet()
+        maybeReport()
         try {
-            // HttpURLConnection 不支持 PATCH，用 Firebase 认的 X-HTTP-Method-Override
-            if (method == "PATCH") {
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("X-HTTP-Method-Override", "PATCH")
-            } else {
-                conn.requestMethod = method
-            }
-            conn.connectTimeout = 8000
-            conn.readTimeout = 10000
-            for ((k, v) in headers) conn.setRequestProperty(k, v)
-            if (body != null) {
-                conn.doOutput = true
-                conn.setRequestProperty(
-                    "Content-Type",
-                    if (form) "application/x-www-form-urlencoded" else "application/json; charset=utf-8",
-                )
-                conn.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
-            }
-            val code = conn.responseCode
-            lastStatus = code
-            if (code !in 200..299) {
-                if (code == 401) tokenExpiresAt = 0L
+            val bytes = body?.toByteArray(StandardCharsets.UTF_8)
+            if (bytes != null) statBytesOut.addAndGet(bytes.size.toLong())
+            val contentType = if (form) "application/x-www-form-urlencoded" else "application/json; charset=utf-8"
+            val res = endpoints.send(target, path, query, method, bytes, contentType, headers)
+            lastStatus = res.code
+            if (res.code !in 200..299) {
+                if (res.code == 401) tokenExpiresAt = 0L
+                lastFailure = PartyTransport.Failure.REJECTED
                 return null
             }
-            val text = conn.inputStream.use { String(it.readBytes(), StandardCharsets.UTF_8) }
-            return Response(JsonParser().parse(text.ifBlank { "null" }), conn.getHeaderField("ETag"))
+            lastFailure = PartyTransport.Failure.NONE
+            val raw = res.body ?: ByteArray(0)
+            statBytesIn.addAndGet(raw.size.toLong())
+            val text = String(raw, StandardCharsets.UTF_8)
+            return Response(JsonParser().parse(text.ifBlank { "null" }), res.etag)
         } catch (e: Exception) {
             DangoLogger.warn("Firebase {} failed: {}", method, e.toString())
             lastStatus = -1
+            lastFailure = when {
+                e is PartyProxy.ProxyUnavailable -> PartyTransport.Failure.PROXY_UNREACHABLE
+                endpoints.hasRelay -> PartyTransport.Failure.RELAY_UNREACHABLE
+                target != FirebaseEndpoints.Target.DB -> PartyTransport.Failure.AUTH_UNREACHABLE
+                else -> PartyTransport.Failure.SERVER_UNREACHABLE
+            }
             return null
-        } finally {
-            conn.disconnect()
         }
     }
 
     // ---------------------------------------------------------------- 实时监听
 
-    /**
-     * 监听某个路径，有任何变化就调用 onChange（在后台线程）。断线会自动重连。
-     * 返回一个停止函数。
-     */
-    fun listen(path: String, onChange: () -> Unit): () -> Unit {
+    override fun listen(path: String, onEvent: (PartyEvent) -> Unit): () -> Unit {
         val running = java.util.concurrent.atomic.AtomicBoolean(true)
         val conn = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
         val t = Thread({
@@ -226,12 +247,13 @@ object Firebase {
                         Thread.sleep(3000)
                         continue
                     }
-                    val c = URL(url(path)).openConnection() as HttpURLConnection
+                    statRequests.incrementAndGet()
+                    val c = endpoints.openStream(path, authQuery(), 70_000)   // 服务器每 30 秒发一次 keep-alive
                     conn.set(c)
-                    c.setRequestProperty("Accept", "text/event-stream")
-                    c.connectTimeout = 8000
-                    c.readTimeout = 70_000          // 服务器每 30 秒发一次 keep-alive
-                    c.instanceFollowRedirects = true
+                    if (!running.get()) {
+                        c.disconnect()
+                        break
+                    }
                     if (c.responseCode !in 200..299) {
                         if (c.responseCode == 401) tokenExpiresAt = 0L
                         c.disconnect()
@@ -239,23 +261,24 @@ object Firebase {
                         continue
                     }
                     BufferedReader(InputStreamReader(c.inputStream, StandardCharsets.UTF_8)).use { r ->
-                        var event = ""
-                        while (running.get()) {
-                            val line = r.readLine() ?: break
-                            when {
-                                line.startsWith("event:") -> event = line.substring(6).trim()
-                                line.startsWith("data:") -> {
-                                    when (event) {
-                                        "put", "patch" -> onChange()
-                                        "auth_revoked", "cancel" -> {
-                                            tokenExpiresAt = 0L
-                                            return@use
-                                        }
-                                    }
+                        // 令牌快过期时主动断开重连（换新令牌）
+                        val keepGoing = { running.get() && System.currentTimeMillis() <= tokenExpiresAt - 5 * 60_000 }
+                        PartyHttp.readSse(r, keepGoing) { event, data ->
+                            when (event) {
+                                "put", "patch" -> {
+                                    statPushes.incrementAndGet()
+                                    statBytesIn.addAndGet(data.length.toLong() + 5)
+                                    maybeReport()
+                                    // 连上时的第一条就是整个路径的数据，之后是增量
+                                    PartyEvent.fromSse(event, data)?.let(onEvent)
+                                    true
                                 }
+                                "auth_revoked", "cancel" -> {
+                                    tokenExpiresAt = 0L
+                                    false
+                                }
+                                else -> true
                             }
-                            // 令牌快过期时主动断开重连（换新令牌）
-                            if (System.currentTimeMillis() > tokenExpiresAt - 5 * 60_000) return@use
                         }
                     }
                     c.disconnect()

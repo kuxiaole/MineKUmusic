@@ -304,12 +304,13 @@ object ServerMusic {
         cancelSongRequest()
         desired = false; remember(false); send("unsubscribe"); restorePersonal(); status = "Not joined"
     }
-    private fun enter() {
+    private fun enter(): Unit = synchronized(MusicPlayer) {
         if (joined) return
+        me.sorihiko.dango.party.ListenParty.serverChannelChanged(true)
         personal = Personal(MusicPlayer.queue.toList(), MusicPlayer.index, MusicPlayer.positionMs, MusicPlayer.state == MusicPlayer.State.PAUSED, MusicPlayer.active, MusicPlayer.radio)
         MusicPlayer.stop(); MusicPlayer.followMode = true; joined = true; locallyPaused = false
     }
-    private fun restorePersonal(pause: Boolean = false) {
+    private fun restorePersonal(pause: Boolean = false) = synchronized(MusicPlayer) {
         val saved = personal; personal = null
         if (joined) {
             MusicPlayer.stop(); MusicPlayer.followMode = false
@@ -317,6 +318,7 @@ object ServerMusic {
         }
         joined = false; locallyPaused = false; lyrics = null; playingInstance = ""; pendingPersonal = null
         pendingRequest = null; quoteRequest = ""; requestingSong = false
+        me.sorihiko.dango.party.ListenParty.serverChannelChanged(false)
     }
     private fun remember(value: Boolean) {
         if (serverId.isEmpty()) return

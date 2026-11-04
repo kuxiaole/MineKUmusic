@@ -102,18 +102,54 @@ object MusicPlayer {
 
     // ---------------------------------------------------------------- 队列控制
 
+    private val party get() = me.sorihiko.dango.party.ListenParty
+
+    /** 一起听：房主关了"允许成员控制"时被拦下的时间（界面据此提示一下） */
+    @Volatile var blockedNotice = 0L
+        private set
+
+    /**
+     * 一起听的成员、房主没开"允许成员控制"：不能自己切歌 / 暂停 / 拖进度（只跟着房主听），拦下来并提示。
+     * 跟随房主用的是 [playTrackAt] / [syncTo]，不经过这里
+     */
+    private fun lockedByHost(): Boolean {
+        if (!party.controlsLocked) return false
+        blockedNotice = System.nanoTime()
+        return true
+    }
+
     @Synchronized @JvmOverloads fun playQueue(tracks: List<NeteaseTrack>, startIndex: Int, radio: (() -> List<NeteaseTrack>)? = null) {
+        if (lockedByHost()) return
+        if (tracks.isNotEmpty() && !canPlay(tracks[Math.floorMod(startIndex, tracks.size)])) return
+        // 一起听的成员：整个列表交给房主去放（房主换成这个列表，从这首开始）
+        if (party.canControl) {
+            if (tracks.isNotEmpty()) party.requestPlayList(tracks, Math.floorMod(startIndex, tracks.size))
+            return
+        }
         radioRevision++
         queue = tracks
         this.radio = radio
         playIndex(startIndex)
     }
 
+    private val failedTracks = HashSet<String>()
+    private val failureTimer = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "Dango-Skip").apply { isDaemon = true } }
+    @Volatile var skipNotice = 0L
+        private set
+
     @Synchronized fun playIndex(i: Int) {
+        if (lockedByHost()) return
+        failedTracks.clear()
+        playIndexInternal(i)
+    }
+
+    private fun playIndexInternal(i: Int) {
         val q = queue
         if (q.isEmpty()) return
         val idx = ((i % q.size) + q.size) % q.size
         val track = q[idx]
+        if (!canPlay(track)) return
+        if (party.canControl) return party.requestPlay(track)
         index = idx
         val gen = ++generation
         stopLine()
@@ -164,11 +200,22 @@ object MusicPlayer {
     /** 一起听：正在跟随房主（歌放完不自动下一首，等房主切） */
     @Volatile var followMode = false
 
+    private fun canPlay(track: NeteaseTrack): Boolean {
+        if (party.role != me.sorihiko.dango.party.ListenParty.Role.NONE && CloudDrives.privateTrack(track)) {
+            message = "Private Kugou cloud tracks cannot be shared in Listen Together. Leave the room to play them."
+            return false
+        }
+        if (me.sorihiko.dango.party.ListenParty.role == me.sorihiko.dango.party.ListenParty.Role.NONE || me.sorihiko.dango.party.ListenParty.supportsSource(track.source)) return true
+        message = "This source is unavailable in this room. Create a new room with the updated mod."
+        return false
+    }
+
     /**
      * 一起听：跟随房主播放某首歌。
      * 起始位置在下载完成、真正开始播放前才计算（下载要好几秒，提前算会落后）。
      */
     @Synchronized fun playTrackAt(track: NeteaseTrack, startAt: () -> Long, paused: Boolean) {
+        if (!canPlay(track)) return
         radioRevision++
         queue = listOf(track)
         radio = null
@@ -221,6 +268,17 @@ object MusicPlayer {
         loader.execute { load(gen, track, { position }, paused) }
     }
 
+    @Synchronized fun playNext(track: NeteaseTrack) {
+        val q = queue
+        if (q.isEmpty() || index !in q.indices) {
+            queue = listOf(track)
+            playIndex(0)
+            return
+        }
+        queue = q.subList(0, index + 1) + track + q.subList(index + 1, q.size)
+        playIndex(index + 1)
+    }
+
     /** 一起听：跳到 ms 并设成播放 / 暂停（当前这首已经下载好时用） */
     @Synchronized fun syncTo(ms: Long, play: Boolean) {
         val bytes = audio ?: return
@@ -233,6 +291,8 @@ object MusicPlayer {
     }
 
     @Synchronized fun next() {
+        if (lockedByHost()) return
+        if (party.canControl) return party.requestNext()
         val q = queue
         if (q.isEmpty()) return
         // 电台按顺序往下放；放到最后一首时先要几首新的再切
@@ -245,6 +305,8 @@ object MusicPlayer {
     }
 
     fun prev() {
+        if (lockedByHost()) return
+        if (party.canControl) return party.requestPrev()
         if (positionMs > 3000) {
             seek(0)
             return
@@ -259,6 +321,12 @@ object MusicPlayer {
     }
 
     fun togglePause() {
+        if (lockedByHost()) return
+        // 一起听的成员：本地先生效，再告诉房主
+        if (party.canControl && (state == State.PLAYING || state == State.PAUSED)) {
+            party.requestState(if (state == State.PLAYING) me.sorihiko.dango.party.PartyRequest.PAUSE
+                else me.sorihiko.dango.party.PartyRequest.RESUME, positionMs)
+        }
         when (state) {
             State.PLAYING -> {
                 pausedAtMs = positionMs
@@ -282,6 +350,13 @@ object MusicPlayer {
     }
 
     fun seek(ms: Long) {
+        if (audio == null && state != State.PAUSED) return
+        if (lockedByHost()) return
+        if (party.canControl) party.requestState(me.sorihiko.dango.party.PartyRequest.SEEK, ms.coerceIn(0L, max(0L, durationMs - 500)))
+        seekLocal(ms)
+    }
+
+    @Synchronized private fun seekLocal(ms: Long) {
         val target = ms.coerceIn(0L, max(0L, durationMs - 500))
         // 暂停时拖动：停在新位置，仍保持暂停
         if (state == State.PAUSED) pausedAtMs = target
@@ -307,18 +382,17 @@ object MusicPlayer {
     private fun load(gen: Int, track: NeteaseTrack, startAt: (() -> Long)? = null, paused: Boolean = false, directUrl: String? = null, pauseAtStart: (() -> Boolean)? = null) {
         if (gen != generation) return
         try {
-            val url = if (directUrl != null) NeteaseApi.SongUrl(directUrl, false) else MusicSources.api(track.source).songUrl(track)
+            val kugou = if (directUrl == null && track.source == MusicSource.KUGOU) KugouMusicSource.loadAudio(track) { gen == generation } else null
+            val url = if (directUrl != null) NeteaseApi.SongUrl(directUrl, false) else if (track.source == MusicSource.KUGOU) kugou?.info else MusicSources.api(track.source).songUrl(track)
             if (gen != generation) return
             if (url == null) return fail(gen, if (track.source == MusicSource.NETEASE) "拿不到播放地址"
                 else if (NativeAccounts.get(track.source) != null) "No playable MP3. Your login may have expired, or this song is restricted by membership or region."
                 else "No guest MP3 available. Login, payment or regional restrictions may apply.")
-            val bytes = if (directUrl != null) ServerAudioDownload.read(url.url) { gen == generation }
-                else if (track.source == MusicSource.NETEASE) NeteaseApi.request(url.url)
+            val bytes = if (directUrl != null) ServerAudioDownload.read(url.url) { gen == generation } else kugou?.bytes ?: if (track.source == MusicSource.NETEASE) NeteaseApi.request(url.url)
                 else SourceHttp.bytes(url.url, if (track.source == MusicSource.QQ) "https://y.qq.com/" else "https://m.kugou.com/")
             if (gen != generation) return
-            if (bytes == null || bytes.size < 10_000) {
-                return fail(gen, if (directUrl != null) "Server audio could not be loaded"
-                    else if (track.source != MusicSource.NETEASE) "Unable to download this guest MP3. Try another song."
+            if (bytes == null || bytes.isEmpty() || (!track.cloud && bytes.size < 10_000)) {
+                return fail(gen, if (directUrl != null) "Server audio could not be loaded" else if (track.source != MusicSource.NETEASE) "Unable to download this guest MP3. Try another song."
                     else if (NeteaseApi.loggedIn) "这首歌没有播放权限" else "需要登录才能播放（VIP 歌曲）")
             }
             // Cloud list duration units are not reliable. Use compressed audio timing before enabling seeking.
@@ -358,10 +432,11 @@ object MusicPlayer {
         if (gen != generation) return
         state = State.ERROR
         message = msg
-        if (current?.source != MusicSource.NETEASE) return
-        loader.execute {
-            Thread.sleep(1500)
-            if (gen == generation && !followMode && queue.size > 1) next()
+        if (followMode || party.role == me.sorihiko.dango.party.ListenParty.Role.MEMBER) return
+        current?.let { failedTracks.add(it.key) }
+        if (failedTracks.size >= 10 || queue.none { it.key !in failedTracks }) {
+            message = msg + " · " + "Auto-skip stopped after repeated playback failures."
+            return
         }
         failureTimer.schedule({
             synchronized(this) {
@@ -528,8 +603,8 @@ object MusicPlayer {
                     break
                 }
                 if (out == null) {
-                    val format = AudioFormat(header.frequency().toFloat(), 16, sb.channelCount, true, false)
-                    out = openOutput(format, header.frequency() * sb.channelCount * 2 / 4)   // 约 0.25 秒缓冲
+                    val format = AudioFormat(frame.rate.toFloat(), 16, frame.channels, true, false)
+                    out = openOutput(format, frame.rate * frame.channels * 2 / 4)   // 约 0.25 秒缓冲
                     if (gen != generation) return
                     line = out
                     if (state == State.PAUSED) {
