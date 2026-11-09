@@ -60,4 +60,18 @@ class EnvironmentAudioTest {
         RoomAcoustics.tick(platform, false)
         assertNull(RoomAcoustics.room); assertEquals(0, RoomAcoustics.rays.size)
     }
+
+    @Test fun loudIndoorBassKeepsItsWaveformWithoutHardClipping() {
+        EnvironmentAudio.enabled = true; EnvironmentAudio.strength = 1f
+        EnvironmentAudio.update(ListenerEnvironment(false, false, 0f, 0f), RoomAcoustics.Room(1f, 2f, 18f, 0.03f, 0f))
+        EnvironmentAudio.reset()
+        val rate = 44100
+        val pcm = ShortArray(rate * 2) { (32760 * kotlin.math.sin(2 * Math.PI * 60 * it / rate)).toInt().toShort() }
+        EnvironmentAudio.process(pcm, pcm.size, 1, rate, 2000f)
+        val peaks = pcm.count { abs(it.toInt()) >= 32766 }
+        assertTrue("Hard-clipped samples: $peaks", peaks < pcm.size / 100)
+        assertTrue(pcm.maxOrNull()!! > 28000)
+        assertTrue(pcm.minOrNull()!! < -28000)
+        assertTrue(pcm.sumOf { abs(it.toInt()) }.toDouble() / pcm.size > 12000)
+    }
 }

@@ -88,6 +88,51 @@ public class ClientCompatibilityTest {
         }
     }
 
+    @Test
+    public void vanillaMusicHoldHooksMatchTheGameAndPreserveOtherSounds() throws Exception {
+        if (loader.equals("fabric")) {
+            ClassNode game = bytecode("net/minecraft/client/sounds/MusicManager");
+            ClassNode mixin = bytecode("me/sorihiko/dango/fabric/mixin/MusicManagerMixin");
+            int hooks = 0;
+            for (MethodNode method : mixin.methods) {
+                if (method.visibleAnnotations == null) continue;
+                for (AnnotationNode inject : method.visibleAnnotations) {
+                    if (!inject.desc.equals("Lorg/spongepowered/asm/mixin/injection/Inject;")) continue;
+                    List<?> names = (List<?>) value(inject, "method");
+                    assertTrue(game.methods.stream().anyMatch(m -> names.contains(m.name) && m.desc.equals("()V")));
+                    assertEquals(Boolean.TRUE, value(inject, "cancellable"));
+                    hooks++;
+                }
+            }
+            assertEquals(1, hooks);
+        } else {
+            Class<?> soundType = Class.forName("net.minecraft.client.resources.sounds.SoundInstance");
+            Class<?> engineType = Class.forName("net.minecraft.client.sounds.SoundEngine");
+            Class<?> eventType = Class.forName("net.neoforged.neoforge.client.event.sound.PlaySoundEvent");
+            Class<?> entrypoint = Class.forName("me.sorihiko.dango.neoforge.DangoMusicNeoForge");
+            var handler = entrypoint.getDeclaredMethod("onPlaySound", eventType);
+            handler.setAccessible(true);
+            try {
+                for (boolean held : new boolean[]{false, true}) {
+                    me.sorihiko.dango.platform.VanillaMusicHold.active = held;
+                    for (var source : net.minecraft.sounds.SoundSource.values()) {
+                        Object sound = java.lang.reflect.Proxy.newProxyInstance(soundType.getClassLoader(), new Class<?>[]{soundType},
+                                (proxy, method, args) -> switch (method.getName()) {
+                                    case "getSource" -> source;
+                                    case "getIdentifier" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minekumusic", "fixture");
+                                    default -> null;
+                                });
+                        Object event = eventType.getConstructor(engineType, soundType).newInstance(null, sound);
+                        handler.invoke(null, event);
+                        Object result = eventType.getMethod("getSound").invoke(event);
+                        if (held && source == net.minecraft.sounds.SoundSource.MUSIC) assertNull(result);
+                        else assertSame(sound, result);
+                    }
+                }
+            } finally { me.sorihiko.dango.platform.VanillaMusicHold.active = false; }
+        }
+    }
+
     private static Object value(AnnotationNode annotation, String name) {
         for (int i = 0; i < annotation.values.size(); i += 2)
             if (name.equals(annotation.values.get(i))) return annotation.values.get(i + 1);
