@@ -570,3 +570,52 @@ Cannot reach Listen Together on this server. Please retry.	连不上当前服务
 This server supports Listen Together directly. No Firebase or proxy needed.	当前服务器可以直接一起听，不用 Firebase，也不用代理
 Syncing through the current server	经当前服务器同步
 Leave Server Music before joining Listen Together.	请先退出全服频道，再加入一起听。
+Show other players	显示其它播放器
+When Dango isn't playing, show the song from another app on Windows (Spotify, Apple Music…) with lyrics	Dango 没在放歌时，显示 Windows 上别的 App（Spotify、Apple Music 等）正在放的歌和歌词
+Other player lyrics offset	其它播放器歌词偏移
+Other apps report their progress a little late; positive moves lyrics later, negative earlier	别的 App 报的进度会晚一点；正数让歌词往后，负数往前
+Other players	其它播放器
+Windows media	Windows 媒体
+Sound tuning	变速变调
+Speed · Pitch	速度 · 音调
+Speed	速度
+Pitch	音调
+auto	自动
+Pitch follows speed	音调跟着速度
+Remember for this song	按歌记住
+Fixed at 1x in Listen Together	一起听时固定 1x
+Equalizer	均衡器
+Preamp	前级
+Presets	预设
+Use this EQ, speed and pitch next time this song plays	这首歌下次放还用这套均衡、速度和音调
+Flat	平直
+Bass Boost	低音增强
+Bass Destroyer	重低音
+Treble Boost	高音增强
+Vocal	人声
+Rock	摇滚
+Electronic	电子
+Classical	古典
+Loudness	响度
+V-Shape	V 形
+Night	夜间
+Play in order	顺序播放
+Add to playlist	加到歌单
+Loading playlists…	正在读取歌单…
+No playlists of your own yet	还没有自己建的歌单
+Added to %s	已添加到 %s
+Already in %s	已经在 %s 里了
+This source cannot add songs to playlists.	这个音源不能往歌单里加歌。
+Log in to NetEase Cloud Music first.	请先登录网易云音乐。
+NetEase Cloud Music did not respond. Please retry.	网易云音乐没有响应，请重试。
+NetEase Cloud Music returned an incomplete response. Please retry.	网易云音乐返回的数据不完整，请重试。
+NetEase Cloud Music could not add the song. Please retry.	网易云音乐没能加上这首歌，请重试。
+Log in to QQ Music first.	请先登录 QQ 音乐。
+Please reopen the playlist list and try again.	请重新打开歌单列表再试。
+QQ Music could not find this song. Please retry.	QQ 音乐找不到这首歌，请重试。
+This song is not from QQ Music.	这首歌不是 QQ 音乐的。
+Log in to Kugou first.	请先登录酷狗。
+This song is not from Kugou.	这首歌不是酷狗的。
+This source has no liked songs.	这个音源没有红心。
+Kugou liked songs are unavailable. Please retry.	读不到酷狗的“我喜欢”，请重试。
+Fixed at 1x in Server Music	全服频道固定为 1 倍速

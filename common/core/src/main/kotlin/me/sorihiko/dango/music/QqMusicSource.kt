@@ -23,6 +23,26 @@ object QqMusicSource : MusicSourceApi {
     override fun artistAlbums(id: String) = if (id.matches(Regex("[A-Za-z0-9]{1,64}"))) QqArtists.artistAlbums(id) else emptyList()
     override fun findArtist(name: String) = QqArtists.findArtist(name)
 
+    // 红心先不做：往"我喜欢"（dirId 201）写，QQ 只认真 App 的设备身份，我们的登录会被拒（80105）
+    override val canAddToPlaylist get() = NativeAccounts.get(source) != null
+    override fun editablePlaylists() = catalog.editable()
+    override fun addToPlaylist(playlist: NeteasePlaylist, track: NeteaseTrack): Boolean {
+        if (track.source != source) throw SourceAccessException("This song is not from QQ Music.")
+        return catalog.add(playlist, songIdOf(track))
+    }
+
+    /** 写歌单要数字歌曲 ID：解析时有就用，没有按 mid 查一次 */
+    private fun songIdOf(track: NeteaseTrack): Long {
+        if (track.sourceSongId > 0) return track.sourceSongId
+        val data = cgi("music.pf_song_detail_svr", "get_song_detail_yqq", JsonObject().apply {
+            addProperty("song_type", 0); addProperty("song_mid", track.nativeId)
+        })
+        val id = data.obj("track_info")?.number("id") ?: 0L
+        if (id <= 0) throw SourceAccessException("QQ Music could not find this song. Please retry.")
+        track.sourceSongId = id
+        return id
+    }
+
     internal fun profileId(account: NativeAccount): String {
         try {
             val profile = cgi("music.UserInfo.userInfoServer", "GetLoginUserInfo", JsonObject(), account)

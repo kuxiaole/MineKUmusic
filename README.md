@@ -14,6 +14,8 @@
 - 网易云支持每日推荐、私人 FM 和红心；酷狗支持概念版扫码登录，个人 QQ 音乐支持登录自动续期。
 - 歌词支持中文翻译、自由配色、封面取色、渐变与彩虹、自定义字体，可开启夜间发光、生物节拍动画。
 - 支持音量均衡和环境音效，歌曲随水下、房间材质及天气变化。
+- 支持 10 段均衡器、11 个预设、0.5～2 倍速和 ±12 半音，可按歌曲记住设置。
+- Windows 可显示其他播放器正在播放的歌曲与歌词；三平台支持添加歌曲到自建歌单。
 - 全服音乐支持网易云和 QQ 音乐，提供点歌队列、投票切歌和可选点歌收费。
 - 支持独立 Paper / Folia 服务器和 Velocity 群组服，切服后继续收听。
 
@@ -30,14 +32,14 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.8+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.8+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.8+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.8+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.8+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.8+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.8.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.8-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.9+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.9+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.9+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.9+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.9+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.9+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.9.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.9-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 26.1.2 客户端 JAR 同时适用于 26.1 / 26.1.1，选择对应游戏版本的加载器及 Fabric API。
 
@@ -48,6 +50,8 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 - 按 `M` 打开播放器，侧栏显示 `MineKU Music`；个人音乐保留原有使用方式。
 - 个人音乐支持歌手页、网易云 / QQ 音乐 / 酷狗云盘，以及 MP3、FLAC、Ogg Vorbis 播放；点击歌手名进入歌手页，云盘从侧栏打开。
 - 可拖动、缩放播放器窗口，并在设置中选择音频输出和音量均衡。
+- 播放栏可打开均衡器、变速变调，歌名旁的“+”可加入自建歌单；全服频道与一起听固定为 1 倍速，音调与均衡器仍可自行调整。
+- Windows 用户可在设置中打开“显示其它播放器”，个人音乐空闲时显示其他 App 的歌曲与歌词；全服频道不会被其他播放器接管。
 - “一起听”支持房间码和局域网同步，每位成员使用自己的音乐账号；进入全服频道时会退出一起听房间。
 - 播放音乐时自动暂停原版背景音乐，暂停或停止播放后恢复；音乐盒和其他游戏声音照常播放。
 - 环境音效在“设置 → 音乐与 HUD”中开启；歌词字体放入 `config/dangomusic/fonts`，在“设置 → 歌词 → 歌词字体”中选择。

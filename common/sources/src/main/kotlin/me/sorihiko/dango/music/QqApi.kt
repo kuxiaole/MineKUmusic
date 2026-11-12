@@ -73,6 +73,7 @@ class QqApi(private val account: NativeAccount?) {
                     song.obj("file")?.text("media_mid").orEmpty().ifEmpty { mid }
                 } }, album).apply {
                     artistIds = song.array("singer").filter { it.isJsonObject }.map { it.asJsonObject.text("mid") }
+                    sourceSongId = song.number("songid").takeIf { it > 0 } ?: song.number("id").takeIf { it > 0 } ?: 0L
                 }
         }
     }

@@ -63,6 +63,54 @@ class ServerMusicTest {
         val rid = sent.last { it.get("type").asString == "subscribe" }.get("requestId").asString
         deliver("result", JsonObject().apply { addProperty("ok", true); addProperty("message", "Joined server music") }, rid)
     }
+    @Test fun serverChannelLocksSpeedButKeepsPitchAndEqualizer() {
+        val key = "netease:sync-tuning-fixture"
+        val saved = SoundTuning.get(null)
+        SoundTuning.setRemembered(key, true)
+        try {
+            SoundTuning.update(key, SoundTuning.Setting(speed = 2f, semitones = 12f, eqOn = true, eq = FloatArray(10) { 3f }))
+            assertEquals(2f, SoundTuning.effective(key).speed, 0f)
+            welcome(); join()
+            val effective = SoundTuning.effective(key)
+            assertEquals(1f, effective.speed, 0f)
+            assertEquals(2f, effective.pitch, 0.001f)
+            assertArrayEquals(FloatArray(10) { 3f }, effective.eq, 0f)
+            SoundTuning.update(key, SoundTuning.get(key).with(linked = true))
+            assertEquals(1f, SoundTuning.effective(key).pitch, 0f)
+            ServerMusic.leave()
+            assertEquals(2f, SoundTuning.effective(key).speed, 0f)
+        } finally {
+            ServerMusic.disconnected()
+            SoundTuning.setRemembered(key, false)
+            SoundTuning.update(null, saved)
+        }
+    }
+    @Test fun externalPlayerNeverTakesOverEmptyServerChannelOrParty() {
+        val field = SystemMedia::class.java.getDeclaredField("track").apply { isAccessible = true }
+        val previous = field.get(null)
+        val external = NeteaseTrack(91, "Other app", listOf("Fixture"), 120000, "")
+        try {
+            field.set(null, external)
+            assertTrue(MusicPlayer.external)
+            assertSame(external, MusicPlayer.shownTrack)
+            welcome(); join()
+            assertFalse(MusicPlayer.external)
+            assertFalse(MusicPlayer.shownActive)
+            assertNull(MusicPlayer.shownTrack)
+            ServerMusic.leave()
+            assertTrue(MusicPlayer.external)
+            val role = ListenParty::class.java.getDeclaredField("role").apply { isAccessible = true }
+            val oldRole = role.get(null)
+            try {
+                role.set(null, ListenParty.Role.MEMBER)
+                assertFalse(MusicPlayer.external)
+                assertTrue(SoundTuning.speedLocked)
+            } finally { role.set(null, oldRole) }
+        } finally {
+            ServerMusic.disconnected()
+            field.set(null, previous)
+        }
+    }
     @Test fun firstVisitDoesNotAutoJoin() { welcome(); assertTrue(ServerMusic.available); assertFalse(ServerMusic.joined); assertFalse(sent.any { it.get("type").asString == "subscribe" }) }
     private fun multiSourceWelcome() {
         deliver("welcome", JsonObject().apply {

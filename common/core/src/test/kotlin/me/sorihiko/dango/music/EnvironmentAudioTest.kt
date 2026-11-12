@@ -16,6 +16,21 @@ class EnvironmentAudioTest {
         EnvironmentAudio.reset()
     }
 
+    @Test fun invalidEnvironmentCannotPoisonLaterAudio() {
+        EnvironmentAudio.enabled = true; EnvironmentAudio.strength = Float.NaN
+        EnvironmentAudio.update(ListenerEnvironment(false, false, Float.NaN, 0f),
+            RoomAcoustics.Room(Float.NaN, Float.POSITIVE_INFINITY, 18f, 0.03f, 0f))
+        EnvironmentAudio.reset()
+        val pcm = ShortArray(4096) { if (it % 2 == 0) 4000 else -4000 }
+        EnvironmentAudio.process(pcm, pcm.size, 1, 44100, 90f)
+        assertTrue(pcm.any { it != 0.toShort() })
+        EnvironmentAudio.strength = 1f
+        EnvironmentAudio.update(null, null); EnvironmentAudio.reset()
+        val dry = shortArrayOf(1200, -1200, 600, -600)
+        val expected = dry.copyOf()
+        EnvironmentAudio.process(dry, dry.size, 1, 44100, 1f)
+        assertArrayEquals(expected, dry)
+    }
     @Test fun disabledEffectsPreservePcmExactly() {
         reset()
         val pcm = shortArrayOf(-32768, 32767, 1234, -1234, 0, 321)

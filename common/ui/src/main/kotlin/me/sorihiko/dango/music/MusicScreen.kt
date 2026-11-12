@@ -210,7 +210,8 @@ class MusicScreen(
         ScreenState.backPage = if (fromArtist) null else from
         tracks.resetScroll()
         tracks.resetCoverflow()
-        Library.loadTracks(p.id)
+        // 自己的歌单可能在手机上改过：有缓存也先显示缓存，同时后台重拉
+        Library.loadTracks(p.id, refresh = p.owned && Library.tracks(p.id) != null)
     }
 
     internal fun doSearch() {
@@ -487,11 +488,13 @@ class MusicScreen(
         val barRect = LayoutBounds(barX, win.bottom - pad - 8f - barH, win.right - pad - 12f - barX, barH)
         val content = LayoutBounds(mainX, win.y + pad + 14f, mainW, win.bottom - pad - (win.y + pad + 14f))
 
+        ui.popup = bar.popupRect.takeIf { it.width > 0f }
         sidebar.draw(side)
         ui.occluder = barRect
         ui.bottomInset = content.bottom - barRect.y + 10f
         drawContent(content)
         ui.occluder = null
+        ui.popup = null
         this.barRect = barRect
     }
 
@@ -640,6 +643,7 @@ class MusicScreen(
         // 按住 Ctrl 滚得快十倍
         val step = (if (wheel > 0) -3 else 3) * (if (platform.ctrlDown) 10 else 1)
         when {
+            bar.add.open && bar.add.panelRect.contains(lx, ly) -> bar.add.scroll(wheel)
             ScreenState.page == Page.PARTY && party.area.contains(lx, ly) -> party.scroll(wheel)
             settings.area.contains(lx, ly) -> settings.scroll(wheel)
             sidebar.listArea.contains(lx, ly) -> sidebar.scrollBy(step)
