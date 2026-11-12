@@ -111,6 +111,16 @@ class ServerMusicTest {
             field.set(null, previous)
         }
     }
+    @Test fun standaloneListenTogetherCannotStartOutsideServerChannel() {
+        assertFalse(ServerMusic.joined)
+        ListenParty.create()
+        ListenParty.join("D-TEST1")
+        ListenParty.probeServer()
+        assertEquals(ListenParty.Role.NONE, ListenParty.role)
+        assertFalse(ListenParty.busy)
+        assertEquals("", ListenParty.code)
+        assertFalse(Thread.getAllStackTraces().keys.any { it.name == "Dango-PartyTick" })
+    }
     @Test fun firstVisitDoesNotAutoJoin() { welcome(); assertTrue(ServerMusic.available); assertFalse(ServerMusic.joined); assertFalse(sent.any { it.get("type").asString == "subscribe" }) }
     private fun multiSourceWelcome() {
         deliver("welcome", JsonObject().apply {

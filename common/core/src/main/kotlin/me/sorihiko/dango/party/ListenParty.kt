@@ -28,6 +28,9 @@ import kotlin.math.abs
  */
 object ListenParty {
 
+    // MineKUmusic only supports the server-managed channel. Keep legacy callbacks inert.
+    private const val ENABLED = false
+
     @Volatile private var serverChannelActive = false
     private val channelRevision = AtomicLong()
 
@@ -105,6 +108,7 @@ object ListenParty {
 
     /** 界面：后台看看当前服务器能不能直接一起听（结果在 [ServerTransport.connected]） */
     fun probeServer() {
+        if (!ENABLED) return
         if (role != Role.NONE || !probing.compareAndSet(false, true)) return
         worker.execute {
             try { ServerTransport.ready() } finally { probing.set(false) }
@@ -148,6 +152,7 @@ object ListenParty {
     @Volatile private var pendingReq: PartyRequest? = null
 
     init {
+        if (ENABLED) {
         Thread({
             while (true) {
                 try {
@@ -167,6 +172,7 @@ object ListenParty {
             }
         }, "Dango-PartyTick").apply { isDaemon = true }.start()
         Runtime.getRuntime().addShutdownHook(Thread { if (role != Role.NONE) leaveNow() })
+        }
     }
 
     private fun myName(): String = try { DangoMusic.instance.platform.playerName } catch (_: Exception) { "Player" }
@@ -195,6 +201,7 @@ object ListenParty {
 
     fun create() {
         if (serverChannelActive) return fail("Leave Server Music before joining Listen Together.")
+        if (!ENABLED) return
         if (busy || role != Role.NONE) return
         val revision = channelRevision.get()
         if (MusicPlayer.current?.let { me.sorihiko.dango.music.CloudDrives.privateTrack(it) } == true) {
@@ -265,6 +272,7 @@ object ListenParty {
     }
 
     fun join(input: String) {
+        if (!ENABLED) return
         if (serverChannelActive) return fail("Leave Server Music before joining Listen Together.")
         val c = input.trim().uppercase()
         if (busy || role != Role.NONE || c.isEmpty()) return

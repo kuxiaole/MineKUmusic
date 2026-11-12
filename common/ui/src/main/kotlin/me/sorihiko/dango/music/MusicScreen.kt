@@ -12,7 +12,6 @@ import me.sorihiko.dango.musicui.Library
 import me.sorihiko.dango.musicui.LoginDialog
 import me.sorihiko.dango.musicui.Page
 import me.sorihiko.dango.musicui.PageSnapshot
-import me.sorihiko.dango.musicui.ListenPage
 import me.sorihiko.dango.musicui.PartyPage
 import me.sorihiko.dango.musicui.PlayerBar
 import me.sorihiko.dango.musicui.RequestDialog
@@ -58,13 +57,12 @@ class MusicScreen(
     internal val grid = GridPage(this)
     private val artistPage = ArtistPage(this)
     private val party = PartyPage(this)
-    private val listen = ListenPage(this)
     private val settings = SettingsPage(this, module)
 
     /** 有输入框在打字（搜索、筛选、全服点歌、设置里的数值 / 颜色）：平台层据此启用系统输入法 */
     val textInputActive: Boolean
         get() = !confirmationVisible && !login.visible &&
-            (sidebar.searchFocused || tracks.filterFocused || party.codeFocused || listen.codeFocused || listen.proxyFocused || settings.editing)
+            (sidebar.searchFocused || tracks.filterFocused || party.codeFocused || settings.editing)
     private val bar = PlayerBar(this, module)
     private val requestDialog = RequestDialog(this)
     private val serverLoginDialog = ServerLoginDialog(this)
@@ -100,7 +98,6 @@ class MusicScreen(
         closingAt = now
         settings.commitEdit()
         settings.stopDrag()
-        listen.commitProxy()
         tracks.scrollbarUp()
         ServerMusic.cancelSongRequest()
         ServerMusic.closeServerLogin()
@@ -250,8 +247,6 @@ class MusicScreen(
         sidebar.searchFocused = false
         tracks.filterFocused = false
         party.codeFocused = false
-        listen.codeFocused = false
-        listen.commitProxy()
     }
 
     // ---------------------------------------------------------------- 绘制
@@ -556,7 +551,6 @@ class MusicScreen(
                 val c = Library.charts ?: emptyList()
                 grid.draw(body, I18n.text("Charts"), I18n.format("%d charts", c.size), c, Library.chartsLoading)
             }
-            Page.LISTEN -> ui.itemAnim(0) { listen.draw(LayoutBounds(body.x, body.y, body.width, body.height - ui.bottomInset)) }
             Page.PARTY -> ui.itemAnim(0) { party.draw(LayoutBounds(body.x, body.y, body.width, body.height - ui.bottomInset)) }
             Page.SETTINGS -> settings.draw(body)
             Page.ARTIST -> artistPage.draw(body)
@@ -606,8 +600,6 @@ class MusicScreen(
         if (hit == null || !sidebar.isMenuHit(hit.first)) sidebar.menuOpen = false
         if (hit == null || hit.first !== tracks.filterRect) tracks.filterFocused = false
         if (hit == null || hit.first !== party.codeRect) party.codeFocused = false
-        if (hit == null || hit.first !== listen.codeRect) listen.codeFocused = false
-        if (hit == null || hit.first !== listen.proxyRect) listen.commitProxy()
         hit?.second?.invoke()
     }
 
@@ -683,7 +675,6 @@ class MusicScreen(
         if (settings.keyTyped(typedChar, keyCode)) return
         if (sidebar.keyTyped(typedChar, keyCode)) return
         if (ScreenState.page == Page.PARTY && party.keyTyped(typedChar, keyCode)) return
-        if (ScreenState.page == Page.LISTEN && listen.keyTyped(typedChar, keyCode)) return
         if (tracks.filterKeyTyped(typedChar, keyCode)) return
         if (keyCode != Keys.NONE && keyCode == module.openKey.value) {
             if (!openKeyHeld) {

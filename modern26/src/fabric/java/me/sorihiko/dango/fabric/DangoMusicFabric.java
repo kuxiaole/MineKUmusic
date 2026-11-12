@@ -20,7 +20,6 @@ public class DangoMusicFabric implements ClientModInitializer {
     public void onInitializeClient() {
         ModernKeyBindings.register(KeyMappingHelper::registerKeyMapping);
         ModernDango.start();
-        PartyNetwork.register();
         PayloadTypeRegistry.clientboundPlay().register(ServerMusicPayload.TYPE, ServerMusicPayload.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(ServerMusicPayload.TYPE, ServerMusicPayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(ServerMusicPayload.TYPE, (payload, context) ->
