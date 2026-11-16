@@ -16,7 +16,7 @@ class QqPlayback @JvmOverloads constructor(private val transport: (JsonObject, N
     private class Reply(val code: Long, val data: JsonObject?)
     private val guid = (UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE).toString().take(10)
 
-    fun resolve(track: NeteaseTrack, account: NativeAccount?): SourceAudio? {
+    @JvmOverloads fun resolve(track: NeteaseTrack, account: NativeAccount?, quality: AudioQuality = AudioQuality.HIGH): SourceAudio? {
         require(track.source == MusicSource.QQ && validMid(track.nativeId) && validMid(track.mediaId))
         var media = track.mediaId
         // Older search responses sometimes omit media MID. Resolve metadata rather than
@@ -27,15 +27,15 @@ class QqPlayback @JvmOverloads constructor(private val transport: (JsonObject, N
             val params = JsonObject().apply {
                 addProperty("guid", guid); addProperty("uin", account?.userId ?: "0"); addProperty("ctx", 0)
                 if (!desktop) { addProperty("loginflag", 1); addProperty("platform", "20") }
-                add("filename", JsonArray().apply { for (prefix in listOf("M500", "M800")) add(JsonPrimitive("$prefix$media.mp3")) })
-                add("songmid", JsonArray().apply { repeat(2) { add(JsonPrimitive(track.nativeId)) } })
-                add("songtype", JsonArray().apply { repeat(2) { add(JsonPrimitive(0)) } })
+                add("filename", JsonArray().apply { for ((prefix, ext) in quality.qqFiles) add(JsonPrimitive("$prefix$media.$ext")) })
+                add("songmid", JsonArray().apply { repeat(quality.qqFiles.size) { add(JsonPrimitive(track.nativeId)) } })
+                add("songtype", JsonArray().apply { repeat(quality.qqFiles.size) { add(JsonPrimitive(0)) } })
             }
             val reply = call(if (desktop) "desktop" else "web",
                 if (desktop) "music.vkey.GetVkey" else "vkey.GetVkeyServer",
                 if (desktop) "UrlGetVkey" else "CgiGetVkey", params, account, desktop)
             replies += reply
-            if (reply.code == 0L) reply.data?.let { parse(it) }?.let { return it }
+            if (reply.code == 0L) reply.data?.let { parse(it, quality == AudioQuality.LOSSLESS) }?.let { return it }
         }
         if (replies.all { it.code == -3L }) throw SourceAccessException("QQ Music playback request failed. Please retry.")
         if (account == null) return null
@@ -82,7 +82,7 @@ class QqPlayback @JvmOverloads constructor(private val transport: (JsonObject, N
         return Reply(code,data)
     }
 
-    fun parse(data: JsonObject): SourceAudio? {
+    @JvmOverloads fun parse(data: JsonObject, allowLossless: Boolean = false): SourceAudio? {
         val hosts = data.array("sip").mapNotNull { it.takeIf { it.isJsonPrimitive }?.asString }
         for (item in data.array("midurlinfo")) {
             val row = item.takeIf { it.isJsonObject }?.asJsonObject ?: continue
@@ -90,7 +90,7 @@ class QqPlayback @JvmOverloads constructor(private val transport: (JsonObject, N
             val path = row.text("purl")
             if (path.isEmpty()) continue
             val file = path.substringBefore('?').substringAfterLast('/')
-            if (!file.matches(Regex("M(?:500|800)[A-Za-z0-9]+\\.mp3"))) continue
+            if (!file.matches(Regex("M(?:500|800)[A-Za-z0-9]+[.]mp3")) && !(allowLossless && file.matches(Regex("F000[A-Za-z0-9]+[.]flac")))) continue
             if (row.number("is_preview") != 0L || row.number("trial") != 0L || row.obj("freeTrialInfo") != null) continue
             val candidates = if (path.startsWith("https://") || path.startsWith("http://")) listOf(path)
                 else (hosts.sortedBy { if (it.startsWith("https://")) 0 else 1 } + "https://isure.stream.qqmusic.qq.com/")
@@ -98,7 +98,7 @@ class QqPlayback @JvmOverloads constructor(private val transport: (JsonObject, N
             for (candidate in candidates) {
                 val uri = try { URI(candidate) } catch (_: Exception) { continue }
                 if (uri.scheme !in listOf("https","http") || uri.host.isNullOrEmpty() || uri.userInfo != null ||
-                    !uri.path.orEmpty().endsWith(".mp3",true)) continue
+                    !(uri.path.orEmpty().endsWith(".mp3",true) || (allowLossless && uri.path.orEmpty().endsWith(".flac",true)))) continue
                 return SourceAudio(candidate,false)
             }
         }

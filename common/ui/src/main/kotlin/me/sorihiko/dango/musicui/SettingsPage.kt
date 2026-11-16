@@ -50,6 +50,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
     private val choiceLabels = mapOf(
         "lyricColors" to listOf("Custom color", "Cover color", "Cover gradient", "Rainbow"),
         "audioOutput" to listOf("Auto", "Java Sound", "Game audio (OpenAL)"),
+        "audioQuality" to listOf("Standard quality", "High quality", "Lossless quality"),
     )
 
     /** 显示成百分比的选项 */
@@ -278,7 +279,7 @@ internal class SettingsPage(private val screen: MusicScreen, private val module:
         val otherPlayers = player.take(listOf("systemMedia", "systemMediaOffset"))
             .takeIf { me.sorihiko.dango.music.SystemMedia.supported }
         val music = listOf(
-            Group("Player", "Playback", player.m, false, player.take(listOf("volume", "normalize", "audioOutput", "language", "reducedChannelMotion"))),
+            Group("Player", "Playback", player.m, false, player.take(listOf("volume", "audioQuality", "normalize", "audioOutput", "language", "reducedChannelMotion"))),
             Group("Environment audio", "Sound around you", player.m, false, environment),
         ) + listOfNotNull(
             otherPlayers?.let { Group("Other players", "Windows media", player.m, false, it) },

@@ -224,6 +224,40 @@ class ServerMusicTest {
         MusicPlayer::class.java.getDeclaredField("state").apply { isAccessible = true }.set(null, state)
         MusicPlayer::class.java.getDeclaredField("seekBaseMs").apply { isAccessible = true }.setLong(null, 42000)
     }
+    @Test fun serverPlaybackRejectsPersonalQualityReloadAndClearsItsOverride() = withMusicLoaderBlocked {
+        welcome(); syntheticPersonalPlayback(MusicPlayer.State.PAUSED)
+        PlaybackQuality.override = AudioQuality.LOSSLESS
+        join()
+        val track = NeteaseTrack(999, "Server track", emptyList(), 180000, "")
+        MusicPlayer.playServerTrack(track, "https://fixture.invalid/server.mp3", { 10000L }, { false })
+        assertNull(PlaybackQuality.override)
+        val generation = MusicPlayer::class.java.getDeclaredField("generation").apply { isAccessible = true }
+        val before = generation.getInt(null)
+        MusicPlayer.reloadWithQuality(AudioQuality.LOSSLESS)
+        assertEquals(before, generation.getInt(null))
+        assertSame(track, MusicPlayer.current)
+        assertNull(PlaybackQuality.override)
+        ServerMusic.disconnected()
+        assertEquals(MusicPlayer.State.PAUSED, MusicPlayer.state)
+        assertEquals(42000L, MusicPlayer.positionMs)
+        assertNull(PlaybackQuality.override)
+    }
+    @Test fun temporaryQualityClearsOnTrackChangeAndStop() = withMusicLoaderBlocked {
+        syntheticPersonalPlayback(MusicPlayer.State.PAUSED)
+        val queue = MusicPlayer.queue
+        PlaybackQuality.override = AudioQuality.LOSSLESS
+        MusicPlayer.restoreQueue(queue, 1, 42000, true)
+        assertEquals(AudioQuality.LOSSLESS, PlaybackQuality.override)
+        MusicPlayer.restoreQueue(queue, 0, 0, true)
+        assertNull(PlaybackQuality.override)
+        PlaybackQuality.override = AudioQuality.LOSSLESS
+        MusicPlayer.playIndex(1)
+        assertNull(PlaybackQuality.override)
+        PlaybackQuality.override = AudioQuality.STANDARD
+        MusicPlayer.stop()
+        assertNull(PlaybackQuality.override)
+        assertEquals("", MusicPlayer.playingQuality)
+    }
     @Test fun disconnectPausesServerListenersButPreservesPersonalPlaybackState() = withMusicLoaderBlocked {
         for (initial in listOf(MusicPlayer.State.PLAYING, MusicPlayer.State.PAUSED, MusicPlayer.State.LOADING, MusicPlayer.State.STOPPED)) {
             for (serverChannel in listOf(false, true)) {

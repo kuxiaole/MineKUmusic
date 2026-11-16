@@ -69,7 +69,7 @@ object QqMusicSource : MusicSourceApi {
     internal fun parseTrack(song: JsonObject) = QqApi.parseTrack(song)
 
     override fun songUrl(track: NeteaseTrack): NeteaseApi.SongUrl? =
-        QqApi(NativeAccounts.get(source)).audio(track)?.let { NeteaseApi.SongUrl(it.url, it.trialOnly) }
+        QqPlayback().resolve(track, NativeAccounts.get(source), PlaybackQuality.wanted)?.let { NeteaseApi.SongUrl(it.url, it.trialOnly) }
 
     private fun json(url: String): JsonObject {
         val account = NativeAccounts.get(source)

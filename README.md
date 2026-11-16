@@ -14,6 +14,7 @@
 - 网易云支持每日推荐、私人 FM 和红心；酷狗支持概念版扫码登录，个人 QQ 音乐支持登录自动续期。
 - 歌词支持中文翻译、自由配色、封面取色、渐变与彩虹、自定义字体，可开启夜间发光、生物节拍动画。
 - 支持音量均衡和环境音效，歌曲随水下、房间材质及天气变化。
+- 个人音乐可选择标准、极高、无损音质，在设置中选择默认档位，播放栏可为当前歌曲临时切换；权限或文件不足时自动降档。
 - 支持 10 段均衡器、11 个预设、0.5～2 倍速和 ±12 半音，可按歌曲记住设置。
 - Windows 可显示其他播放器正在播放的歌曲与歌词；三平台支持添加歌曲到自建歌单。
 - 全服音乐支持网易云和 QQ 音乐，提供点歌队列、投票切歌和可选点歌收费。
@@ -32,14 +33,14 @@ DangoMusic 原有界面代码还注明排版参考 MuoniumPlayer，此项上游�
 
 | 组件 | 文件 | 安装位置 |
 | --- | --- | --- |
-| 26.3 Fabric 客户端 | `MineKUmusic-1.7.10+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
-| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.10+26.3-neoforge.jar` | 26.3 客户端 `mods` |
-| 26.2 Fabric 客户端 | `MineKUmusic-1.7.10+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.10+26.2-neoforge.jar` | 26.2 客户端 `mods` |
-| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.10+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
-| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.10+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
-| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.10.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
-| Velocity 群组服插件 | `MineKUmusic-server-1.7.10-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
+| 26.3 Fabric 客户端 | `MineKUmusic-1.7.11+26.3-fabric.jar` | 26.3 客户端 `mods`，同时安装对应 Fabric API |
+| 26.3 NeoForge 客户端 | `MineKUmusic-1.7.11+26.3-neoforge.jar` | 26.3 客户端 `mods` |
+| 26.2 Fabric 客户端 | `MineKUmusic-1.7.11+26.2-fabric.jar` | 26.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.2 NeoForge 客户端 | `MineKUmusic-1.7.11+26.2-neoforge.jar` | 26.2 客户端 `mods` |
+| 26.1.2 Fabric 客户端 | `MineKUmusic-1.7.11+26.1.2-fabric.jar` | 26.1.2 客户端 `mods`，同时安装对应 Fabric API |
+| 26.1.2 NeoForge 客户端 | `MineKUmusic-1.7.11+26.1.2-neoforge.jar` | 26.1.2 客户端 `mods` |
+| 独立 Paper / Folia 插件 / 群组服经济桥接 | `MineKUmusic-server-1.7.11.jar` | Paper / Folia 26.1.2 / 26.2 / 26.3 的 `plugins`，群组服收费时使用经济桥接模式 |
+| Velocity 群组服插件 | `MineKUmusic-server-1.7.11-velocity.jar` | Velocity `plugins`，统一管理全服队列 |
 
 26.1.2 客户端 JAR 同时适用于 26.1 / 26.1.1，选择对应游戏版本的加载器及 Fabric API。
 

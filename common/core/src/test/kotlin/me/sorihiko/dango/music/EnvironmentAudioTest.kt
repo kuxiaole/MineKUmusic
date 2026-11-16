@@ -82,11 +82,20 @@ class EnvironmentAudioTest {
         EnvironmentAudio.reset()
         val rate = 44100
         val pcm = ShortArray(rate * 2) { (32760 * kotlin.math.sin(2 * Math.PI * 60 * it / rate)).toInt().toShort() }
+        EnvironmentAudio.takePeak()
         EnvironmentAudio.process(pcm, pcm.size, 1, rate, 2000f)
         val peaks = pcm.count { abs(it.toInt()) >= 32766 }
         assertTrue("Hard-clipped samples: $peaks", peaks < pcm.size / 100)
-        assertTrue(pcm.maxOrNull()!! > 28000)
-        assertTrue(pcm.minOrNull()!! < -28000)
-        assertTrue(pcm.sumOf { abs(it.toInt()) }.toDouble() / pcm.size > 12000)
+        assertTrue("Reverb must not overdrive the final limiter", EnvironmentAudio.takePeak() < 32767f * 1.1f)
+        // The mix now ducks dry audio to leave headroom. Measure sustained tone energy
+        // and distortion instead of requiring both transient peaks near full scale.
+        val steady = pcm.drop(rate).map { it.toDouble() }
+        val energy = steady.sumOf { it * it } / steady.size
+        val gain = kotlin.math.sqrt(energy) / (32760 / kotlin.math.sqrt(2.0))
+        assertTrue("Sustained gain: $gain", gain in 0.5..1.1)
+        val real = steady.withIndex().sumOf { (i, sample) -> sample * kotlin.math.cos(2 * Math.PI * 60 * i / rate) } / steady.size
+        val imag = steady.withIndex().sumOf { (i, sample) -> sample * kotlin.math.sin(2 * Math.PI * 60 * i / rate) } / steady.size
+        val fundamental = 2 * (real * real + imag * imag) / energy
+        assertTrue("Fundamental energy fraction: $fundamental", fundamental > 0.95)
     }
 }
