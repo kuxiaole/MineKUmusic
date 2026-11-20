@@ -11,12 +11,15 @@ import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import java.lang.reflect.Proxy
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.UUID
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class ServerMusicTest {
     companion object {
@@ -380,6 +383,49 @@ class ServerMusicTest {
         ServerMusic.previous(); ServerMusic.seek(5000); assertTrue(sent.isEmpty())
         ServerMusic.next(); assertEquals("vote", sent.single().get("type").asString)
         assertEquals("fixture-current-song", sent.single().getAsJsonObject("body").get("instance").asString)
+    }
+    @Test fun prefetchedServerAudioIsReusedAfterTheTrackChanges() {
+        val requests = AtomicInteger()
+        val downloaded = CountDownLatch(1)
+        val http = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/audio") { exchange ->
+                requests.incrementAndGet()
+                val bytes = ByteArray(12_000)
+                exchange.sendResponseHeaders(200, bytes.size.toLong())
+                exchange.responseBody.use { it.write(bytes) }
+                downloaded.countDown()
+            }
+            start()
+        }
+        val url = "http://127.0.0.1:${http.address.port}/audio"
+        val currentTrack = MusicProtocol.Track(101, "Current fixture", listOf("Fixture"), 180000, "")
+        val nextTrack = MusicProtocol.Track(102, "Prefetched fixture", listOf("Fixture"), 180000, "")
+        fun state(revision: Long, instance: String, track: MusicProtocol.Track, entryId: String): JsonObject = JsonObject().apply {
+            addProperty("revision", revision); addProperty("instance", instance)
+            add("current", MusicProtocol.GSON.toJsonTree(MusicProtocol.Entry(track, "requester", "Fixture").apply { this.entryId = entryId }))
+            addProperty("positionMs", 0); addProperty("paused", false); addProperty("ready", true)
+        }
+        try {
+            welcome(); join()
+            deliver("snapshot", state(1, "current-instance", currentTrack, "current-entry"))
+            deliver("prefetchAudio", JsonObject().apply {
+                addProperty("instance", "current-instance"); addProperty("revision", 1)
+                addProperty("entryId", "next-entry"); add("track", MusicProtocol.GSON.toJsonTree(nextTrack))
+                addProperty("url", url)
+            })
+            assertTrue(downloaded.await(5, TimeUnit.SECONDS))
+            val nextState = state(2, "next-instance", nextTrack, "next-entry")
+            deliver("snapshot", nextState)
+            nextState.addProperty("url", url); nextState.addProperty("refresh", false)
+            deliver("audio", nextState)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (MusicPlayer.state == MusicPlayer.State.LOADING && System.nanoTime() < deadline) Thread.sleep(10)
+            assertEquals(MusicPlayer.State.ERROR, MusicPlayer.state)
+            assertEquals(1, requests.get())
+        } finally {
+            ServerMusic.disconnected()
+            http.stop(0)
+        }
     }
     @Test fun snapshotsIgnoreOlderRevisionAndRestartResetsIt() {
         welcome()

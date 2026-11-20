@@ -14,6 +14,8 @@ import java.util.function.*;
 import static me.sorihiko.dango.protocol.MusicProtocol.*;
 
 public final class MusicServer implements AutoCloseable {
+    private static final long PREFETCH_WINDOW_MS = 30_000L;
+    private static final long PREFETCH_MAX_AGE_NANOS = TimeUnit.MINUTES.toNanos(1);
     public record Peer(UUID id, String name, boolean use, boolean request, boolean vote, boolean admin) {}
     public interface Endpoint {
         void send(UUID player, List<byte[]> frames);
@@ -49,6 +51,10 @@ public final class MusicServer implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final CompletableFuture<Void> termination = new CompletableFuture<>();
     private MusicProvider.Audio audio;
+    private MusicProvider.Audio prefetchedAudio;
+    private String prefetchedEntryId = "";
+    private long prefetchedAtNanos;
+    private PrefetchRequest prefetchRequest;
     private String resolvingInstance = "";
     private boolean requesting;
     private boolean paying;
@@ -69,6 +75,7 @@ public final class MusicServer implements AutoCloseable {
     }
     private record Quote(String id, SongRef song, BigDecimal amount, String currency, long expires, String contribution) {}
     private record Request(Peer peer, String requestId, SongRef song, Session session, Quote quote) {}
+    private record PrefetchRequest(String instance, String entryId) {}
     private record Purchase(EconomyService.Payment payment, MusicProtocol.Track track, String requestId, String currency) {}
     private static final class ChatSearch {
         final String id = UUID.randomUUID().toString();
@@ -112,7 +119,7 @@ public final class MusicServer implements AutoCloseable {
         }
         owner.scheduleAtFixedRate(() -> guarded(() -> {
             if (engine.ended()) { engine.skip(); audio = null; }
-            pump(); engine.pruneCooldowns(); logins.expire(); accounts.tick();
+            pump(); prefetchNext(); engine.pruneCooldowns(); logins.expire(); accounts.tick();
             chatSearches.values().removeIf(search -> System.nanoTime() >= search.expires);
             if (purchase != null && !paying && System.nanoTime() >= paymentRetryAt) pay();
             if (++ticks % this.config.syncSeconds() == 0 || lastBroadcastRevision != engine.revision()) broadcast();
@@ -458,6 +465,14 @@ public final class MusicServer implements AutoCloseable {
         Entry current = engine.selectNext();
         if (current == null) { audio = null; return; }
         if (engine.isReady() || engine.instance().equals(resolvingInstance)) return;
+        if (prefetchedAudio != null && prefetchedEntryId.equals(current.entryId)) {
+            MusicProvider.Audio cached = prefetchedAudio;
+            long cachedAge = System.nanoTime() - prefetchedAtNanos;
+            clearPrefetchedAudio();
+            if (cachedAge <= PREFETCH_MAX_AGE_NANOS) {
+                audio = cached; engine.ready(); sessions.keySet().forEach(this::sendAudio); changed(); return;
+            }
+        }
         String expected = engine.instance(); resolvingInstance = expected;
         CompletableFuture.supplyAsync(() -> resolve(current.track.ref()), io).whenComplete((resolved, failure) -> submit(() -> {
             if (!engine.instance().equals(expected)) return;
@@ -468,6 +483,35 @@ public final class MusicServer implements AutoCloseable {
             } else { audio = resolved; engine.ready(); sessions.keySet().forEach(this::sendAudio); }
             changed();
         }));
+    }
+    private void prefetchNext() {
+        Entry current = engine.current();
+        Entry next = engine.queue().isEmpty() ? null : engine.queue().get(0);
+        if (prefetchedAudio != null && (next == null || !prefetchedEntryId.equals(next.entryId))) clearPrefetchedAudio();
+        PrefetchRequest expected = current == null || next == null ? null : new PrefetchRequest(engine.instance(), next.entryId);
+        if (prefetchRequest != null && !prefetchRequest.equals(expected)) prefetchRequest = null;
+        if (current == null || next == null || expected == null || !engine.isReady() || engine.paused() || engine.listeners() == 0
+                || current.track.durationMs - engine.position() > PREFETCH_WINDOW_MS) return;
+        if (prefetchedEntryId.equals(next.entryId) || expected.equals(prefetchRequest)) return;
+        prefetchRequest = expected;
+        CompletableFuture.supplyAsync(() -> resolve(next.track.ref()), io).whenComplete((resolved, failure) -> submit(() -> {
+            if (!expected.equals(prefetchRequest)) return;
+            prefetchRequest = null;
+            if (failure != null || !engine.instance().equals(expected.instance()) || engine.current() == null
+                    || engine.queue().isEmpty() || !engine.queue().get(0).entryId.equals(expected.entryId())) return;
+            prefetchedAudio = resolved; prefetchedEntryId = expected.entryId(); prefetchedAtNanos = System.nanoTime();
+            for (UUID id : sessions.keySet()) sendPrefetchAudio(id, expected, resolved);
+        }));
+    }
+    private void sendPrefetchAudio(UUID id, PrefetchRequest request, MusicProvider.Audio source) {
+        if (!engine.subscribed(id.toString())) return;
+        JsonObject body = new JsonObject();
+        body.addProperty("instance", request.instance()); body.addProperty("revision", engine.revision());
+        body.addProperty("entryId", request.entryId()); body.add("track", GSON.toJsonTree(source.track()));
+        body.addProperty("url", source.url()); send(id, "prefetchAudio", "", body);
+    }
+    private void clearPrefetchedAudio() {
+        prefetchedAudio = null; prefetchedEntryId = ""; prefetchedAtNanos = 0;
     }
     private void refreshAudio(Peer peer, String rid, String instance) {
         if (!engine.subscribed(peer.id().toString()) || !engine.instance().equals(instance) || engine.current() == null) return;
@@ -517,7 +561,7 @@ public final class MusicServer implements AutoCloseable {
         for (UUID id : new ArrayList<>(sessions.keySet())) snapshot(id, "", 0);
         lastBroadcastRevision = engine.revision();
     }
-    private void changed() { pump(); broadcast(); persist(); }
+    private void changed() { pump(); prefetchNext(); broadcast(); persist(); }
     private void result(Peer peer, String rid, boolean ok, String text) {
         result(peer, rid, ok, text, messages.translated(text, ok));
     }

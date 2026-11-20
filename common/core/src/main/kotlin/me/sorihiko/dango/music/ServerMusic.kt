@@ -101,6 +101,7 @@ object ServerMusic {
     }
     fun configurationPhase() { transport = null; assembler.clear() }
     fun disconnected() {
+        MusicPlayer.clearServerPrefetch()
         restorePersonal(pause = true)
         connected = false; available = false; desired = false; transport = null
         serverLogin = null; dismissedLogins.clear(); admin = false; sources = listOf(MusicSource.NETEASE)
@@ -126,6 +127,7 @@ object ServerMusic {
                     val nextServer = MusicProtocol.string(body, "serverId", "")
                     val nextEpoch = MusicProtocol.string(body, "epoch", "")
                     if (serverId != nextServer || epoch != nextEpoch) {
+                        MusicPlayer.clearServerPrefetch()
                         pendingRequest = null; requestingSong = false; quoteRequest = ""
                         restorePersonal(); revision = -1; queueRevision = -1; instance = ""; queue = emptyList()
                         serverLogin = null; dismissedLogins.clear(); searchResults = emptyList(); searchRequest = ""; searching = false
@@ -190,7 +192,17 @@ object ServerMusic {
                     val lines = LyricsProvider.parseYrc(yrc).ifEmpty { LyricsProvider.parseLrc(lrc) }
                     lyrics = if (lines.isEmpty()) null else Lyrics(lines, "server")
                     playingInstance = instance
-                    MusicPlayer.playServerTrack(toTrack(entry.track), url, { expectedPosition() }, { playbackClock.paused || locallyPaused })
+                    MusicPlayer.playServerTrack(toTrack(entry.track), url, { expectedPosition() }, { playbackClock.paused || locallyPaused }, entry.entryId)
+                }
+                "prefetchAudio" -> {
+                    if (!joined || !desired || MusicProtocol.string(body, "instance", "") != instance ||
+                        MusicProtocol.number(body, "revision", -1) < revision) return
+                    val entryId = MusicProtocol.string(body, "entryId", "")
+                    val track = body.get("track")?.takeUnless { it.isJsonNull }
+                        ?.let { MusicProtocol.GSON.fromJson(it, MusicProtocol.Track::class.java) } ?: return
+                    if (entryId.isEmpty() || queueRevision == revision && queuePage == 0 && queue.firstOrNull()?.entryId != entryId) return
+                    val url = MusicProtocol.string(body, "url", "")
+                    if (url.isNotEmpty()) MusicPlayer.prefetchServerTrack(toTrack(track), url, entryId)
                 }
                 "queuePage" -> {
                     val receivedRevision = MusicProtocol.number(body, "revision", -1)
@@ -314,6 +326,7 @@ object ServerMusic {
         val saved = personal; personal = null
         if (joined) {
             MusicPlayer.stop(); MusicPlayer.followMode = false
+            MusicPlayer.clearServerPrefetch()
             if (saved != null) MusicPlayer.restoreQueue(saved.queue, saved.index, saved.position, pause || saved.paused, saved.active, saved.radio)
         }
         joined = false; locallyPaused = false; lyrics = null; playingInstance = ""; pendingPersonal = null

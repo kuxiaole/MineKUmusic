@@ -244,6 +244,37 @@ class MusicServerTest {
             assertTrue(wire.errors.isEmpty());
         }
     }
+    @Test void nextTrackIsResolvedAndSentBeforeTheCurrentSongEnds() throws Exception {
+        Wire wire = new Wire(); var listener = peer("Prefetch listener"); var observer = peer("Prefetch observer");
+        Map<Long, java.util.concurrent.atomic.AtomicInteger> resolutions = new ConcurrentHashMap<>();
+        MusicProvider nearEnd = new MusicProvider() {
+            @Override public Search search(String query, int page, int pageSize) { return new Search(List.of(), false); }
+            @Override public Audio resolve(long id) {
+                resolutions.computeIfAbsent(id, ignored -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
+                return new Audio(new Track(id, "Synthetic prefetch song " + id, List.of("Fixture"), 31_000, ""),
+                        "https://example.invalid/" + id + ".mp3", "", "");
+            }
+        };
+        try (MusicServer server = track(new MusicServer(directory, new ServerConfig("prefetch-test", "Fixture channel", 3, 100, 0, 1), nearEnd, wire))) {
+            send(server, listener, "hello"); send(server, listener, "subscribe"); send(server, observer, "hello");
+            for (long id : List.of(101L, 102L)) {
+                JsonObject body = new JsonObject(); body.addProperty("songId", id);
+                String request = "prefetch-request-" + id; send(server, listener, "request", request, body);
+                await(() -> wire.of(listener.id(), "result").stream().anyMatch(m -> m.get("requestId").getAsString().equals(request)));
+            }
+            await(() -> !wire.of(listener.id(), "prefetchAudio").isEmpty());
+            JsonObject prefetched = wire.last(listener.id(), "prefetchAudio");
+            assertEquals(102, prefetched.getAsJsonObject("track").get("id").getAsLong());
+            assertEquals("https://example.invalid/102.mp3", prefetched.get("url").getAsString());
+            assertTrue(wire.of(observer.id(), "prefetchAudio").isEmpty());
+            assertEquals(2, resolutions.get(102L).get());
+            server.command(MusicServer.console(), new String[]{"skip"});
+            await(() -> wire.of(listener.id(), "audio").stream().anyMatch(m ->
+                    m.getAsJsonObject("body").getAsJsonObject("current").getAsJsonObject("track").get("id").getAsLong() == 102));
+            assertEquals(2, resolutions.get(102L).get());
+            assertTrue(wire.errors.isEmpty(), wire.errors.toString());
+        }
+    }
     @Test void chatVotesReachOnlySubscribersAndOldPromptsCannotSkipTheNextSong() throws Exception {
         Wire wire = new Wire();
         var listeners = new ArrayList<MusicServer.Peer>();

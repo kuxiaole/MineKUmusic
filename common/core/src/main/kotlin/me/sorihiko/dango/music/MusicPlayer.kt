@@ -3,7 +3,10 @@ package me.sorihiko.dango.music
 import me.sorihiko.dango.DangoLogger
 
 import java.util.Random
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
@@ -48,6 +51,10 @@ object MusicPlayer {
 
     private val loader = Executors.newSingleThreadExecutor { r -> Thread(r, "Dango-MusicLoader").apply { isDaemon = true } }
     private val radioWorker = Executors.newSingleThreadExecutor { r -> Thread(r, "Dango-MusicRadio").apply { isDaemon = true } }
+    private val serverAudioPrefetcher = Executors.newFixedThreadPool(2) { r -> Thread(r, "Dango-ServerAudioPrefetch").apply { isDaemon = true } }
+    private data class PrefetchedServerAudio(val entryId: String, val trackKey: String, val url: String, val bytes: CompletableFuture<ByteArray?>)
+    @Volatile private var serverAudioPrefetchGeneration = 0L
+    private var prefetchedServerAudio: PrefetchedServerAudio? = null
 
     /** 电台式的队列（私人 FM）：快放完时用它再要几首接在后面；普通歌单是 null */
     @Volatile var radio: (() -> List<NeteaseTrack>)? = null
@@ -266,7 +273,7 @@ object MusicPlayer {
         loader.execute { load(gen, track, startAt, paused) }
     }
 
-    @Synchronized fun playServerTrack(track: NeteaseTrack, url: String, startAt: () -> Long, paused: () -> Boolean) {
+    @Synchronized fun playServerTrack(track: NeteaseTrack, url: String, startAt: () -> Long, paused: () -> Boolean, entryId: String = "") {
         radioRevision++
         radio = null
         followMode = true
@@ -280,7 +287,24 @@ object MusicPlayer {
         message = "Loading..."
         PlaybackQuality.override = null
         playingQuality = ""
-        loader.execute { load(gen, track, startAt, directUrl = url, pauseAtStart = paused) }
+        loader.execute { load(gen, track, startAt, directUrl = url, pauseAtStart = paused, serverEntryId = entryId) }
+    }
+
+    @Synchronized fun prefetchServerTrack(track: NeteaseTrack, url: String, entryId: String) {
+        if (url.isBlank()) return
+        val existing = prefetchedServerAudio
+        if (existing?.entryId == entryId && existing.trackKey == track.key && existing.url == url) return
+        val token = ++serverAudioPrefetchGeneration
+        val bytes = CompletableFuture.supplyAsync(
+            { ServerAudioDownload.read(url) { token == serverAudioPrefetchGeneration } },
+            serverAudioPrefetcher
+        )
+        prefetchedServerAudio = PrefetchedServerAudio(entryId, track.key, url, bytes)
+    }
+
+    @Synchronized fun clearServerPrefetch() {
+        serverAudioPrefetchGeneration++
+        prefetchedServerAudio = null
     }
 
     @Synchronized fun restoreQueue(tracks: List<NeteaseTrack>, savedIndex: Int, position: Long, paused: Boolean, active: Boolean = true, radio: (() -> List<NeteaseTrack>)? = null) {
@@ -441,9 +465,26 @@ object MusicPlayer {
         playingQuality = ""
     }
 
+    private fun takePrefetchedServerAudio(track: NeteaseTrack, entryId: String, gen: Int): ByteArray? {
+        val cached = synchronized(this) {
+            val candidate = prefetchedServerAudio ?: return@synchronized null
+            prefetchedServerAudio = null
+            if (candidate.entryId == entryId && candidate.trackKey == track.key) candidate else {
+                serverAudioPrefetchGeneration++
+                null
+            }
+        } ?: return null
+        while (gen == generation) {
+            try { return cached.bytes.get(100, TimeUnit.MILLISECONDS) }
+            catch (_: TimeoutException) { }
+            catch (_: Exception) { return null }
+        }
+        return null
+    }
+
     // ---------------------------------------------------------------- 加载 / 解码
 
-    private fun load(gen: Int, track: NeteaseTrack, startAt: (() -> Long)? = null, paused: Boolean = false, directUrl: String? = null, pauseAtStart: (() -> Boolean)? = null) {
+    private fun load(gen: Int, track: NeteaseTrack, startAt: (() -> Long)? = null, paused: Boolean = false, directUrl: String? = null, pauseAtStart: (() -> Boolean)? = null, serverEntryId: String = "") {
         if (gen != generation) return
         try {
             val kugou = if (directUrl == null && track.source == MusicSource.KUGOU) KugouMusicSource.loadAudio(track) { gen == generation } else null
@@ -452,7 +493,10 @@ object MusicPlayer {
             if (url == null) return fail(gen, if (track.source == MusicSource.NETEASE) "拿不到播放地址"
                 else if (NativeAccounts.get(track.source) != null) "No playable MP3. Your login may have expired, or this song is restricted by membership or region."
                 else "No guest MP3 available. Login, payment or regional restrictions may apply.")
-            val bytes = if (directUrl != null) ServerAudioDownload.read(url.url) { gen == generation } else kugou?.bytes ?: if (track.source == MusicSource.NETEASE) NeteaseApi.request(url.url)
+            val bytes = if (directUrl != null) {
+                takePrefetchedServerAudio(track, serverEntryId, gen)?.takeIf { it.isNotEmpty() && (track.cloud || it.size >= 10_000) }
+                    ?: if (gen == generation) ServerAudioDownload.read(url.url) { gen == generation } else null
+            } else kugou?.bytes ?: if (track.source == MusicSource.NETEASE) NeteaseApi.request(url.url)
                 else SourceHttp.bytes(url.url, if (track.source == MusicSource.QQ) "https://y.qq.com/" else "https://m.kugou.com/")
             if (gen != generation) return
             if (bytes == null || bytes.isEmpty() || (!track.cloud && bytes.size < 10_000)) {
